@@ -1,0 +1,127 @@
+import { Link } from 'react-router-dom';
+
+export default function About() {
+    return (
+        <div className="min-h-screen flex flex-col">
+            <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="flex h-16 justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold font-display shadow-lg shadow-brand-500/20">
+                                    E
+                                </div>
+                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
+                            </Link>
+                        </div>
+                        <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                            Back to Dashboard
+                        </Link>
+                    </div>
+                </div>
+            </nav>
+
+            <main className="flex-1 mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+                <div className="space-y-12">
+                    <div className="text-center space-y-4">
+                        <h2 className="text-4xl font-bold text-white font-display">Master Your Exam with AI</h2>
+                        <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+                            Exam Coach AI is your personalized tutor, designed to help you pass your exams efficiently and effectively.
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-8">
+                        <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
+                            <div className="w-12 h-12 bg-brand-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-brand-500/20">
+                                🎯
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2 font-display">Adaptive Learning</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                The app learns from your answers. It identifies your weak spots and serves questions specifically targeting those areas to maximize your study time.
+                            </p>
+                        </div>
+                        <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
+                            <div className="w-12 h-12 bg-accent-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-accent-500/20">
+                                📊
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2 font-display">Visual Progress</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Track your mastery across all domains with our intuitive mastery rings. Watch them close as you gain confidence and competence.
+                            </p>
+                        </div>
+                        <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
+                            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-emerald-500/20">
+                                🔥
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2 font-display">Consistency is Key</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Build a daily habit. Even 10 questions a day can make a massive difference. Keep your streak alive to stay motivated.
+                            </p>
+                        </div>
+                        <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
+                            <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-indigo-500/20">
+                                🎓
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2 font-display">Exam Simulator</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Ready for the real thing? Take full 50-question mock exams under timed conditions with no hints. Test your nerves before test day.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800/30 rounded-3xl p-8 border border-slate-700/50">
+                        <h3 className="text-2xl font-bold text-white mb-6 font-display">How to Get the Most Value</h3>
+                        <ul className="space-y-4">
+                            <li className="flex gap-4">
+                                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">1</span>
+                                <div>
+                                    <h4 className="text-white font-medium mb-1">Take the Daily Quiz</h4>
+                                    <p className="text-slate-400 text-sm">Start every session with a quick quiz. It warms up your brain and updates your mastery profile.</p>
+                                </div>
+                            </li>
+                            <li className="flex gap-4">
+                                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">2</span>
+                                <div>
+                                    <h4 className="text-white font-medium mb-1">Review Explanations</h4>
+                                    <p className="text-slate-400 text-sm">Don't just check if you were right or wrong. Read the detailed explanations to understand the <i>why</i> behind the answer.</p>
+                                </div>
+                            </li>
+                            <li className="flex gap-4">
+                                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">3</span>
+                                <div>
+                                    <h4 className="text-white font-medium mb-1">Aim for 100% Mastery</h4>
+                                    <p className="text-slate-400 text-sm">Your goal is to fill all the rings. Once you hit 100% in a domain, you're ready for that section of the exam.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="text-center">
+                        <Link
+                            to="/"
+                            className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-8 py-4 text-lg font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                        >
+                            Start Practicing Now
+                        </Link>
+                    </div>
+                </div>
+            </main>
+
+            <footer className="py-8 text-center text-xs text-slate-600 border-t border-slate-800">
+                <div className="max-w-4xl mx-auto px-4 mb-4 space-y-2">
+                    <p className="font-semibold text-slate-500">Legal Disclaimers</p>
+                    <p>
+                        <strong>No Guarantee:</strong> Use of this app does not guarantee exam success or licensure.
+                    </p>
+                    <p>
+                        <strong>Not Professional Advice:</strong> This app is for educational purposes only and is not a substitute for professional, legal, medical, or financial advice.
+                    </p>
+                    <p>
+                        <strong>Affiliation:</strong> This app is not affiliated with, endorsed, or sponsored by PMI, CompTIA, CFA Institute, or any other exam owner/regulator. PMP®, CompTIA®, and other trademarks are the property of their respective owners.
+                    </p>
+                </div>
+                <p>&copy; 2025 Exam Coach AI. All rights reserved.</p>
+            </footer>
+        </div>
+    );
+}

@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "exam-coach-ai-platform"
+  },
+  "targets": {
+    "exam-coach-ai-platform": {
+      "hosting": {
+        "web": [
+          "exam-coach-ai-platform"
+        ],
+        "admin": [
+          "exam-coach-ai-platform-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
