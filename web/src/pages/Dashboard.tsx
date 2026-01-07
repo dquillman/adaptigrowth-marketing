@@ -1,6 +1,8 @@
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
+import Sidebar from '../components/Sidebar'; // Ensure Sidebar is imported
 import { Link } from 'react-router-dom';
+import { APP_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
 import { useState, useEffect, useRef } from 'react';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getDocs, getCountFromServer, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
@@ -22,8 +24,11 @@ interface QuizAttempt {
     averageTimePerQuestion?: number;
 }
 
+import { useSidebar } from '../contexts/SidebarContext.tsx'; // Ensure explicit extension if needed by build tools, or just path
+
 export default function Dashboard() {
     // const [masteryData, setMasteryData] = useState<Record<string, { correct: number; total: number }>>({}); // Keep for backward compat/other stats if needed
+    const { isCollapsed } = useSidebar();
     const [masteryData] = useState<Record<string, { correct: number; total: number }>>({}); // Simple mock to avoid breaking other funcs if they use it (handleSmartStart uses it)
     const [domainMasteryCounts, setDomainMasteryCounts] = useState<Record<string, number>>({});
     const [domainTotalCounts, setDomainTotalCounts] = useState<Record<string, number>>({});
@@ -261,10 +266,10 @@ export default function Dashboard() {
             // Pass masteryData for smart gen if needed, but we might want to update SmartQuizService too
             // For now, passing existing data structure is fine
             const questionIds = await SmartQuizService.generateSmartQuiz(auth.currentUser.uid, examId, masteryData, goal);
-            navigate('/quiz', { state: { questionIds, mode: 'smart' } });
+            navigate('/app/quiz', { state: { questionIds, mode: 'smart' } });
         } catch (error) {
             console.error("Failed to generate smart quiz:", error);
-            navigate('/quiz'); // Fallback
+            navigate('/app/quiz'); // Fallback
         }
     };
 
@@ -273,307 +278,312 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col">
-            {/* Navigation */}
-            <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowLevelModal(true)}
-                                className="flex items-center justify-center hover:scale-105 transition-transform"
-                            >
-                                <LevelBadge level={userLevel} xp={userXp} size="sm" />
-                            </button>
-                            <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <ExamSelector currentExamId={activeExamId} onExamChange={handleExamChange} />
+        <div className="min-h-screen flex bg-transparent relative">
+            <Sidebar />
+            {/* Global Version Label */}
+            <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs font-mono text-white/50 pointer-events-none z-50">
+                Version: {APP_VERSION}
+            </div>
+            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col transition-all duration-300`}>
+                {/* Navigation */}
+                <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="flex h-16 justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setShowLevelModal(true)}
+                                    className="flex items-center justify-center hover:scale-105 transition-transform"
+                                >
+                                    <LevelBadge level={userLevel} xp={userXp} size="sm" />
+                                </button>
+                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <ExamSelector currentExamId={activeExamId} onExamChange={handleExamChange} />
 
-                            <Link to="/help" className="text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                Guide
-                            </Link>
-                            <Link to="/about" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-                                About
-                            </Link>
-                            <Link to="/pricing" className="text-sm font-bold text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 px-3 py-1 rounded-full bg-brand-500/10">
-                                Upgrade
-                            </Link>
-                            <button
-                                onClick={() => setShowStreakModal(true)}
-                                className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-700/50 text-brand-300 rounded-full text-sm font-medium border border-slate-600 hover:bg-slate-700 hover:border-brand-500/50 transition-all cursor-pointer"
-                            >
-                                <span>🔥 {userStreak} Day Streak</span>
-                            </button>
-                            <button
-                                onClick={() => signOut(auth)}
-                                className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
-                            >
-                                Sign Out
-                            </button>
-                        </div>
+                                <Link to="/app/help" className="text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors flex items-center gap-1">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Guide
+                                </Link>
+                                <Link to="/about" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                                    About
+                                </Link>
+                                <Link to="/app/pricing" className="text-sm font-bold text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 px-3 py-1 rounded-full bg-brand-500/10">
+                                    Upgrade
+                                </Link>
+                                <button
+                                    onClick={() => setShowStreakModal(true)}
+                                    className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-700/50 text-brand-300 rounded-full text-sm font-medium border border-slate-600 hover:bg-slate-700 hover:border-brand-500/50 transition-all cursor-pointer"
+                                >
+                                    <span>🔥 {userStreak} Day Streak</span>
+                                </button>
+                                <button
+                                    onClick={() => signOut(auth)}
+                                    className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                >
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div >
                     </div >
-                </div >
-            </nav >
+                </nav >
 
-            <main className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-                {/* Welcome Section */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
-                        <p className="text-slate-400 mt-1">You're on track to master the <strong>{examDomains[0] || 'first'}</strong> domain by Friday.</p>
-                    </div>
+                <main className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+                    {/* Welcome Section */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
+                            <p className="text-slate-400 mt-1">You're on track to master the <strong>{examDomains[0] || 'first'}</strong> domain by Friday.</p>
+                        </div>
 
-                    <div className="flex gap-4">
-                        <button
-                            onClick={() => navigate('/simulator')}
-                            className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
-                            title="Full length timed exam simulation"
-                        >
-                            <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
-                        </button>
-                        <button
-                            onClick={handleSmartStart}
-                            className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
-                            title="Targets your weakest domains"
-                        >
-                            <span className="mr-2">⚡</span> Smart Practice
-                        </button>
-                        <button
-                            onClick={handleSmartStart}
-                            className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
-                        >
-                            Start Daily Practice
-                        </button>
-                    </div>
-                </div>
-
-                {/* Mastery Rings Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {examDomains.map((domain, index) => {
-                        const colors = ['#C084FC', '#F472B6', '#34D399']; // Neon Purple, Neon Pink, Neon Green
-                        const color = colors[index % colors.length];
-                        const mastered = domainMasteryCounts[domain] || 0;
-                        const total = domainTotalCounts[domain] || 0;
-
-                        return (
+                        <div className="flex gap-4">
                             <button
-                                key={domain}
-                                onClick={() => navigate('/quiz', { state: { filterDomain: domain } })}
-                                className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700 flex flex-col items-center hover:border-brand-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group text-left w-full relative overflow-hidden"
+                                onClick={() => navigate('/app/simulator')}
+                                className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
+                                title="Full length timed exam simulation"
                             >
-                                <div className={`absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity`} style={{ backgroundColor: color }} />
-
-                                {/* Pass empty label to prevent duplication, we render it below */}
-                                <MasteryRing percentage={getPercentage(domain)} color={color} label="" />
-
-                                <div className="mt-4 text-center">
-                                    <h3 className="text-lg font-bold text-white group-hover:text-brand-300 transition-colors">{domain}</h3>
-                                    <p className="text-sm font-medium text-slate-400 mt-1">
-                                        <span className="text-white font-bold">{mastered}</span>
-                                        <span className="mx-1 text-slate-600">/</span>
-                                        <span className="text-slate-500">{total}</span>
-                                        <span className="ml-1 text-xs uppercase tracking-wide opacity-70">Mastered</span>
-                                    </p>
-                                    <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
-                                        <span className="text-xs font-bold text-brand-400 uppercase tracking-widest border border-brand-500/30 px-4 py-1.5 rounded-full bg-brand-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-                                            Practice Domain
-                                        </span>
-                                    </div>
-                                </div>
+                                <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
                             </button>
-                        );
-                    })}
-                </div>
+                            <button
+                                onClick={handleSmartStart}
+                                className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
+                                title="Targets your weakest domains"
+                            >
+                                <span className="mr-2">⚡</span> Smart Practice
+                            </button>
+                            <button
+                                onClick={handleSmartStart}
+                                className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                            >
+                                Start Daily Practice
+                            </button>
+                        </div>
+                    </div>
 
-                {/* Stats & Activity */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Recent Activity */}
-                    <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                        <h3 className="text-lg font-bold text-white mb-4 font-display">Recent Activity</h3>
-                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
-                            <div className="space-y-3">
-                                {recentActivity.length === 0 ? (
-                                    <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
-                                ) : (
-                                    recentActivity.map((attempt) => (
-                                        <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
-                                                    Q
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <p className="font-medium text-slate-200">Practice Quiz</p>
-                                                        <span className="text-xs text-slate-500">
-                                                            {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
-                                                                month: 'short',
-                                                                day: 'numeric',
-                                                                hour: 'numeric',
-                                                                minute: '2-digit'
-                                                            }) : 'Just now'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
-                                                </div>
-                                            </div>
-                                            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
-                                                {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                    {/* Mastery Rings Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {examDomains.map((domain, index) => {
+                            const colors = ['#C084FC', '#F472B6', '#34D399']; // Neon Purple, Neon Pink, Neon Green
+                            const color = colors[index % colors.length];
+                            const mastered = domainMasteryCounts[domain] || 0;
+                            const total = domainTotalCounts[domain] || 0;
+
+                            return (
+                                <button
+                                    key={domain}
+                                    onClick={() => navigate('/app/quiz', { state: { filterDomain: domain } })}
+                                    className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700 flex flex-col items-center hover:border-brand-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group text-left w-full relative overflow-hidden"
+                                >
+                                    <div className={`absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity`} style={{ backgroundColor: color }} />
+
+                                    {/* Pass empty label to prevent duplication, we render it below */}
+                                    <MasteryRing percentage={getPercentage(domain)} color={color} label="" />
+
+                                    <div className="mt-4 text-center">
+                                        <h3 className="text-lg font-bold text-white group-hover:text-brand-300 transition-colors">{domain}</h3>
+                                        <p className="text-sm font-medium text-slate-400 mt-1">
+                                            <span className="text-white font-bold">{mastered}</span>
+                                            <span className="mx-1 text-slate-600">/</span>
+                                            <span className="text-slate-500">{total}</span>
+                                            <span className="ml-1 text-xs uppercase tracking-wide opacity-70">Mastered</span>
+                                        </p>
+                                        <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
+                                            <span className="text-xs font-bold text-brand-400 uppercase tracking-widest border border-brand-500/30 px-4 py-1.5 rounded-full bg-brand-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                                                Practice Domain
                                             </span>
                                         </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    {/* Daily Goal */}
-                    <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
-                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
-                        <div className="flex justify-between items-start mb-2 relative z-10">
-                            <h3 className="text-lg font-bold font-display">Daily Goal</h3>
-                            <button
-                                onClick={() => setIsEditingGoal(!isEditingGoal)}
-                                className="text-brand-200 hover:text-white transition-colors"
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {
-                            isEditingGoal ? (
-                                <div className="mb-4 relative z-10">
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="number"
-                                            value={newGoal}
-                                            onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
-                                            className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
-                                        />
-                                        <button
-                                            onClick={saveGoal}
-                                            className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
-                                        >
-                                            Save
-                                        </button>
-                                    </div>
+                    {/* Stats & Activity */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Recent Activity */}
+                        <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
+                            <h3 className="text-lg font-bold text-white mb-4 font-display">Recent Activity</h3>
+                            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
+                                <div className="space-y-3">
+                                    {recentActivity.length === 0 ? (
+                                        <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
+                                    ) : (
+                                        recentActivity.map((attempt) => (
+                                            <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
+                                                        Q
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium text-slate-200">Practice Quiz</p>
+                                                            <span className="text-xs text-slate-500">
+                                                                {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    hour: 'numeric',
+                                                                    minute: '2-digit'
+                                                                }) : 'Just now'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                    </div>
+                                                </div>
+                                                <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
+                                                    {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                                                </span>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="flex items-end gap-2 mb-4 relative z-10">
-                                        <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
-                                        <span className="text-brand-200 mb-1 font-medium">questions</span>
-                                    </div>
-                                    <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
-                                        <div
-                                            className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
-                                            style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
-                                        ></div>
-                                    </div>
-                                </>
-                            )
-                        }
-                        <p className="text-sm text-brand-100/80 relative z-10">
-                            {dailyProgress >= dailyGoal
-                                ? "Goal reached! You're crushing it! 🚀"
-                                : "Keep it up! Consistency is key to passing your exam."}
-                        </p>
-                    </div>
-                </div>
+                            </div>
+                        </div>
 
-            </main>
-            <footer className="py-6 text-center text-xs text-slate-600">
-                v1.2.0-PRO
-            </footer>
+                        {/* Daily Goal */}
+                        <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
+                            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
+                            <div className="flex justify-between items-start mb-2 relative z-10">
+                                <h3 className="text-lg font-bold font-display">Daily Goal</h3>
+                                <button
+                                    onClick={() => setIsEditingGoal(!isEditingGoal)}
+                                    className="text-brand-200 hover:text-white transition-colors"
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </button>
+                            </div>
 
-            {/* Analytics Section */}
-            <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                        <div>
-                            <h3 className="text-xl font-bold text-white font-display">Performance Trends</h3>
-                            <p className="text-slate-400 text-sm">Visualize your improvement in speed and accuracy over time.</p>
+                            {
+                                isEditingGoal ? (
+                                    <div className="mb-4 relative z-10">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="number"
+                                                value={newGoal}
+                                                onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
+                                                className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
+                                            />
+                                            <button
+                                                onClick={saveGoal}
+                                                className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-end gap-2 mb-4 relative z-10">
+                                            <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
+                                            <span className="text-brand-200 mb-1 font-medium">questions</span>
+                                        </div>
+                                        <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
+                                            <div
+                                                className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
+                                                style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
+                                            ></div>
+                                        </div>
+                                    </>
+                                )
+                            }
+                            <p className="text-sm text-brand-100/80 relative z-10">
+                                {dailyProgress >= dailyGoal
+                                    ? "Goal reached! You're crushing it! 🚀"
+                                    : "Keep it up! Consistency is key to passing your exam."}
+                            </p>
                         </div>
                     </div>
-                    <SpeedAccuracyChart currentExamId={activeExamId} />
-                </div>
-            </div>
 
-            {/* Danger Zone */}
-            <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
-                <div className="border border-red-900/30 bg-red-900/10 rounded-2xl p-6">
-                    <h3 className="text-xl font-bold text-red-500 font-display mb-2">Danger Zone</h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                        These actions are irreversible.
-                    </p>
-                    <button
-                        onClick={async () => {
-                            if (window.confirm('Are you SURE? This will delete all your mastery rings and quiz history for this exam.')) {
-                                try {
-                                    setLoading(true);
-                                    const { httpsCallable, getFunctions } = await import('firebase/functions');
-                                    const functions = getFunctions();
-                                    const resetFn = httpsCallable(functions, 'resetExamProgress');
-                                    await resetFn({ examId: activeExamId });
-                                    window.location.reload();
-                                } catch (e) {
-                                    console.error(e);
-                                    alert('Failed to reset progress.');
-                                    setLoading(false);
-                                }
-                            }
-                        }}
-                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50 rounded-lg text-sm font-bold transition-colors"
-                    >
-                        Reset All Progress for {examName}
-                    </button>
-                </div>
-            </div>
+                </main>
 
-            {/* Streak Modal */}
-            {showStreakModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-slate-800 rounded-2xl p-8 max-w-sm w-full border border-slate-700 shadow-2xl relative">
-                        <button
-                            onClick={() => setShowStreakModal(false)}
-                            className="absolute top-4 right-4 text-slate-400 hover:text-white"
-                        >
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                        <div className="text-center">
-                            <div className="w-20 h-20 bg-brand-500/10 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 border border-brand-500/20">
-                                🔥
+
+                {/* Analytics Section */}
+                <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-white font-display">Performance Trends</h3>
+                                <p className="text-slate-400 text-sm">Visualize your improvement in speed and accuracy over time.</p>
                             </div>
-                            <h3 className="text-2xl font-bold text-white font-display mb-2">{userStreak} Day Streak!</h3>
-                            <p className="text-slate-400 mb-6">
-                                You're on fire! Consistency is the #1 predictor of exam success. Keep showing up every day.
-                            </p>
+                        </div>
+                        <SpeedAccuracyChart currentExamId={activeExamId} />
+                    </div>
+                </div>
+
+                {/* Danger Zone */}
+                <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+                    <div className="border border-red-900/30 bg-red-900/10 rounded-2xl p-6">
+                        <h3 className="text-xl font-bold text-red-500 font-display mb-2">Danger Zone</h3>
+                        <p className="text-slate-400 text-sm mb-4">
+                            These actions are irreversible.
+                        </p>
+                        <button
+                            onClick={async () => {
+                                if (window.confirm('Are you SURE? This will delete all your mastery rings and quiz history for this exam.')) {
+                                    try {
+                                        setLoading(true);
+                                        const { httpsCallable, getFunctions } = await import('firebase/functions');
+                                        const functions = getFunctions();
+                                        const resetFn = httpsCallable(functions, 'resetExamProgress');
+                                        await resetFn({ examId: activeExamId });
+                                        window.location.reload();
+                                    } catch (e) {
+                                        console.error(e);
+                                        alert('Failed to reset progress.');
+                                        setLoading(false);
+                                    }
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50 rounded-lg text-sm font-bold transition-colors"
+                        >
+                            Reset All Progress for {examName}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Streak Modal */}
+                {showStreakModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <div className="bg-slate-800 rounded-2xl p-8 max-w-sm w-full border border-slate-700 shadow-2xl relative">
                             <button
                                 onClick={() => setShowStreakModal(false)}
-                                className="w-full bg-brand-600 text-white py-3 rounded-xl font-medium hover:bg-brand-500 transition-colors"
+                                className="absolute top-4 right-4 text-slate-400 hover:text-white"
                             >
-                                Awesome!
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
                             </button>
+                            <div className="text-center">
+                                <div className="w-20 h-20 bg-brand-500/10 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 border border-brand-500/20">
+                                    🔥
+                                </div>
+                                <h3 className="text-2xl font-bold text-white font-display mb-2">{userStreak} Day Streak!</h3>
+                                <p className="text-slate-400 mb-6">
+                                    You're on fire! Consistency is the #1 predictor of exam success. Keep showing up every day.
+                                </p>
+                                <button
+                                    onClick={() => setShowStreakModal(false)}
+                                    className="w-full bg-brand-600 text-white py-3 rounded-xl font-medium hover:bg-brand-500 transition-colors"
+                                >
+                                    Awesome!
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Level Details Modal */}
-            <LevelDetailModal
-                isOpen={showLevelModal}
-                onClose={() => setShowLevelModal(false)}
-                level={userLevel}
-                currentXp={userXp}
-                nextLevelXp={XPService.calculateNextLevelXp(userLevel)}
-                prevLevelXp={Math.pow(userLevel - 1, 2) * 100}
-                examName={examName}
-            />
+                {/* Level Details Modal */}
+                <LevelDetailModal
+                    isOpen={showLevelModal}
+                    onClose={() => setShowLevelModal(false)}
+                    level={userLevel}
+                    currentXp={userXp}
+                    nextLevelXp={XPService.calculateNextLevelXp(userLevel)}
+                    prevLevelXp={Math.pow(userLevel - 1, 2) * 100}
+                    examName={examName}
+                />
+            </div>
         </div>
     );
 }

@@ -46,7 +46,7 @@ export default function ExamList() {
         <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-8">
             <div className="max-w-7xl mx-auto space-y-8">
                 <div className="flex items-center gap-4">
-                    <Link to="/" className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
+                    <Link to="/app" className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
@@ -75,7 +75,7 @@ export default function ExamList() {
                             <p className="text-slate-400 text-sm mb-6 line-clamp-2">{exam.description}</p>
 
                             <Link
-                                to="/"
+                                to={`/app/quiz/${exam.id}`}
                                 onClick={() => {
                                     localStorage.setItem('selectedExamId', exam.id);
                                 }}

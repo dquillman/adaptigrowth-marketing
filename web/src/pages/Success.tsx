@@ -28,7 +28,7 @@ export default function Success() {
 
         // Redirect to dashboard after 5 seconds
         const timeout = setTimeout(() => {
-            navigate('/');
+            navigate('/app');
         }, 5000);
 
         return () => {
@@ -51,7 +51,7 @@ export default function Success() {
 
                 <div className="pt-4">
                     <Link
-                        to="/"
+                        to="/app"
                         className="inline-block w-full py-4 rounded-xl font-bold bg-green-500 text-white hover:bg-green-400 transition-all shadow-lg shadow-green-500/25"
                     >
                         Go to Dashboard

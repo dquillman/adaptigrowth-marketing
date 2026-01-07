@@ -16,7 +16,7 @@ export default function Help() {
             <header className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
                 <div className="mx-auto max-w-5xl px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link to="/" className="text-slate-400 hover:text-white transition-colors group flex items-center gap-2">
+                        <Link to="/app" className="text-slate-400 hover:text-white transition-colors group flex items-center gap-2">
                             <div className="p-2 rounded-lg bg-slate-800 border border-slate-700 group-hover:border-slate-500 transition-colors">
                                 <ChevronLeft className="w-5 h-5" />
                             </div>
@@ -204,7 +204,7 @@ export default function Help() {
                 <p className="text-slate-500 mb-8 italic">
                     "Consistency is the key to mastery."
                 </p>
-                <Link to="/" className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white px-8 py-4 rounded-xl font-bold hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg hover:shadow-brand-500/25 group">
+                <Link to="/app" className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white px-8 py-4 rounded-xl font-bold hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg hover:shadow-brand-500/25 group">
                     Start My Session
                     <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />

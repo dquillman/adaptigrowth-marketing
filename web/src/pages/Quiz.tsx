@@ -351,7 +351,7 @@ export default function Quiz() {
                 <div className="bg-slate-800/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
                     <h2 className="text-3xl font-bold text-white mb-4 font-display">Quiz Completed!</h2>
                     <p className="text-xl text-slate-300 mb-6">You scored <span className="font-bold text-brand-400">{score} / {questions.length}</span></p>
-                    <Link to="/" className="inline-block bg-brand-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">
+                    <Link to="/app" className="inline-block bg-brand-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">
                         Return to Dashboard
                     </Link>
                 </div>
@@ -367,7 +367,7 @@ export default function Quiz() {
             <header className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 px-4 py-4 sticky top-0 z-50">
                 <div className="mx-auto max-w-4xl flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <Link to="/" className="text-slate-400 hover:text-white transition-colors">
+                        <Link to="/app" className="text-slate-400 hover:text-white transition-colors">
                             <span className="sr-only">Exit</span>
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

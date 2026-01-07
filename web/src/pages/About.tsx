@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { APP_VERSION } from '../version';
 
 export default function About() {
     return (
@@ -13,8 +14,11 @@ export default function About() {
                                 </div>
                                 <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
                             </Link>
+                            <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">
+                                {APP_VERSION}
+                            </span>
                         </div>
-                        <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                        <Link to="/app" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
                             Back to Dashboard
                         </Link>
                     </div>
@@ -98,8 +102,8 @@ export default function About() {
 
                     <div className="text-center">
                         <Link
-                            to="/"
-                            className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-8 py-4 text-lg font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                            to="/app"
+                            className="inline-flex items-center gap-2 rounded-full bg-slate-800 border border-slate-700 px-6 py-2 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
                         >
                             Start Practicing Now
                         </Link>

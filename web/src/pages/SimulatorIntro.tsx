@@ -69,7 +69,7 @@ export default function SimulatorIntro() {
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-8">
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={() => navigate('/app')}
                         className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 transition-colors text-slate-400 hover:text-white"
                     >
                         <ArrowLeft className="w-6 h-6" />
@@ -107,7 +107,7 @@ export default function SimulatorIntro() {
                         </p>
 
                         <button
-                            onClick={() => navigate('/simulator/exam')}
+                            onClick={() => navigate('/app/simulator/exam')}
                             className="relative z-10 flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-600/25 transform hover:-translate-y-1 transition-all"
                         >
                             <Play className="w-5 h-5 fill-current" />
@@ -173,8 +173,8 @@ export default function SimulatorIntro() {
                                                 <td className="px-6 py-4">{formatTime(attempt.timeSpent)}</td>
                                                 <td className="px-6 py-4 text-right">
                                                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${passed
-                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                            : 'bg-red-500/10 text-red-500 border-red-500/20'
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                        : 'bg-red-500/10 text-red-500 border-red-500/20'
                                                         }`}>
                                                         {passed ? 'PASSED' : 'FAIL'}
                                                     </span>

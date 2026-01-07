@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
+import { useNavigate } from 'react-router-dom';
+import { APP_VERSION } from '../version';
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const navigate = useNavigate();
+
+    // Removed direct useLocation access since we don't need debug info anymore
 
     const handleGoogleSignIn = async () => {
         try {
             await signInWithPopup(auth, googleProvider);
+            window.location.href = '/app';
         } catch (err) {
             setError((err as Error).message);
         }
@@ -22,8 +28,10 @@ export default function Login() {
         try {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
+                window.location.href = '/app';
             } else {
                 await createUserWithEmailAndPassword(auth, email, password);
+                window.location.href = '/app';
             }
         } catch (err) {
             setError((err as Error).message);
@@ -31,8 +39,21 @@ export default function Login() {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center">
-            <div className="w-full max-w-md space-y-8 rounded-2xl bg-slate-800/50 backdrop-blur-md p-8 shadow-xl border border-slate-700">
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative">
+            <div className="absolute top-4 right-4 text-white text-xs font-mono">Version: {APP_VERSION}</div>
+            <div className="max-w-md w-full bg-slate-900 rounded-2xl border border-slate-800 p-8 shadow-2xl">
+
+                {/* Back to Home Link - Added for user safety */}
+                <div className="text-left -mt-2 mb-4">
+                    <button
+                        onClick={() => navigate('/')}
+                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4 group"
+                        type="button"
+                    >
+                        <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to Home
+                    </button>
+                </div>
+
                 <div className="text-center">
                     <div className="mx-auto w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-bold font-display text-xl mb-4">
                         E
