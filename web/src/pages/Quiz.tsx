@@ -392,7 +392,52 @@ export default function Quiz() {
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 flex items-center justify-center p-4">
+            <main className="flex-1 flex flex-col items-center justify-center p-4">
+                {/* Mode Info Header */}
+                <div className="w-full max-w-3xl mb-6">
+                    {location.state?.mode === 'smart' ? (
+                        <div className="bg-brand-900/30 border border-brand-500/30 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-2xl">🧠</span>
+                            <div>
+                                <h3 className="text-brand-300 font-bold mb-1">Daily Practice Mode</h3>
+                                <p className="text-sm text-slate-300">
+                                    Our AI selects questions to optimize your learning: introducing new topics while reviewing past material to ensure implementation.
+                                </p>
+                            </div>
+                        </div>
+                    ) : location.state?.mode === 'weakest' ? (
+                        <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-2xl">⚡</span>
+                            <div>
+                                <h3 className="text-purple-300 font-bold mb-1">Smart Practice: {location.state.filterDomain}</h3>
+                                <p className="text-sm text-slate-300">
+                                    We identified <strong>{location.state.filterDomain}</strong> as your weakest area. This session is focused on turning that weakness into a strength.
+                                </p>
+                            </div>
+                        </div>
+                    ) : location.state?.filterDomain ? (
+                        <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-2xl">⚡</span>
+                            <div>
+                                <h3 className="text-purple-300 font-bold mb-1">{location.state.filterDomain} Practice Mode</h3>
+                                <p className="text-sm text-slate-300">
+                                    This session targets the <strong>{location.state.filterDomain}</strong> domain to help you turn weaknesses into strengths.
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-2xl">📝</span>
+                            <div>
+                                <h3 className="text-slate-300 font-bold mb-1">General Practice Mode</h3>
+                                <p className="text-sm text-slate-400">
+                                    Standard practice mode using questions from the current exam config.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 <div className="w-full max-w-3xl">
                     <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-black/20 border border-slate-700 overflow-hidden">
 

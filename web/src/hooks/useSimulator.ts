@@ -25,11 +25,13 @@ export const useSimulator = () => {
     const [flagged, setFlagged] = useState<Record<number, boolean>>({});
     const [timeLeft, setTimeLeft] = useState(3600); // Default 60 mins
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentExamId, setCurrentExamId] = useState<string>('default-exam');
 
     useEffect(() => {
         const loadExam = async () => {
             const user = auth.currentUser;
             const examId = localStorage.getItem('selectedExamId') || 'default-exam';
+            setCurrentExamId(examId);
 
             if (!user) {
                 navigate('/login');
@@ -129,7 +131,7 @@ export const useSimulator = () => {
         try {
             await addDoc(collection(db, 'quizAttempts'), {
                 userId: user.uid,
-                examId: questions[0]?.examId || 'unknown',
+                examId: currentExamId,
                 score,
                 totalQuestions: questions.length,
                 timestamp: new Date(),
@@ -146,7 +148,8 @@ export const useSimulator = () => {
                     total: questions.length,
                     timeSpent,
                     questions,
-                    answers_map: answers
+                    answers_map: answers,
+                    flagged
                 }
             });
 
@@ -154,7 +157,7 @@ export const useSimulator = () => {
             console.error("Error saving exam:", error);
             // Fallback navigation
             navigate('/app/simulator/results', {
-                state: { score, total: questions.length, timeSpent, questions, answers_map: answers }
+                state: { score, total: questions.length, timeSpent, questions, answers_map: answers, flagged }
             });
         }
     };

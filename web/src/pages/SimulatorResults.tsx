@@ -10,9 +10,10 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 export default function SimulatorResults() {
     const location = useLocation();
     const navigate = useNavigate();
-    const { score, total, timeSpent, questions, answers_map } = location.state || {}; // answers_map is index->optionIndex
+    const { score, total, timeSpent, questions, answers_map, flagged = {} } = location.state || {}; // answers_map is index->optionIndex
 
     const [domainStats, setDomainStats] = useState<any[]>([]);
+    const [filter, setFilter] = useState<'all' | 'correct' | 'wrong' | 'flagged' | 'unanswered'>('all');
 
     useEffect(() => {
         if (!questions) {
@@ -138,22 +139,70 @@ export default function SimulatorResults() {
 
                 {/* Review Section */}
                 <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden mb-12">
-                    <div className="p-6 border-b border-slate-700">
+                    <div className="p-6 border-b border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h3 className="text-xl font-bold text-white">Review Answers</h3>
+
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => setFilter('all')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                                All ({questions.length})
+                            </button>
+                            <button
+                                onClick={() => setFilter('correct')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'correct' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                                Correct ({questions.filter((q: any, i: number) => answers_map[i] === q.correctAnswer).length})
+                            </button>
+                            <button
+                                onClick={() => setFilter('wrong')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'wrong' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                                Wrong ({questions.filter((q: any, i: number) => answers_map[i] !== undefined && answers_map[i] !== q.correctAnswer).length})
+                            </button>
+                            <button
+                                onClick={() => setFilter('flagged')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'flagged' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                                Flagged ({Object.values(flagged).filter(Boolean).length})
+                            </button>
+                            <button
+                                onClick={() => setFilter('unanswered')}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'unanswered' ? 'bg-slate-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            >
+                                Unanswered ({questions.filter((_: any, i: number) => answers_map[i] === undefined).length})
+                            </button>
+                        </div>
                     </div>
                     <div className="divide-y divide-slate-700">
                         {questions.map((q: any, idx: number) => {
                             const userAnswer = answers_map[idx];
                             const isCorrect = userAnswer === q.correctAnswer;
+                            const isFlagged = flagged[idx];
+                            const isUnanswered = userAnswer === undefined;
+
+                            // Filter Logic
+                            if (filter === 'correct' && !isCorrect) return null;
+                            if (filter === 'wrong' && (isCorrect || isUnanswered)) return null;
+                            if (filter === 'flagged' && !isFlagged) return null;
+                            if (filter === 'unanswered' && !isUnanswered) return null;
 
                             return (
                                 <div key={q.id} className="p-6 hover:bg-slate-700/30 transition-colors">
                                     <div className="flex gap-4">
-                                        <div className="mt-1">
+                                        <div className="mt-1 flex flex-col gap-2 items-center">
                                             {isCorrect ? (
                                                 <CheckCircle className="w-6 h-6 text-emerald-500" />
+                                            ) : isUnanswered ? (
+                                                <div className="w-6 h-6 rounded-full border-2 border-slate-600 flex items-center justify-center text-slate-500 text-xs font-bold">?</div>
                                             ) : (
                                                 <XCircle className="w-6 h-6 text-red-500" />
+                                            )}
+                                            {isFlagged && (
+                                                <div title="Flagged for review" className="text-amber-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                                                </div>
                                             )}
                                         </div>
                                         <div className="flex-1">

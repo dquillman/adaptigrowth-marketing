@@ -273,6 +273,29 @@ export default function Dashboard() {
         }
     };
 
+    const handleWeakestStart = () => {
+        if (!examDomains || examDomains.length === 0) {
+            navigate('/app/quiz');
+            return;
+        }
+
+        // Find domain with lowest percentage
+        // Default to first domain if no data
+        let weakest = examDomains[0];
+        let minP = 101;
+
+        examDomains.forEach(d => {
+            const p = getPercentage(d);
+            if (p < minP) {
+                minP = p;
+                weakest = d;
+            }
+        });
+
+        console.log("Smart Practice targeting weakest domain:", weakest);
+        navigate('/app/quiz', { state: { filterDomain: weakest, mode: 'weakest' } });
+    };
+
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
@@ -323,7 +346,7 @@ export default function Dashboard() {
                                 >
                                     Sign Out
                                 </button>
-                            </div>
+                            </div >
                         </div >
                     </div >
                 </nav >
@@ -338,24 +361,24 @@ export default function Dashboard() {
 
                         <div className="flex gap-4">
                             <button
-                                onClick={() => navigate('/app/simulator')}
-                                className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
-                                title="Full length timed exam simulation"
+                                onClick={handleSmartStart}
+                                className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
                             >
-                                <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
+                                Start Daily Practice
                             </button>
                             <button
-                                onClick={handleSmartStart}
+                                onClick={handleWeakestStart}
                                 className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
                                 title="Targets your weakest domains"
                             >
                                 <span className="mr-2">⚡</span> Smart Practice
                             </button>
                             <button
-                                onClick={handleSmartStart}
-                                className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                onClick={() => navigate('/app/simulator')}
+                                className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
+                                title="Full length timed exam simulation"
                             >
-                                Start Daily Practice
+                                <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
                             </button>
                         </div>
                     </div>
