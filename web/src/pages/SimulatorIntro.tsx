@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { ArrowLeft, Play, History, Clock, FileText, Award } from 'lucide-react';
+import { ArrowLeft, Play, History, Clock, FileText, Award, Lock } from 'lucide-react';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 interface SimulationAttempt {
     id: string;
@@ -15,6 +16,7 @@ interface SimulationAttempt {
 }
 
 export default function SimulatorIntro() {
+    const { checkPermission } = useSubscription();
     const navigate = useNavigate();
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
@@ -106,13 +108,33 @@ export default function SimulatorIntro() {
                             Results from this mode will <strong>not</strong> affect your Mastery Rings.
                         </p>
 
-                        <button
-                            onClick={() => navigate('/app/simulator/exam')}
-                            className="relative z-10 flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-600/25 transform hover:-translate-y-1 transition-all"
-                        >
-                            <Play className="w-5 h-5 fill-current" />
-                            Start New Exam
-                        </button>
+                        {checkPermission('simulator') ? (
+                            <button
+                                onClick={() => navigate('/app/simulator/exam')}
+                                className="relative z-10 flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-600/25 transform hover:-translate-y-1 transition-all"
+                            >
+                                <Play className="w-5 h-5 fill-current" />
+                                Start New Exam
+                            </button>
+                        ) : (
+                            <div className="relative z-10">
+                                <button
+                                    disabled
+                                    className="flex items-center gap-3 bg-slate-700 text-slate-400 px-8 py-4 rounded-xl font-bold text-lg cursor-not-allowed border border-slate-600 mb-4"
+                                >
+                                    <Lock className="w-5 h-5" />
+                                    Pro Feature Only
+                                </button>
+                                <p className="text-indigo-200 text-sm max-w-sm">
+                                    <span
+                                        onClick={() => navigate('/app/pricing')}
+                                        className="underline cursor-pointer hover:text-white"
+                                    >
+                                        Upgrade to Pro
+                                    </span> to access full exam simulators.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Quick Stats or Tips (Placeholder) */}

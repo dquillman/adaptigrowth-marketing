@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { SmartQuizService } from '../services/smartQuiz';
@@ -18,6 +18,7 @@ export interface Question {
 
 export const useSimulator = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(true);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -39,10 +40,31 @@ export const useSimulator = () => {
             }
 
             try {
-                // Determine question count - hardcoded to 50 for simulator mode for now
-                const questionCount = 50;
-                setTimeLeft(questionCount * 72); // ~1.2 mins per question standard
+                // Check if directed from Planner with specific settings
+                const state = location.state as { mode?: string; count?: number; durationMinutes?: number } | null;
 
+                // Default to 50 questions (Standard Drill)
+                let questionCount = 50;
+                let durationSeconds = questionCount * 72; // ~1.2 mins per question
+
+                if (state?.mode === 'full-mock') {
+                    // PMP Standard: 180 questions, 230 minutes (3h 50m)
+                    questionCount = 180;
+                    durationSeconds = 230 * 60;
+                } else if (state?.count) {
+                    // Custom overrides
+                    questionCount = state.count;
+                    if (state.durationMinutes) {
+                        durationSeconds = state.durationMinutes * 60;
+                    } else {
+                        durationSeconds = questionCount * 72;
+                    }
+                }
+
+                setTimeLeft(durationSeconds);
+
+                // Note: The SmartQuizService might need to handle fetching 180 unique questions.
+                // If the DB is small, this might return duplicates or fewer questions.
                 const ids = await SmartQuizService.generateSimulationExam(examId, questionCount);
 
                 if (ids.length === 0) {

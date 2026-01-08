@@ -18,6 +18,10 @@ import SimulatorIntro from "./pages/SimulatorIntro";
 import Simulator from "./pages/Simulator";
 import SimulatorResults from "./pages/SimulatorResults";
 import Stats from "./pages/Stats";
+import SetupPlanner from "./pages/planner/SetupPlanner";
+import StudySchedule from "./pages/planner/StudySchedule";
+import VerbalMode from "./pages/VerbalMode";
+import ReadinessReportPage from "./pages/ReadinessReport";
 
 // --- Auth Context ---
 interface AuthContextType {
@@ -107,6 +111,7 @@ function PublicOnly() {
 import Sidebar from "./components/Sidebar";
 
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 
 // --- Layouts ---
 function AppLayout() {
@@ -129,40 +134,46 @@ function App() {
   return (
     <AuthProvider>
       <SidebarProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes (Accessible to everyone) */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/about" element={<About />} />
+        <SubscriptionProvider>
+          <Router>
+            <Routes>
+              {/* Public Routes (Accessible to everyone) */}
+              <Route path="/" element={<Landing />} />
+              <Route path="/about" element={<About />} />
 
-            {/* Auth Routes (Only for logged out users) */}
-            <Route element={<PublicOnly />}>
-              <Route path="/login" element={<Login />} />
-            </Route>
-
-            {/* Protected Routes (Accessible only when logged in) */}
-            <Route path="/app" element={<RequireAuth />}>
-              {/* Dashboard at /app root, no sidebar */}
-              <Route index element={<Dashboard />} />
-
-              <Route element={<AppLayout />}>
-                <Route path="exams" element={<ExamList />} />
-                <Route path="quiz" element={<Quiz />} />
-                <Route path="quiz/:examId" element={<Quiz />} />
-                <Route path="pricing" element={<Pricing />} />
-                <Route path="success" element={<Success />} />
-                <Route path="help" element={<Help />} />
-                <Route path="simulator" element={<SimulatorIntro />} />
-                <Route path="simulator/exam" element={<Simulator />} />
-                <Route path="simulator/results" element={<SimulatorResults />} />
-                <Route path="stats" element={<Stats />} />
+              {/* Auth Routes (Only for logged out users) */}
+              <Route element={<PublicOnly />}>
+                <Route path="/login" element={<Login />} />
               </Route>
-            </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+              {/* Protected Routes (Accessible only when logged in) */}
+              <Route path="/app" element={<RequireAuth />}>
+                {/* Dashboard at /app root, no sidebar */}
+                <Route index element={<Dashboard />} />
+
+                <Route element={<AppLayout />}>
+                  <Route path="exams" element={<ExamList />} />
+                  <Route path="quiz" element={<Quiz />} />
+                  <Route path="quiz/:examId" element={<Quiz />} />
+                  <Route path="pricing" element={<Pricing />} />
+                  <Route path="success" element={<Success />} />
+                  <Route path="help" element={<Help />} />
+                  <Route path="simulator" element={<SimulatorIntro />} />
+                  <Route path="simulator/exam" element={<Simulator />} />
+                  <Route path="simulator/results" element={<SimulatorResults />} />
+                  <Route path="stats" element={<Stats />} />
+                  <Route path="planner" element={<StudySchedule />} />
+                  <Route path="planner/setup" element={<SetupPlanner />} />
+                  <Route path="verbal" element={<VerbalMode />} />
+                  <Route path="readiness" element={<ReadinessReportPage />} />
+                </Route>
+              </Route>
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </SubscriptionProvider>
       </SidebarProvider>
     </AuthProvider>
   );

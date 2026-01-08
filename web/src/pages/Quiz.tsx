@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { doc, setDoc, getDoc, collection, query, getDocs, addDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { XPService } from '../services/xpService';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import SubscriptionUpsellModal from '../components/SubscriptionUpsellModal';
 
 interface Question {
     id: string;
@@ -24,6 +26,17 @@ export default function Quiz() {
     const [score, setScore] = useState(0);
     const [quizCompleted, setQuizCompleted] = useState(false);
     const [domainResults, setDomainResults] = useState<Record<string, { correct: number; total: number }>>({});
+    const [quizDetails, setQuizDetails] = useState<any[]>([]);
+
+    const { isPro, canTakeQuiz, incrementDailyCount } = useSubscription();
+    const [showUpsell, setShowUpsell] = useState(false);
+
+    // Block access immediately if limit reached via direct URL, but handle graceful redirect/modal
+    useEffect(() => {
+        if (!loading && !canTakeQuiz) {
+            setShowUpsell(true);
+        }
+    }, [loading, canTakeQuiz]);
 
 
 
@@ -128,7 +141,11 @@ export default function Quiz() {
 
                 // 4. Selection Logic (SRS Algorithm)
                 // Priority: Learning (Review) > New > Mastered (Refresh)
-                const TARGET_SIZE = 10;
+                // 4. Selection Logic (SRS Algorithm)
+                // Priority: Learning (Review) > New > Mastered (Refresh)
+
+                // Limit questions based on plan
+                const TARGET_SIZE = isPro ? 10 : 5;
                 let selected: Question[] = [];
 
                 const shuffle = (arr: any[]) => arr.sort(() => 0.5 - Math.random());
@@ -205,6 +222,15 @@ export default function Quiz() {
             }
         }));
 
+        // Track Details for Readiness Engine
+        setQuizDetails(prev => [...prev, {
+            questionId: currentQuestion.id,
+            selectedOption,
+            correctOption: currentQuestion.correctAnswer,
+            isCorrect,
+            domain
+        }]);
+
         setShowExplanation(true);
 
         // Save Granular Question Progress (SRS)
@@ -269,7 +295,9 @@ export default function Quiz() {
         }
 
         const userId = user.uid;
-        const activeExamId = questions[currentQuestionIndex]?.examId || 'default-exam';
+        // Don't re-derive activeExamId from question. Use the state variable which directed the fetch.
+        // const activeExamId = questions[currentQuestionIndex]?.examId || 'default-exam';
+
         const masteryId = `${userId}_${activeExamId}`;
         const masteryRef = doc(db, 'userMastery', masteryId);
 
@@ -300,18 +328,29 @@ export default function Quiz() {
 
             // Save Quiz Attempt
             const totalDuration = questionDurations.reduce((a, b) => a + b, 0);
-            const avgTime = totalDuration / questions.length;
+            // const avgTime = totalDuration / questions.length;
 
             const attemptRef = collection(db, 'quizAttempts');
+
+            // Determine primary domain for the quiz
+            const filterDomain = location.state?.filterDomain;
+            const primaryDomain = filterDomain || 'Mixed'; // Use specific domain if filtered, otherwise Mixed
+
+            // Use the number of questions actually answered (details captured) as the total
+            // This prevents penalizing the user if they quit early (e.g. 3/3 instead of 3/10)
+            const answeredCount = quizDetails.length;
+            if (answeredCount === 0) return; // Don't save empty attempts
+
             await addDoc(attemptRef, {
                 userId,
                 examId: activeExamId,
                 score,
-                totalQuestions: questions.length,
+                totalQuestions: answeredCount, // Use answered count
                 timestamp: new Date(),
-                domain: 'Mixed', // For now, since quizzes are mixed. Could be specific if we filter later.
+                domain: primaryDomain,
                 timeSpent: totalDuration,
-                averageTimePerQuestion: avgTime
+                averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
+                details: quizDetails
             });
             console.log('Quiz attempt saved successfully');
 
@@ -324,6 +363,9 @@ export default function Quiz() {
         // Bonus for score: score * 5
         const xpEarned = (questions.length * 10) + (score * 5);
         await XPService.awardXP(xpEarned, `Completed Quiz (${score}/${questions.length})`, activeExamId);
+
+        // Update Subscription Context optimistically
+        incrementDailyCount(quizDetails.length);
     };
 
     const handleNext = async () => {
@@ -367,12 +409,20 @@ export default function Quiz() {
             <header className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 px-4 py-4 sticky top-0 z-50">
                 <div className="mx-auto max-w-4xl flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <Link to="/app" className="text-slate-400 hover:text-white transition-colors">
-                            <span className="sr-only">Exit</span>
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <button
+                            onClick={async () => {
+                                if (window.confirm("Quit and save your progress so far?")) {
+                                    await saveQuizResults();
+                                    setQuizCompleted(true);
+                                }
+                            }}
+                            className="text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                             </svg>
-                        </Link>
+                            <span className="hidden sm:inline text-sm font-medium">Quit & Save</span>
+                        </button>
                         <div className="h-6 w-px bg-slate-700"></div>
                         <span className="text-sm font-medium text-slate-400 font-display">{currentQuestion.domain}</span>
                     </div>
@@ -537,6 +587,12 @@ export default function Quiz() {
             <footer className="py-6 text-center text-xs text-slate-600">
                 v1.0.1
             </footer>
+
+            <SubscriptionUpsellModal
+                isOpen={showUpsell}
+                onClose={() => window.location.href = '/app'}
+                reason="daily_limit"
+            />
         </div>
     );
 }
