@@ -130,50 +130,54 @@ function AppLayout() {
   );
 }
 
+import { ExamProvider } from "./contexts/ExamContext";
+
 function App() {
   return (
     <AuthProvider>
       <SidebarProvider>
-        <SubscriptionProvider>
-          <Router>
-            <Routes>
-              {/* Public Routes (Accessible to everyone) */}
-              <Route path="/" element={<Landing />} />
-              <Route path="/about" element={<About />} />
+        <ExamProvider>
+          <SubscriptionProvider>
+            <Router>
+              <Routes>
+                {/* Public Routes (Accessible to everyone) */}
+                <Route path="/" element={<Landing />} />
+                <Route path="/about" element={<About />} />
 
-              {/* Auth Routes (Only for logged out users) */}
-              <Route element={<PublicOnly />}>
-                <Route path="/login" element={<Login />} />
-              </Route>
-
-              {/* Protected Routes (Accessible only when logged in) */}
-              <Route path="/app" element={<RequireAuth />}>
-                {/* Dashboard at /app root, no sidebar */}
-                <Route index element={<Dashboard />} />
-
-                <Route element={<AppLayout />}>
-                  <Route path="exams" element={<ExamList />} />
-                  <Route path="quiz" element={<Quiz />} />
-                  <Route path="quiz/:examId" element={<Quiz />} />
-                  <Route path="pricing" element={<Pricing />} />
-                  <Route path="success" element={<Success />} />
-                  <Route path="help" element={<Help />} />
-                  <Route path="simulator" element={<SimulatorIntro />} />
-                  <Route path="simulator/exam" element={<Simulator />} />
-                  <Route path="simulator/results" element={<SimulatorResults />} />
-                  <Route path="stats" element={<Stats />} />
-                  <Route path="planner" element={<StudySchedule />} />
-                  <Route path="planner/setup" element={<SetupPlanner />} />
-                  <Route path="verbal" element={<VerbalMode />} />
-                  <Route path="readiness" element={<ReadinessReportPage />} />
+                {/* Auth Routes (Only for logged out users) */}
+                <Route element={<PublicOnly />}>
+                  <Route path="/login" element={<Login />} />
                 </Route>
-              </Route>
 
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Router>
-        </SubscriptionProvider>
+                {/* Protected Routes (Accessible only when logged in) */}
+                <Route path="/app" element={<RequireAuth />}>
+                  {/* Dashboard at /app root, no sidebar */}
+                  <Route index element={<Dashboard />} />
+
+                  <Route element={<AppLayout />}>
+                    <Route path="exams" element={<ExamList />} />
+                    <Route path="quiz" element={<Quiz />} />
+                    <Route path="quiz/:examId" element={<Quiz />} />
+                    <Route path="pricing" element={<Pricing />} />
+                    <Route path="success" element={<Success />} />
+                    <Route path="help" element={<Help />} />
+                    <Route path="simulator" element={<SimulatorIntro />} />
+                    <Route path="simulator/exam" element={<Simulator />} />
+                    <Route path="simulator/results" element={<SimulatorResults />} />
+                    <Route path="stats" element={<Stats />} />
+                    <Route path="planner" element={<StudySchedule />} />
+                    <Route path="planner/setup" element={<SetupPlanner />} />
+                    <Route path="verbal" element={<VerbalMode />} />
+                    <Route path="readiness" element={<ReadinessReportPage />} />
+                  </Route>
+                </Route>
+
+                {/* Fallback */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Router>
+          </SubscriptionProvider>
+        </ExamProvider>
       </SidebarProvider>
     </AuthProvider>
   );

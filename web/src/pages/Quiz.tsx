@@ -5,6 +5,7 @@ import { db, auth } from '../firebase';
 import { XPService } from '../services/xpService';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import SubscriptionUpsellModal from '../components/SubscriptionUpsellModal';
+import { useExam } from '../contexts/ExamContext';
 
 interface Question {
     id: string;
@@ -42,16 +43,22 @@ export default function Quiz() {
 
     // ...
 
+
+    // ...
     const { examId: paramExamId } = useParams();
     const location = useLocation();
+
+    // Global context fallback
+    const { selectedExamId } = useExam();
+
     const [activeExamId, setActiveExamId] = useState<string>('');
 
     useEffect(() => {
         // Determine the effective exam ID
-        const storedExamId = localStorage.getItem('selectedExamId');
-        const effectiveId = paramExamId || storedExamId || 'default-exam';
+        // Priority: URL Param > Context > Default
+        const effectiveId = paramExamId || selectedExamId || 'default-exam';
         setActiveExamId(effectiveId);
-    }, [paramExamId]);
+    }, [paramExamId, selectedExamId]);
 
     // ...
 

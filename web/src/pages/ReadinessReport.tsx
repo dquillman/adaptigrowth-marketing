@@ -5,19 +5,22 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2,
 import { Link, useNavigate } from 'react-router-dom';
 import { useSubscription } from '../contexts/SubscriptionContext';
 
+import { useExam } from '../contexts/ExamContext';
+
 export default function ReadinessReportPage() {
     const { user } = useAuth();
     const { checkPermission } = useSubscription();
+    const { selectedExamId, examName } = useExam();
     const navigate = useNavigate();
     const [report, setReport] = useState<ReadinessReport | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchReport = async () => {
-            if (!user) return;
+            if (!user || !selectedExamId) return;
             try {
-                const examId = localStorage.getItem('selectedExamId') || 'default-exam';
-                const data = await PredictionEngine.calculateReadiness(user.uid, examId);
+                // Use ID from context
+                const data = await PredictionEngine.calculateReadiness(user.uid, selectedExamId);
                 setReport(data);
             } catch (error) {
                 console.error("Failed to load readiness report", error);
@@ -26,7 +29,7 @@ export default function ReadinessReportPage() {
             }
         };
         fetchReport();
-    }, [user]);
+    }, [user, selectedExamId]);
 
     if (loading) {
         return (
@@ -77,6 +80,7 @@ export default function ReadinessReportPage() {
                 {/* Header */}
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Exam Readiness</h1>
+                    {examName && <span className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-1 block">{examName}</span>}
                     <p className="text-slate-400">AI-powered prediction based on your recent performance.</p>
                 </div>
 
@@ -150,15 +154,33 @@ export default function ReadinessReportPage() {
 
                                 <div>
                                     <h3 className="font-bold text-white mb-2 flex items-center gap-2">
-                                        {report.overallScore >= 75 ? <CheckCircle className="w-5 h-5 text-emerald-400" /> : <AlertTriangle className="w-5 h-5 text-amber-400" />}
-                                        Assessment
+                                        {report.isPreliminary ? (
+                                            <div className="flex items-center gap-2 text-amber-400">
+                                                <AlertTriangle className="w-5 h-5" />
+                                                <span>Preliminary Assessment</span>
+                                            </div>
+                                        ) : (
+                                            report.overallScore >= 75 ? (
+                                                <div className="flex items-center gap-2 text-emerald-400">
+                                                    <CheckCircle className="w-5 h-5" />
+                                                    <span>Assessment</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-amber-400">
+                                                    <AlertTriangle className="w-5 h-5" />
+                                                    <span>Assessment</span>
+                                                </div>
+                                            )
+                                        )}
                                     </h3>
                                     <p className="text-slate-400 text-sm leading-relaxed">
-                                        {report.overallScore >= 80
-                                            ? "You are showing strong readiness! Maintain this consistency and focus on time management."
-                                            : report.overallScore >= 65
-                                                ? "You're getting close, but consistency is key. Focus on your weak domains below to boost your score."
-                                                : "We recommend more targeted practice before scheduling your exam. Focus on fundamental concepts."}
+                                        {report.isPreliminary
+                                            ? `We need more data to provide a confident prediction. Your score is currently dampened by ${(50 - report.totalQuestionsAnswered) * 0.5}% until you reach 50 questions.`
+                                            : report.overallScore >= 80
+                                                ? "You are showing strong readiness! Maintain this consistency and focus on time management."
+                                                : report.overallScore >= 65
+                                                    ? "You're getting close, but consistency is key. Focus on your weak domains below to boost your score."
+                                                    : "We recommend more targeted practice before scheduling your exam. Focus on fundamental concepts."}
                                     </p>
                                 </div>
                             </div>

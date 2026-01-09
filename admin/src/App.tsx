@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import ExamEditor from './pages/ExamEditor';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
+import IssuesList from './pages/IssuesList';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function Layout() {
@@ -58,6 +59,14 @@ function Layout() {
             </div>
             <span className="font-medium">Settings</span>
           </Link>
+          <Link to="/issues" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <span className="font-medium">Issues</span>
+          </Link>
         </nav>
 
         <div className="p-6 border-t border-white/5">
@@ -93,6 +102,11 @@ function Layout() {
           <Route path="/settings" element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/issues" element={
+            <ProtectedRoute>
+              <IssuesList />
             </ProtectedRoute>
           } />
         </Routes>

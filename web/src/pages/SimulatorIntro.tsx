@@ -6,6 +6,8 @@ import { auth, db } from '../firebase';
 import { ArrowLeft, Play, History, Clock, FileText, Award, Lock } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 
+import { useExam } from '../contexts/ExamContext';
+
 interface SimulationAttempt {
     id: string;
     score: number;
@@ -18,6 +20,7 @@ interface SimulationAttempt {
 export default function SimulatorIntro() {
     const { checkPermission } = useSubscription();
     const navigate = useNavigate();
+    const { examName } = useExam();
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
     const activeExamId = localStorage.getItem('selectedExamId') || 'default-exam';
@@ -78,6 +81,7 @@ export default function SimulatorIntro() {
                     </button>
                     <div>
                         <h1 className="text-2xl font-bold font-display text-white">Exam Simulator</h1>
+                        {examName && <span className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-1 block">{examName}</span>}
                         <p className="text-slate-400">Full mock exam environment.</p>
                     </div>
                 </div>

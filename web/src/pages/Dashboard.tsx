@@ -1,11 +1,11 @@
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import Sidebar from '../components/Sidebar'; // Ensure Sidebar is imported
+import Sidebar from '../components/Sidebar';
 import { Link } from 'react-router-dom';
 import { APP_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
-import { useState, useEffect, useRef } from 'react';
-import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getDocs, getCountFromServer, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { SmartQuizService } from '../services/smartQuiz';
 import { XPService } from '../services/xpService';
@@ -13,6 +13,9 @@ import LevelBadge from '../components/LevelBadge';
 import ExamSelector from '../components/ExamSelector';
 import SpeedAccuracyChart from '../components/analytics/SpeedAccuracyChart';
 import LevelDetailModal from '../components/LevelDetailModal';
+import { useSidebar } from '../contexts/SidebarContext.tsx';
+import { useExam } from '../contexts/ExamContext';
+import ReportIssueModal from '../components/ReportIssueModal';
 
 interface QuizAttempt {
     id: string;
@@ -24,12 +27,13 @@ interface QuizAttempt {
     averageTimePerQuestion?: number;
 }
 
-import { useSidebar } from '../contexts/SidebarContext.tsx'; // Ensure explicit extension if needed by build tools, or just path
-
 export default function Dashboard() {
-    // const [masteryData, setMasteryData] = useState<Record<string, { correct: number; total: number }>>({}); // Keep for backward compat/other stats if needed
     const { isCollapsed } = useSidebar();
-    const [masteryData] = useState<Record<string, { correct: number; total: number }>>({}); // Simple mock to avoid breaking other funcs if they use it (handleSmartStart uses it)
+
+    // Use UseExam globally
+    const { selectedExamId, examName, examDomains, loading: examLoading } = useExam();
+
+    const [masteryData] = useState<Record<string, { correct: number; total: number }>>({});
     const [domainMasteryCounts, setDomainMasteryCounts] = useState<Record<string, number>>({});
     const [domainTotalCounts, setDomainTotalCounts] = useState<Record<string, number>>({});
 
@@ -46,82 +50,58 @@ export default function Dashboard() {
     const [userXp, setUserXp] = useState(0);
     const [userLevel, setUserLevel] = useState(1);
     const [userStreak, setUserStreak] = useState(0);
-    const [examDomains, setExamDomains] = useState<string[]>(['People', 'Process', 'Business Environment']);
-    const [examName, setExamName] = useState('PMP');
-    const [activeExamId, setActiveExamId] = useState<string>('');
+
+
+
     const [showLevelModal, setShowLevelModal] = useState(false);
-    const activeExamIdRef = useRef<string>('');
+    const [showReportModal, setShowReportModal] = useState(false);
 
+    // 1. Fetch domain totals when exam context changes
     useEffect(() => {
-        activeExamIdRef.current = activeExamId;
-    }, [activeExamId]);
+        if (examLoading) return;
 
+        if (selectedExamId && examDomains.length > 0) {
+            fetchDomainTotals(selectedExamId, examDomains);
+        } else {
+            setDomainTotalCounts({});
+        }
+    }, [selectedExamId, examDomains, examLoading]);
+
+    // 2. Fetch User Data (Progress, Activity, Goals)
     useEffect(() => {
-        // let unsubscribeSnapshot: () => void;
         let unsubscribeActivity: () => void;
         let unsubscribeGoal: () => void;
-        let unsubscribeExam: () => void;
         let unsubscribeProgress: () => void;
 
         const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
             if (user) {
                 const userId = user.uid;
-                let examId = localStorage.getItem('selectedExamId');
 
-                if (!examId) {
-                    const examsQuery = query(collection(db, 'exams'), limit(1));
-                    const examSnap = await getDocs(examsQuery);
-                    examId = !examSnap.empty ? examSnap.docs[0].id : 'default-exam';
-                    localStorage.setItem('selectedExamId', examId);
-                }
-
-                setActiveExamId(examId);
-                activeExamIdRef.current = examId;
-
-                // Setup Listeners
-                const setupListeners = (currentExamId: string) => {
-                    // 1. Exam Data (Domains & Name)
-                    const examRef = doc(db, 'exams', currentExamId);
-                    unsubscribeExam = onSnapshot(examRef, (snap) => {
-                        if (snap.exists()) {
-                            const data = snap.data();
-                            if (data.domains) {
-                                setExamDomains(data.domains);
-                                // Fetch totals for these domains
-                                fetchDomainTotals(currentExamId, data.domains);
-                            }
-                            if (data.name) setExamName(data.name);
-                        }
-                    });
-
-                    // 2. Question Progress (Real Mastery)
+                // --- Question Progress ---
+                if (selectedExamId) {
                     const progressQuery = query(
                         collection(db, 'users', userId, 'questionProgress'),
-                        where('examId', '==', currentExamId)
+                        where('examId', '==', selectedExamId)
                     );
 
                     unsubscribeProgress = onSnapshot(progressQuery, (snapshot) => {
                         const counts: Record<string, number> = {};
                         snapshot.docs.forEach(doc => {
                             const data = doc.data();
-                            // Only count if status is strictly 'mastered'
                             if (data.status === 'mastered' && data.domain) {
                                 counts[data.domain] = (counts[data.domain] || 0) + 1;
                             }
                         });
                         setDomainMasteryCounts(counts);
                     });
-                };
+                }
 
-                setupListeners(examId);
-
-                // 3. Recent Activity
-                if (examId) {
+                // --- Recent Activity ---
+                if (selectedExamId) {
                     const activityQuery = query(
                         collection(db, 'quizAttempts'),
                         where('userId', '==', userId),
-                        where('examId', '==', examId),
-                        where('examId', '==', examId),
+                        where('examId', '==', selectedExamId),
                         orderBy('timestamp', 'desc'),
                         limit(10)
                     );
@@ -135,7 +115,7 @@ export default function Dashboard() {
                     });
                 }
 
-                // 4. Daily Progress
+                // --- Daily Progress (Today) ---
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
 
@@ -149,14 +129,15 @@ export default function Dashboard() {
                     let count = 0;
                     snapshot.docs.forEach(doc => {
                         const data = doc.data();
-                        if (data.examId === examId) {
+                        // Only count for CURRENT exam
+                        if (data.examId === selectedExamId) {
                             count += data.totalQuestions || 0;
                         }
                     });
                     setDailyProgress(count);
                 });
 
-                // 5. User Stats (Goal, XP, Streak)
+                // --- User Stats (Goal, XP, Streak) ---
                 const userRef = doc(db, 'users', userId);
                 unsubscribeGoal = onSnapshot(userRef, (docSnap) => {
                     if (docSnap.exists()) {
@@ -165,22 +146,14 @@ export default function Dashboard() {
                             setDailyGoal(data.dailyGoal);
                             setNewGoal(data.dailyGoal);
                         }
-                        // Prefer Exam-Specific XP if available, otherwise Global
 
-
-                        // Use REF to get the truest current exam ID
-                        const currentExamId = activeExamIdRef.current || localStorage.getItem('selectedExamId') || examId;
-
+                        // XP Logic: Exam Specific -> Global Fallback
                         let effectiveXp = 0;
-
-                        if (currentExamId && data.examXP && typeof data.examXP[currentExamId] === 'number') {
-                            effectiveXp = data.examXP[currentExamId];
-                        } else if (currentExamId && (!data.examXP || !data.examXP[currentExamId])) {
-                            // Correctly handle 0 XP case for new exams - redundant but explicit
+                        if (selectedExamId && data.examXP && typeof data.examXP[selectedExamId] === 'number') {
+                            effectiveXp = data.examXP[selectedExamId];
+                        } else if (selectedExamId && (!data.examXP || !data.examXP[selectedExamId])) {
                             effectiveXp = 0;
                         } else {
-                            // Fallback to global ONLY if no specific exam is somehow selected (edge case)
-                            console.warn("Falling back to Global XP");
                             effectiveXp = data.xp || 0;
                         }
 
@@ -191,7 +164,6 @@ export default function Dashboard() {
                             setUserStreak(data.streak);
                         }
                     }
-
                 });
 
                 XPService.checkStreak();
@@ -201,13 +173,11 @@ export default function Dashboard() {
 
         return () => {
             unsubscribeAuth();
-            // if (unsubscribeSnapshot) unsubscribeSnapshot();
             if (unsubscribeActivity) unsubscribeActivity();
             if (unsubscribeGoal) unsubscribeGoal();
-            if (unsubscribeExam) unsubscribeExam();
             if (unsubscribeProgress) unsubscribeProgress();
         };
-    }, []);
+    }, [selectedExamId]); // Re-subscribe when exam changes
 
     // Helper to fetch total questions per domain
     const fetchDomainTotals = async (examId: string, domains: string[]) => {
@@ -215,7 +185,6 @@ export default function Dashboard() {
 
         for (const domain of domains) {
             try {
-                // Determine filtering based on Exam + Domain
                 const q = query(
                     collection(db, 'questions'),
                     where('examId', '==', examId),
@@ -225,16 +194,10 @@ export default function Dashboard() {
                 totals[domain] = snapshot.data().count;
             } catch (e) {
                 console.error(`Error fetching total for ${domain}:`, e);
-                totals[domain] = 100; // Fallback to avoid div by zero
+                totals[domain] = 100;
             }
         }
         setDomainTotalCounts(totals);
-    };
-
-    const handleExamChange = (newExamId: string) => {
-        localStorage.setItem('selectedExamId', newExamId);
-        setActiveExamId(newExamId);
-        window.location.reload();
     };
 
     const saveGoal = async () => {
@@ -249,27 +212,27 @@ export default function Dashboard() {
     };
 
     const getPercentage = (domain: string) => {
-        // New Logic: Mastered Count / Total Available
         const mastered = domainMasteryCounts[domain] || 0;
         const total = domainTotalCounts[domain] || 0;
-
         if (total === 0) return 0;
-        return Math.min(100, Math.round((mastered / total) * 100)); // Cap at 100
+        return Math.min(100, Math.round((mastered / total) * 100));
     };
 
     const handleSmartStart = async () => {
         if (!auth.currentUser) return;
-        const examId = activeExamId || localStorage.getItem('selectedExamId') || 'default-exam';
 
         try {
             const goal = dailyGoal || 5;
-            // Pass masteryData for smart gen if needed, but we might want to update SmartQuizService too
-            // For now, passing existing data structure is fine
-            const questionIds = await SmartQuizService.generateSmartQuiz(auth.currentUser.uid, examId, masteryData, goal);
+            const questionIds = await SmartQuizService.generateSmartQuiz(
+                auth.currentUser.uid,
+                selectedExamId || 'default-exam',
+                masteryData,
+                goal
+            );
             navigate('/app/quiz', { state: { questionIds, mode: 'smart' } });
         } catch (error) {
             console.error("Failed to generate smart quiz:", error);
-            navigate('/app/quiz'); // Fallback
+            navigate('/app/quiz');
         }
     };
 
@@ -279,8 +242,6 @@ export default function Dashboard() {
             return;
         }
 
-        // Find domain with lowest percentage
-        // Default to first domain if no data
         let weakest = examDomains[0];
         let minP = 101;
 
@@ -303,12 +264,10 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen flex bg-transparent relative">
             <Sidebar />
-            {/* Global Version Label */}
             <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs font-mono text-white/50 pointer-events-none z-50">
                 Version: {APP_VERSION}
             </div>
             <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col transition-all duration-300`}>
-                {/* Navigation */}
                 <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         <div className="flex h-16 justify-between items-center">
@@ -322,7 +281,7 @@ export default function Dashboard() {
                                 <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
                             </div>
                             <div className="flex items-center gap-4">
-                                <ExamSelector currentExamId={activeExamId} onExamChange={handleExamChange} />
+                                <ExamSelector />
 
                                 <Link to="/app/help" className="text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors flex items-center gap-1">
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -331,6 +290,12 @@ export default function Dashboard() {
                                 <Link to="/about" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
                                     About
                                 </Link>
+                                <button
+                                    onClick={() => setShowReportModal(true)}
+                                    className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                >
+                                    Report a Problem
+                                </button>
                                 <Link to="/app/pricing" className="text-sm font-bold text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 px-3 py-1 rounded-full bg-brand-500/10">
                                     Upgrade
                                 </Link>
@@ -356,7 +321,7 @@ export default function Dashboard() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
-                            <p className="text-slate-400 mt-1">You're on track to master the <strong>{examDomains[0] || 'first'}</strong> domain by Friday.</p>
+                            <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
                         </div>
 
                         <div className="flex gap-4">
@@ -399,7 +364,6 @@ export default function Dashboard() {
                                 >
                                     <div className={`absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity`} style={{ backgroundColor: color }} />
 
-                                    {/* Pass empty label to prevent duplication, we render it below */}
                                     <MasteryRing percentage={getPercentage(domain)} color={color} label="" />
 
                                     <div className="mt-4 text-center">
@@ -530,7 +494,7 @@ export default function Dashboard() {
                                 <p className="text-slate-400 text-sm">Visualize your improvement in speed and accuracy over time.</p>
                             </div>
                         </div>
-                        <SpeedAccuracyChart currentExamId={activeExamId} />
+                        <SpeedAccuracyChart currentExamId={selectedExamId} />
                     </div>
                 </div>
 
@@ -549,7 +513,8 @@ export default function Dashboard() {
                                         const { httpsCallable, getFunctions } = await import('firebase/functions');
                                         const functions = getFunctions();
                                         const resetFn = httpsCallable(functions, 'resetExamProgress');
-                                        await resetFn({ examId: activeExamId });
+                                        await resetFn({ examId: selectedExamId });
+                                        // Simple refresh 
                                         window.location.reload();
                                     } catch (e) {
                                         console.error(e);
@@ -597,14 +562,21 @@ export default function Dashboard() {
                 )}
 
                 {/* Level Details Modal */}
-                <LevelDetailModal
-                    isOpen={showLevelModal}
-                    onClose={() => setShowLevelModal(false)}
-                    level={userLevel}
-                    currentXp={userXp}
-                    nextLevelXp={XPService.calculateNextLevelXp(userLevel)}
-                    prevLevelXp={Math.pow(userLevel - 1, 2) * 100}
-                    examName={examName}
+                {showLevelModal && (
+                    <LevelDetailModal
+                        isOpen={showLevelModal}
+                        onClose={() => setShowLevelModal(false)}
+                        level={userLevel}
+                        currentXp={userXp}
+                        nextLevelXp={XPService.calculateNextLevelXp(userLevel)}
+                        prevLevelXp={Math.pow(userLevel - 1, 2) * 100}
+                        examName={examName}
+                    />
+                )}
+
+                <ReportIssueModal
+                    isOpen={showReportModal}
+                    onClose={() => setShowReportModal(false)}
                 />
             </div>
         </div>

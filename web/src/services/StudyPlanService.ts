@@ -11,15 +11,15 @@ export const StudyPlanService = {
      * - People: 42%
      * - Business: 8%
      */
-    generatePlan: (userId: string, examId: string, examDate: Date, weeklyHours: number): StudyPlan => {
+    generatePlan: (userId: string, examId: string, examDate: Date, weeklyHours: number, examName?: string, domainNames?: string[]): StudyPlan => {
         const startDate = new Date();
         const daysUntilExam = Math.ceil((examDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
         const tasks: DailyTask[] = [];
         const currentDate = new Date(startDate);
 
-        // Define domains for different exams (fallback to PMP)
-        const domains = getExamDomains(examId);
+        // Define domains dynamically if provided, or fallback to known definitions
+        const domains = getExamDomains(examId, examName, domainNames);
 
         // Simple deterministic generator
         for (let i = 0; i < daysUntilExam; i++) {
@@ -45,8 +45,15 @@ export const StudyPlanService = {
 
             const rand = Math.random();
             let selectedDomain = domains[0];
-            if (rand > 0.50 && rand <= 0.92) selectedDomain = domains[1]; // 42% for People
-            if (rand > 0.92) selectedDomain = domains[2]; // 8% for Business
+            let cumulativeWeight = 0;
+
+            for (const domain of domains) {
+                cumulativeWeight += domain.weight;
+                if (rand <= cumulativeWeight) {
+                    selectedDomain = domain;
+                    break;
+                }
+            }
 
             const topic = selectedDomain.topics[Math.floor(Math.random() * selectedDomain.topics.length)];
 
@@ -61,18 +68,16 @@ export const StudyPlanService = {
                 durationMinutes: 30 // Default block
             });
 
-            // Every other day (that isn't Saturday), add a Quiz
-            if (i % 2 === 0) {
-                tasks.push({
-                    id: `task-${i}-quiz`,
-                    date: new Date(currentDate),
-                    domain: selectedDomain.name as any,
-                    topic: `Practice Quiz: ${topic}`,
-                    activityType: 'quiz',
-                    completed: false,
-                    durationMinutes: 15
-                });
-            }
+            // Add a Daily Quiz (Learn -> Apply loop)
+            tasks.push({
+                id: `task-${i}-quiz`,
+                date: new Date(currentDate),
+                domain: selectedDomain.name as any,
+                topic: `Practice Quiz: ${topic}`,
+                activityType: 'quiz',
+                completed: false,
+                durationMinutes: 15
+            });
 
             // Advance to next day
             currentDate.setDate(currentDate.getDate() + 1);
@@ -120,12 +125,21 @@ export const StudyPlanService = {
         }
     },
 
-    getCurrentPlan: async (userId: string): Promise<StudyPlan | null> => {
+    getCurrentPlan: async (userId: string, examId?: string): Promise<StudyPlan | null> => {
+        console.log("StudyPlanService.getCurrentPlan called with:", { userId, examId });
         try {
+            const constraints = [
+                where("userId", "==", userId),
+                where("status", "==", "active")
+            ];
+
+            if (examId) {
+                constraints.push(where("examId", "==", examId));
+            }
+
             const q = query(
                 collection(db, 'study_plans'),
-                where("userId", "==", userId),
-                where("status", "==", "active"),
+                ...constraints,
                 orderBy("createdAt", "desc"),
                 limit(1)
             );

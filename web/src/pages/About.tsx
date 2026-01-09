@@ -36,6 +36,24 @@ export default function About() {
 
                     <div className="grid md:grid-cols-3 gap-8">
                         <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
+                            <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-purple-500/20">
+                                🎙️
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2 font-display">Verbal Mode</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Study hands-free with our AI Voice Tutor. Simulates a real oral exam or interview, challenging you to explain concepts out loud for deeper retention.
+                            </p>
+                        </div>
+                        <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
+                            <div className="w-12 h-12 bg-pink-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-pink-500/20">
+                                🧠
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2 font-display">Smart Readiness</h3>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Our advanced algorithm calculates your exam readiness by weighing your overall accuracy, recent trends, and question volume—preventing false confidence.
+                            </p>
+                        </div>
+                        <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
                             <div className="w-12 h-12 bg-brand-500/10 rounded-xl flex items-center justify-center text-2xl mb-4 border border-brand-500/20">
                                 🎯
                             </div>
@@ -93,8 +111,15 @@ export default function About() {
                             <li className="flex gap-4">
                                 <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">3</span>
                                 <div>
-                                    <h4 className="text-white font-medium mb-1">Aim for 100% Mastery</h4>
-                                    <p className="text-slate-400 text-sm">Your goal is to fill all the rings. Once you hit 100% in a domain, you're ready for that section of the exam.</p>
+                                    <h4 className="text-white font-medium mb-1">Explain Out Loud</h4>
+                                    <p className="text-slate-400 text-sm">Use Verbal Mode to practice explaining concepts. Speaking active recall strengthens neural pathways more than just reading.</p>
+                                </div>
+                            </li>
+                            <li className="flex gap-4">
+                                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">4</span>
+                                <div>
+                                    <h4 className="text-white font-medium mb-1">Aim for 100% Readiness</h4>
+                                    <p className="text-slate-400 text-sm">Your goal is to fill all the mastery rings and achieve a "High" readiness score before your exam date.</p>
                                 </div>
                             </li>
                         </ul>

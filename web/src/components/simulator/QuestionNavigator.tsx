@@ -6,6 +6,7 @@ interface QuestionNavigatorProps {
     answers: Record<number, number>;
     flagged: Record<number, boolean>;
     timeLeft: number;
+    examName?: string;
     onNavigate: (index: number) => void;
     onSubmit: () => void;
     onQuit: () => void;
@@ -17,6 +18,7 @@ export function QuestionNavigator({
     answers,
     flagged,
     timeLeft,
+    examName,
     onNavigate,
     onSubmit,
     onQuit
@@ -31,6 +33,7 @@ export function QuestionNavigator({
     return (
         <aside className="w-full md:w-72 bg-slate-800 border-r border-slate-700 flex flex-col h-full shrink-0">
             <div className="p-4 border-b border-slate-700">
+                {examName && <div className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 text-center">{examName}</div>}
                 <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Time Remaining</h2>
                 <div className="flex items-center justify-between text-white font-mono text-xl font-bold bg-slate-900/50 p-3 rounded-lg border border-slate-700">
                     <span className={timeLeft < 300 ? 'text-red-500 animate-pulse' : 'text-indigo-400'}>

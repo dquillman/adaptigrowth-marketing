@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../App';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
@@ -95,7 +95,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         setQuestionsAnsweredToday(prev => prev + count);
     };
 
-    const checkPermission = (feature: 'analytics' | 'simulator' | 'visual_mnemonics') => {
+    const checkPermission = (_feature: 'analytics' | 'simulator' | 'visual_mnemonics') => {
+        // Feature variable kept for future granular permissions if needed
         if (isPro) return true;
         // Starter plan blocked features
         return false;

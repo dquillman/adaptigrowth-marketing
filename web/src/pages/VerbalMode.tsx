@@ -6,6 +6,7 @@ import { SmartQuizService } from '../services/smartQuiz';
 import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import type { Question } from '../hooks/useSimulator';
+import { useExam } from '../contexts/ExamContext';
 
 type ModeState = 'SETUP' | 'LOADING' | 'READING' | 'LISTENING' | 'FEEDBACK' | 'FINISHED';
 
@@ -23,6 +24,7 @@ interface SessionStats {
 
 export default function VerbalMode() {
     const navigate = useNavigate();
+    const { examName } = useExam();
     const [status, setStatus] = useState<ModeState>('SETUP');
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -257,6 +259,7 @@ export default function VerbalMode() {
                         <Volume2 className="w-5 h-5" />
                         <span className="font-bold tracking-wider">VERBAL</span>
                     </div>
+                    {examName && <span className="text-sm text-indigo-300 font-bold tracking-widest uppercase mt-1">{examName}</span>}
                     {(status === 'READING' || status === 'LISTENING' || status === 'FEEDBACK') && (
                         <div className="flex gap-4 text-sm mt-1">
                             <span className="text-emerald-400 font-bold">✓ {stats.score}</span>

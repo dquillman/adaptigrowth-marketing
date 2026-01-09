@@ -16,6 +16,7 @@ export interface ReadinessReport {
     totalQuestionsAnswered: number;
     mockExamsTaken: number;
     examId: string;
+    isPreliminary?: boolean;
 }
 
 export const PredictionEngine = {
@@ -108,7 +109,17 @@ export const PredictionEngine = {
             // 70% Overall, 30% Recent to reward improvement
             const weightedScore = Math.round((overallAccuracy * 0.7) + (recentAccuracy * 0.3));
 
-            // --- 4. Domain Breakdown ---
+            // --- 4. Volume Penalty (Confidence Adjustment) ---
+            // If < 50 questions, apply a linear penalty to avoid overconfidence from small samples.
+            // e.g. 10 questions = (50 - 10) * 0.5 = 20 points penalty.
+            let confidencePenalty = 0;
+            if (totalQuestions < 50) {
+                confidencePenalty = (50 - totalQuestions) * 0.5;
+            }
+
+            const adjustedScore = Math.max(0, Math.round(weightedScore - confidencePenalty));
+
+            // --- 5. Domain Breakdown ---
             const breakdown: DomainReadiness[] = Object.entries(domainStats).map(([domain, stats]) => {
                 const s = stats.total > 0 ? (stats.correct / stats.total) * 100 : 0;
                 let status: 'Weak' | 'Moderate' | 'Strong' | 'Insufficient' = 'Insufficient';
@@ -129,16 +140,17 @@ export const PredictionEngine = {
                 // Sort Priority: Weak (0) -> Insufficient (1) -> Moderate (2) -> Strong (3)
                 const priority = { 'Weak': 0, 'Insufficient': 1, 'Moderate': 2, 'Strong': 3 };
                 return priority[a.status] - priority[b.status];
-            }); // Sort by status priority
+            });
 
             return {
-                overallScore: weightedScore,
+                overallScore: adjustedScore,
                 trend,
                 domainBreakdown: breakdown,
                 totalQuestionsAnswered: totalQuestions,
                 mockExamsTaken: mockCount,
-                examId
-            };
+                examId,
+                isPreliminary: totalQuestions < 50 // Flag to UI
+            } as ReadinessReport;
 
         } catch (error) {
             console.error("Prediction Engine Error:", error);

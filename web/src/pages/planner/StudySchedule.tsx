@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock } from 'lucide-react';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
+import { useExam } from '../../contexts/ExamContext';
 import type { StudyPlan, DailyTask } from '../../types/StudyPlan';
 import { useNavigate } from 'react-router-dom';
 import MockExamConfigModal from '../../components/planner/MockExamConfigModal';
@@ -13,12 +14,19 @@ export default function StudySchedule() {
     const [loading, setLoading] = useState(true);
     const [showExamConfig, setShowExamConfig] = useState(false);
 
+
+    // Use the global Exam context
+    const { selectedExamId, examName } = useExam();
+
     useEffect(() => {
-        if (!user) return;
+        if (!user || !selectedExamId) return;
 
         const loadPlan = async () => {
+            setLoading(true);
             try {
-                const currentPlan = await StudyPlanService.getCurrentPlan(user.uid);
+                // Use ID from context
+                console.log("StudySchedule loading plan for exam:", selectedExamId);
+                const currentPlan = await StudyPlanService.getCurrentPlan(user.uid, selectedExamId);
                 if (!currentPlan) {
                     navigate('/app/planner/setup');
                     return;
@@ -32,7 +40,7 @@ export default function StudySchedule() {
         };
 
         loadPlan();
-    }, [user, navigate]);
+    }, [user, navigate, selectedExamId]);
 
     if (loading) return <div className="p-8 text-center text-slate-400">Loading your personalized roadmap...</div>;
     if (!plan) return null;
@@ -54,7 +62,7 @@ export default function StudySchedule() {
         const d = new Date(t.date);
         d.setHours(0, 0, 0, 0);
         return d.getTime() > today.getTime();
-    }).slice(0, 10); // Show next 10
+    }); // Show next 10
 
     const handleToggleComplete = async (taskId: string, currentStatus: boolean) => {
         if (!plan || !user) return;
@@ -91,7 +99,7 @@ export default function StudySchedule() {
         <div className="p-6 md:p-10 max-w-6xl mx-auto text-slate-100">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold font-display text-white mb-2">My Study Plan</h1>
+                    <h1 className="text-3xl font-bold font-display text-white mb-2">My {examName || ''} Plan</h1>
                     <p className="text-slate-400 flex items-center gap-2">
                         <CalendarIcon className="w-4 h-4" />
                         Target Exam Date: <span className="text-emerald-400 font-bold">{plan.examDate.toLocaleDateString()}</span>
@@ -171,6 +179,31 @@ export default function StudySchedule() {
     );
 }
 
+// Helper to generate consistent colors from domain names
+const getDomainColor = (domain: string) => {
+    const colors = [
+        'bg-pink-500/10 text-pink-400 border-pink-500/20',
+        'bg-amber-500/10 text-amber-400 border-amber-500/20',
+        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        'bg-purple-500/10 text-purple-400 border-purple-500/20',
+        'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+        'bg-rose-500/10 text-rose-400 border-rose-500/20',
+        'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+    ];
+
+    if (domain === 'Mixed') return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+
+    // Simple hash
+    let hash = 0;
+    for (let i = 0; i < domain.length; i++) {
+        hash = domain.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+};
+
 function TaskCard({ task, isUpcoming = false, onToggleComplete, onStartMock }: { task: DailyTask, isUpcoming?: boolean, onToggleComplete?: () => void, onStartMock?: () => void }) {
     const navigate = useNavigate();
 
@@ -203,12 +236,7 @@ function TaskCard({ task, isUpcoming = false, onToggleComplete, onStartMock }: {
 
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded border 
-                        ${task.domain === 'People' ? 'bg-pink-500/10 text-pink-400 border-pink-500/20' :
-                            task.domain === 'Process' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                task.domain === 'Mixed' ? 'bg-slate-500/10 text-slate-400 border-slate-500/20' :
-                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}
-                    `}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getDomainColor(task.domain)}`}>
                         {task.domain}
                     </span>
                     {isUpcoming && <span className="text-xs text-slate-500">{task.date.toLocaleDateString()}</span>}

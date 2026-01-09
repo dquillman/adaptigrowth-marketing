@@ -2,9 +2,11 @@ import SpeedAccuracyChart from '../components/analytics/SpeedAccuracyChart';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useExam } from '../contexts/ExamContext';
 
 export default function Stats() {
     const { checkPermission } = useSubscription();
+    const { selectedExamId, examName } = useExam();
     const navigate = useNavigate();
 
     return (
@@ -12,6 +14,7 @@ export default function Stats() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white font-display">Your Statistics</h1>
+                    {examName && <span className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-1 block">{examName}</span>}
                     <p className="text-slate-400 mt-1">Deep dive into your performance metrics.</p>
                 </div>
             </div>
@@ -20,7 +23,7 @@ export default function Stats() {
                 <h3 className="text-xl font-bold text-white font-display mb-6">Performance Trends</h3>
                 <div className="relative">
                     <div className={!checkPermission('analytics') ? "blur-md pointer-events-none opacity-50 select-none" : ""}>
-                        <SpeedAccuracyChart currentExamId={localStorage.getItem('selectedExamId') || 'default-exam'} />
+                        <SpeedAccuracyChart currentExamId={selectedExamId} />
                     </div>
 
                     {!checkPermission('analytics') && (

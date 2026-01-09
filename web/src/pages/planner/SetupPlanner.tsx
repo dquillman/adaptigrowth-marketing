@@ -3,9 +3,11 @@ import { Calendar, Clock, ChevronRight, Check } from 'lucide-react';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useExam } from '../../contexts/ExamContext';
 
 export default function SetupPlanner() {
     const { user } = useAuth();
+    const { selectedExamId, examName, examDomains } = useExam();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -38,7 +40,8 @@ export default function SetupPlanner() {
 
         setLoading(true);
         try {
-            const examId = localStorage.getItem('selectedExamId') || 'default-exam';
+            // Use context ID consistently
+            const examId = selectedExamId || 'default-exam';
 
             // If editing, archive the old active plan first
             if (editMode) {
@@ -49,7 +52,9 @@ export default function SetupPlanner() {
                 user.uid,
                 examId,
                 new Date(examDate),
-                weeklyHours
+                weeklyHours,
+                examName || undefined,
+                examDomains || []
             );
 
             await StudyPlanService.savePlan(plan);
@@ -72,7 +77,7 @@ export default function SetupPlanner() {
                         {editMode ? 'Update Your Study Plan' : 'Build Your AI Study Plan'}
                     </h1>
                     <p className="text-slate-400">
-                        {editMode ? 'Adjust your schedule and availability.' : "Let's create a personalized roadmap to your PMP certification."}
+                        {editMode ? 'Adjust your schedule and availability.' : `Let's create a personalized roadmap to your ${examName || 'exam'} certification.`}
                     </p>
                 </div>
 

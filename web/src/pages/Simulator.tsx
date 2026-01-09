@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { useSimulator } from '../hooks/useSimulator';
 import { QuestionNavigator } from '../components/simulator/QuestionNavigator';
 import { QuestionCard } from '../components/simulator/QuestionCard';
+import { useExam } from '../contexts/ExamContext';
 
 export default function Simulator() {
     const navigate = useNavigate();
+    const { examName } = useExam();
     const {
         loading,
         questions,
@@ -43,6 +45,7 @@ export default function Simulator() {
                     answers={answers}
                     flagged={flagged}
                     timeLeft={timeLeft}
+                    examName={examName}
                     onNavigate={setCurrentIndex}
                     onSubmit={() => submitExam()}
                     onQuit={() => navigate('/app/simulator')}

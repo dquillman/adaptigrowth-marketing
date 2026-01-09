@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Layout,
@@ -6,10 +7,14 @@ import {
     Target,
     Trophy,
     ArrowDown,
-    ChevronLeft
+    ChevronLeft,
+    MessageSquare
 } from 'lucide-react';
+import ReportIssueModal from '../components/ReportIssueModal';
 
 export default function Help() {
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-brand-500/30">
             {/* Header */}
@@ -98,15 +103,39 @@ export default function Help() {
                             <Zap className="w-8 h-8 text-brand-400" />
                         </div>
                         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
+                            <div className="flex justify-between items-start mb-4">
                                 <h3 className="text-xl font-bold text-white">3. Smart Practice</h3>
-                                <span className="text-xs font-bold px-2 py-1 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20">CORE ACTION</span>
+                                <div className="flex gap-2">
+                                    <span className="text-xs font-bold px-2 py-1 rounded bg-slate-700 text-slate-300 border border-slate-600">CORE</span>
+                                </div>
                             </div>
-                            <p className="text-slate-400 leading-relaxed">
-                                Click the <strong className="text-brand-400">Smart Start</strong> button.
-                                The AI will automatically pick questions you haven't seen or need to review.
-                                Do this every day to build your streak!
+
+                            <p className="text-slate-400 leading-relaxed mb-6">
+                                Click <strong className="text-brand-400">Smart Start</strong>. The AI picks questions you need to review.
                             </p>
+
+                            {/* Branching Logic Visualization */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Starter Plan</div>
+                                    <div className="flex items-center gap-2 text-white mb-2">
+                                        <div className="w-2 h-2 rounded-full bg-slate-500"></div>
+                                        <span>5 Questions / Day</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500">Perfect for maintaining your daily streak.</p>
+                                </div>
+                                <div className="bg-gradient-to-br from-brand-900/40 to-slate-900/40 rounded-xl p-4 border border-brand-500/30">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div className="text-xs font-bold text-brand-400 uppercase tracking-wider">Pro Plan</div>
+                                        <Zap className="w-3 h-3 text-brand-400" />
+                                    </div>
+                                    <div className="flex items-center gap-2 text-white mb-2">
+                                        <div className="w-2 h-2 rounded-full bg-brand-500"></div>
+                                        <span>Unlimited Practice</span>
+                                    </div>
+                                    <p className="text-xs text-slate-400">Accelerate your mastery with no limits.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -125,11 +154,18 @@ export default function Help() {
                                 <h3 className="text-xl font-bold text-white">4. Target Weaknesses</h3>
                                 <span className="text-xs font-bold px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">REFINE</span>
                             </div>
-                            <p className="text-slate-400 leading-relaxed">
-                                Notice a Ring that is lower than the others?
-                                <strong className="text-amber-400"> Click the Ring directly</strong> to start a quiz focused ONLY on that domain.
-                                Turn those weak spots into strengths.
+                            <p className="text-slate-400 leading-relaxed mb-4">
+                                Use the <strong>Analytics</strong> tab to see advanced breakdowns of your performance.
                             </p>
+                            <div className="flex items-start gap-3 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
+                                <div className="p-1.5 bg-slate-800 rounded text-amber-400 shrink-0 mt-0.5">
+                                    <Target className="w-3 h-3" />
+                                </div>
+                                <div className="text-sm">
+                                    <strong className="text-white block mb-0.5">Pro Feature: Deep Analytics</strong>
+                                    <span className="text-slate-400">Unlock detailed readiness reports and domain-level trend analysis to spot weak points instantly.</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -146,7 +182,7 @@ export default function Help() {
                         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="text-xl font-bold text-white">5. Exam Simulator</h3>
-                                <span className="text-xs font-bold px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">MASTERY</span>
+                                <span className="text-xs font-bold px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">PRO ONLY</span>
                             </div>
                             <p className="text-slate-400 leading-relaxed">
                                 Periodically take a full mock exam. This simulates the real test environment:
@@ -204,13 +240,28 @@ export default function Help() {
                 <p className="text-slate-500 mb-8 italic">
                     "Consistency is the key to mastery."
                 </p>
-                <Link to="/app" className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white px-8 py-4 rounded-xl font-bold hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg hover:shadow-brand-500/25 group">
-                    Start My Session
-                    <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                </Link>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Link to="/app" className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white px-8 py-4 rounded-xl font-bold hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg hover:shadow-brand-500/25 group">
+                        Start My Session
+                        <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                    </Link>
+
+                    <button
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="inline-flex items-center justify-center gap-2 bg-slate-800 text-slate-300 border border-slate-700 px-8 py-4 rounded-xl font-bold hover:bg-slate-700 hover:text-white transition-all group"
+                    >
+                        <MessageSquare className="w-5 h-5 text-slate-400 group-hover:text-white" />
+                        Report a Problem
+                    </button>
+                </div>
             </div>
+
+            <ReportIssueModal
+                isOpen={isReportModalOpen}
+                onClose={() => setIsReportModalOpen(false)}
+            />
 
         </div>
 
