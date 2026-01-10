@@ -36,7 +36,7 @@ export default function Sidebar() {
                 <div className="h-8 w-8 min-w-8 rounded-lg bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center font-bold text-white">A</div>
                 {!isCollapsed && (
                     <div className="flex flex-col overflow-hidden">
-                        <span className="text-lg font-bold tracking-tight text-white truncate">AdaptiGrowth</span>
+                        <span className="text-lg font-bold tracking-tight text-white truncate">Exam Coach Pro AI</span>
                         <span className="text-[10px] text-white font-mono truncate">Version: {APP_VERSION}</span>
                     </div>
                 )}

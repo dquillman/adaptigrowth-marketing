@@ -76,7 +76,7 @@ const INITIAL_CHECKLIST: ChecklistItem[] = [
         category: 'Growth',
         completed: false,
         rationale: 'Leverage professional network for B2B/Certification audience.',
-        toolAction: { tab: 'tools', topic: 'We just launched Exam Coach AI to help you pass the PMP exam!', platform: 'LinkedIn', tone: 'Excited / Hype' }
+        toolAction: { tab: 'tools', topic: 'We just launched Exam Coach Pro AI to help you pass the PMP exam!', platform: 'LinkedIn', tone: 'Excited / Hype' }
     },
     {
         id: '6',
@@ -91,7 +91,7 @@ const INITIAL_CHECKLIST: ChecklistItem[] = [
         category: 'Retention',
         completed: false,
         rationale: 'Onboarding emails increase activation rate by ~15%.',
-        toolAction: { tab: 'tools', topic: 'Welcome to Exam Coach! Here is how to get started...', platform: 'Email Newsletter', tone: 'Professional' }
+        toolAction: { tab: 'tools', topic: 'Welcome to Exam Coach Pro AI! Here is how to get started...', platform: 'Email Newsletter', tone: 'Professional' }
     },
 ];
 

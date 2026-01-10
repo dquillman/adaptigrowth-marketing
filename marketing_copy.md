@@ -1,10 +1,10 @@
-# Exam Coach AI: The Smartest Way to Pass
+# Exam Coach Pro AI: The Smartest Way to Pass
 
 ## The Core Problem
 
 Most candidates fail not because they don't study enough, but because they study *inefficiently*. They waste hours reviewing topics they already know (because it feels good), ignore their blind spots (because it feels bad), and rely on passive techniques like reading notes, which lead to poor retention under stress.
 
-**Exam Coach AI** replaces "studying hard" with **studying smart**.
+**Exam Coach Pro AI** replaces "studying hard" with **studying smart**.
 
 ---
 
@@ -46,6 +46,6 @@ Most candidates fail not because they don't study enough, but because they study
 
 ## The Verdict
 
-Exam Coach AI isn't just a question bank; it's a personalized performance coach. It handles the strategy—what to study, when to review, how to practice—so you can focus entirely on learning.
+Exam Coach Pro AI isn't just a question bank; it's a personalized performance coach. It handles the strategy—what to study, when to review, how to practice—so you can focus entirely on learning.
 
 **Stop Guessing. Start Mastering.**

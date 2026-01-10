@@ -26,7 +26,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center font-bold text-white">A</div>
-            <span className="text-lg font-bold tracking-tight text-white">AdaptiGrowth</span>
+            <span className="text-lg font-bold tracking-tight text-white">Exam Coach Pro AI</span>
           </div>
           <div className="flex items-center gap-6">
             <button
@@ -93,7 +93,7 @@ export default function Landing() {
           <div className="relative mx-auto max-w-5xl rounded-2xl border border-slate-800 bg-slate-900/50 p-2 shadow-2xl backdrop-blur-sm">
             <img
               src="/assets/dashboard-preview.png"
-              alt="AdaptiGrowth Dashboard"
+              alt="Exam Coach Pro AI Dashboard"
               className="rounded-xl shadow-inner w-full h-auto object-cover opacity-90 hover:opacity-100 transition-opacity duration-700"
             />
           </div>
@@ -121,12 +121,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Section 2: How Exam Coach AI Fixes This (The Solution) */}
+      {/* Section 2: How Exam Coach Pro AI Fixes This (The Solution) */}
       <section className="py-24 bg-slate-900/50">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl font-bold text-white sm:text-4xl mb-4">Your New Competitive Advantage</h2>
-            <p className="text-slate-400">You already have the books. Exam Coach AI is the coach that tells you what to study—and what to skip.</p>
+            <p className="text-slate-400">You already have the books. Exam Coach Pro AI is the coach that tells you what to study—and what to skip.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -219,7 +219,7 @@ export default function Landing() {
         <div className="mx-auto max-w-4xl px-6 text-center relative z-10">
           <h2 className="text-4xl font-bold text-white mb-6">Stop Wasting Time. Start Passing.</h2>
           <p className="text-xl text-slate-400 mb-10">
-            Join the busy professionals who are passing their PMP with Exam Coach AI.
+            Join the busy professionals who are passing their PMP with Exam Coach Pro AI.
           </p>
           <button
             onClick={() => navigate("/login")}
@@ -236,9 +236,9 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded bg-slate-800 flex items-center justify-center text-xs text-white font-bold">A</div>
-            <span className="text-slate-400 font-semibold">AdaptiGrowth</span>
+            <span className="text-slate-400 font-semibold">Exam Coach Pro AI</span>
           </div>
-          <p className="text-slate-600 text-sm">© {new Date().getFullYear()} AdaptiGrowth. All rights reserved.</p>
+          <p className="text-slate-600 text-sm">© {new Date().getFullYear()} Exam Coach Pro AI. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-slate-500">
             <a href="#" className="hover:text-white">Terms</a>
             <a href="#" className="hover:text-white">Privacy</a>

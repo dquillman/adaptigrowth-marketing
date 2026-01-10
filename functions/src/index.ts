@@ -929,7 +929,7 @@ export const generateMarketingCopy = functions.https.onCall(async (data, context
 
     try {
         const prompt = `
-        Act as an expert digital marketer for "Exam Coach AI" (an app helping people pass PMP/Certification exams).
+        Act as an expert digital marketer for "Exam Coach Pro AI" (an app helping people pass PMP/Certification exams).
         
         Write a ${platform} post about: "${topic}".
         Tone: ${tone || 'Professional'}.

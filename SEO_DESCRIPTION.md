@@ -1,15 +1,15 @@
-# Exam Coach AI: SEO & Marketing Overview
+# Exam Coach Pro AI: SEO & Marketing Overview
 
 ## SEO Meta Data
 
-**Title Tag:** Exam Coach AI | Adaptive Study Tool for PMP, CompTIA & More
-**Meta Description:** Master your certification exams with Exam Coach AI. Built with React & advanced AI, featuring personalized smart quizzes, gamified progress tracking, and visual mnemonics.
+**Title Tag:** Exam Coach Pro AI | Adaptive Study Tool for PMP, CompTIA & More
+**Meta Description:** Master your certification exams with Exam Coach Pro AI. Built with React & advanced AI, featuring personalized smart quizzes, gamified progress tracking, and visual mnemonics.
 
 ---
 
 ## 🚀 Built High-Performance Technology
 
-Exam Coach AI leverages a cutting-edge tech stack to deliver a fast, reliable, and intelligent study experience.
+Exam Coach Pro AI leverages a cutting-edge tech stack to deliver a fast, reliable, and intelligent study experience.
 
 * **React & Vite:** Delivers a lightning-fast, responsive interface that loads instantly and works seamlessly across desktops, tablets, and mobile devices.
 * **Firebase:** Provides enterprise-grade real-time database capabilities, ensuring your study progress, quiz history, and mastery data are instantly synced across all your devices.
@@ -51,7 +51,7 @@ Prepare for the pressure of test day. Our simulators replicate the real exam env
 
 ## 🏷️ Top 15 SEO Tags (Tools & Benefits)
 
-Here are 15 optimized tags highlighting the technology and user benefits of Exam Coach AI:
+Here are 15 optimized tags highlighting the technology and user benefits of Exam Coach Pro AI:
 
 1. **#AdaptiveLearning** (Benefit)
 2. **#AIExamCoach** (Benefit)

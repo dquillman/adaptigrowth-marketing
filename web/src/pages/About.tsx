@@ -12,7 +12,7 @@ export default function About() {
                                 <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold font-display shadow-lg shadow-brand-500/20">
                                     E
                                 </div>
-                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
+                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </Link>
                             <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">
                                 {APP_VERSION}
@@ -30,7 +30,7 @@ export default function About() {
                     <div className="text-center space-y-4">
                         <h2 className="text-4xl font-bold text-white font-display">Master Your Exam with AI</h2>
                         <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-                            Exam Coach AI is your personalized tutor, designed to help you pass your exams efficiently and effectively.
+                            Exam Coach Pro AI is your personalized tutor, designed to help you pass your exams efficiently and effectively.
                         </p>
                     </div>
 
@@ -149,7 +149,7 @@ export default function About() {
                         <strong>Affiliation:</strong> This app is not affiliated with, endorsed, or sponsored by PMI, CompTIA, CFA Institute, or any other exam owner/regulator. PMP®, CompTIA®, and other trademarks are the property of their respective owners.
                     </p>
                 </div>
-                <p>&copy; 2025 Exam Coach AI. All rights reserved.</p>
+                <p>&copy; 2025 Exam Coach Pro AI. All rights reserved.</p>
             </footer>
         </div>
     );

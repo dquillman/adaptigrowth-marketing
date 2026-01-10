@@ -278,7 +278,7 @@ export default function Dashboard() {
                                 >
                                     <LevelBadge level={userLevel} xp={userXp} size="sm" />
                                 </button>
-                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach AI</h1>
+                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </div>
                             <div className="flex items-center gap-4">
                                 <ExamSelector />
