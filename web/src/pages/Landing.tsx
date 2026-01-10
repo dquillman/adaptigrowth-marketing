@@ -219,7 +219,7 @@ export default function Landing() {
         <div className="mx-auto max-w-4xl px-6 text-center relative z-10">
           <h2 className="text-4xl font-bold text-white mb-6">Stop Wasting Time. Start Passing.</h2>
           <p className="text-xl text-slate-400 mb-10">
-            Join thousands of busy professionals who passed their PMP with Exam Coach AI.
+            Join the busy professionals who are passing their PMP with Exam Coach AI.
           </p>
           <button
             onClick={() => navigate("/login")}
