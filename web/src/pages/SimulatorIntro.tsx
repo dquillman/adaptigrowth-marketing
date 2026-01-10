@@ -24,11 +24,22 @@ export default function SimulatorIntro() {
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
     const activeExamId = localStorage.getItem('selectedExamId') || 'default-exam';
+    const [readiness, setReadiness] = useState<any>(null);
 
     useEffect(() => {
+        const checkReadiness = async () => {
+            if (!auth.currentUser) return;
+            try {
+                const { PredictionEngine } = await import('../services/PredictionEngine');
+                const report = await PredictionEngine.calculateReadiness(auth.currentUser.uid, activeExamId);
+                setReadiness(report);
+            } catch (err) {
+                console.error("Readiness check failed", err);
+            }
+        };
+
         const fetchHistory = async () => {
             if (!auth.currentUser) return;
-
             try {
                 const q = query(
                     collection(db, 'quizAttempts'),
@@ -51,8 +62,15 @@ export default function SimulatorIntro() {
             }
         };
 
+        checkReadiness();
         fetchHistory();
     }, [activeExamId]);
+
+    // ... (rest of history fetch)
+
+    // Gate Logic
+    const isBorderline = readiness && readiness.overallScore >= 50 && readiness.overallScore < 70;
+    const notReady = readiness && readiness.overallScore < 50;
 
     const formatTime = (seconds?: number) => {
         if (!seconds) return '--:--';
@@ -67,6 +85,10 @@ export default function SimulatorIntro() {
         const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
         return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
+
+    // Override for pro users who want to ignore warning? 
+    // For now, strict warning but allow click with confirm?
+    // Implementation Plan says: "Strict warning to avoid complete lock-out"
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col p-4 md:p-8 font-sans">
@@ -86,13 +108,50 @@ export default function SimulatorIntro() {
                     </div>
                 </div>
 
+                {/* Readiness Gate Banner */}
+                {readiness && (notReady || isBorderline) && (
+                    <div className={`mb-8 p-6 rounded-2xl border ${notReady ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                        <div className="flex items-start gap-4">
+                            <div className={`p-3 rounded-full ${notReady ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                            </div>
+                            <div>
+                                <h3 className={`text-lg font-bold mb-1 ${notReady ? 'text-red-400' : 'text-yellow-400'}`}>
+                                    {notReady ? 'High Risk of Failure Detected' : 'Readiness is Borderline'}
+                                </h3>
+                                <p className="text-slate-300 mb-4 leading-relaxed">
+                                    Your Smart Readiness Score is <strong>{readiness.overallScore}%</strong>.
+                                    {notReady
+                                        ? " A full exam right now is unlikely to give you useful feedback. We strongly recommend Verbal Mode or Domain Practice first."
+                                        : " You may pass, but it will be close. Review your weakest domains before starting."}
+                                </p>
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={() => navigate('/app/verbal')}
+                                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium text-sm border border-slate-600 transition-colors"
+                                    >
+                                        Go to Verbal Mode
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/app')}
+                                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium text-sm border border-slate-600 transition-colors"
+                                    >
+                                        Practice Weakest Domain
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Main Action Card */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    <div className="lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border border-indigo-500/30 rounded-2xl p-8 relative overflow-hidden shadow-2xl">
+                    <div className={`lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border ${notReady ? 'border-red-500/20' : 'border-indigo-500/30'} rounded-2xl p-8 relative overflow-hidden shadow-2xl transition-all`}>
                         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
                         <h2 className="text-3xl font-bold text-white mb-4 relative z-10">Realistic Mock Exam</h2>
                         <div className="flex flex-wrap gap-4 mb-8 text-slate-300 relative z-10">
+                            {/* ... stats ... */}
                             <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700">
                                 <FileText className="w-4 h-4 text-indigo-400" />
                                 <span>50 Questions</span>
@@ -112,15 +171,7 @@ export default function SimulatorIntro() {
                             Results from this mode will <strong>not</strong> affect your Mastery Rings.
                         </p>
 
-                        {checkPermission('simulator') ? (
-                            <button
-                                onClick={() => navigate('/app/simulator/exam')}
-                                className="relative z-10 flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-indigo-600/25 transform hover:-translate-y-1 transition-all"
-                            >
-                                <Play className="w-5 h-5 fill-current" />
-                                Start New Exam
-                            </button>
-                        ) : (
+                        {!checkPermission('simulator') ? (
                             <div className="relative z-10">
                                 <button
                                     disabled
@@ -130,19 +181,34 @@ export default function SimulatorIntro() {
                                     Pro Feature Only
                                 </button>
                                 <p className="text-indigo-200 text-sm max-w-sm">
-                                    <span
-                                        onClick={() => navigate('/app/pricing')}
-                                        className="underline cursor-pointer hover:text-white"
-                                    >
-                                        Upgrade to Pro
-                                    </span> to access full exam simulators.
+                                    <span onClick={() => navigate('/app/pricing')} className="underline cursor-pointer hover:text-white">Upgrade to Pro</span> to access full exam simulators.
                                 </p>
                             </div>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    if (notReady) {
+                                        if (window.confirm("CRITICAL WARNING: Your readiness score indicates a high chance of failure. Are you sure you want to proceed? This may impact your confidence.")) {
+                                            navigate('/app/simulator/exam');
+                                        }
+                                    } else {
+                                        navigate('/app/simulator/exam');
+                                    }
+                                }}
+                                className={`relative z-10 flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg shadow-lg transform hover:-translate-y-1 transition-all ${notReady
+                                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/25'
+                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25'
+                                    }`}
+                            >
+                                <Play className="w-5 h-5 fill-current" />
+                                {notReady ? 'Proceed Anyway (High Risk)' : 'Start New Exam'}
+                            </button>
                         )}
                     </div>
 
-                    {/* Quick Stats or Tips (Placeholder) */}
+                    {/* Quick Stats or Tips */}
                     <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col justify-center">
+                        {/* ... tips ... */}
                         <h3 className="text-lg font-bold text-white mb-4">Exam Tips</h3>
                         <ul className="space-y-4 text-slate-400 text-sm">
                             <li className="flex gap-3">
@@ -152,10 +218,6 @@ export default function SimulatorIntro() {
                             <li className="flex gap-3">
                                 <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0">2</div>
                                 <span>Pace yourself. You have roughly 1 minute per question.</span>
-                            </li>
-                            <li className="flex gap-3">
-                                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0">3</div>
-                                <span>Read the explanation for every question in the review phase.</span>
                             </li>
                         </ul>
                     </div>

@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { X, MessageSquare, Loader2, CheckCircle2 } from 'lucide-react';
-import { db } from '../firebase';
+import { X, MessageSquare, Loader2, CheckCircle2, Upload } from 'lucide-react';
+import { db, storage } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../App';
 import { useLocation } from 'react-router-dom';
 import { APP_VERSION } from '../version';
@@ -19,6 +21,8 @@ export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalPr
     const [description, setDescription] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [screenshot, setScreenshot] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     if (!isOpen) return null;
 
@@ -29,6 +33,15 @@ export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalPr
         setLoading(true);
 
         try {
+            let attachmentUrl = null;
+
+            if (screenshot && storage) {
+                const filename = `${Date.now()}_${uuidv4()}_${screenshot.name}`;
+                const storageRef = ref(storage, `uploads/${user?.uid || 'anonymous'}/issues/${filename}`);
+                await uploadBytes(storageRef, screenshot);
+                attachmentUrl = await getDownloadURL(storageRef);
+            }
+
             await addDoc(collection(db, 'issues'), {
                 userId: user?.uid || 'anonymous',
                 userEmail: user?.email || 'anonymous',
@@ -37,7 +50,8 @@ export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalPr
                 path: location.pathname,
                 timestamp: serverTimestamp(),
                 status: 'new',
-                version: APP_VERSION
+                version: APP_VERSION,
+                attachmentUrl
             });
 
             setSuccess(true);
@@ -46,6 +60,8 @@ export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalPr
                 setSuccess(false);
                 setDescription('');
                 setType('bug');
+                setScreenshot(null);
+                setPreviewUrl(null);
             }, 2000);
         } catch (error) {
             console.error("Error submitting issue:", error);
@@ -124,6 +140,52 @@ export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalPr
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500/50 resize-none"
                                     required
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">
+                                    Screenshot (Optional)
+                                </label>
+                                <div className="flex items-center gap-4">
+                                    <label className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded-xl cursor-pointer transition-colors text-sm font-medium text-slate-300">
+                                        <Upload className="w-4 h-4" />
+                                        {screenshot ? 'Change Image' : 'Upload Image'}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setScreenshot(file);
+                                                    setPreviewUrl(URL.createObjectURL(file));
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                    {screenshot && (
+                                        <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1 rounded-lg border border-slate-700">
+                                            <span className="text-xs text-slate-300 truncate max-w-[150px]">
+                                                {screenshot.name}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setScreenshot(null);
+                                                    setPreviewUrl(null);
+                                                }}
+                                                className="text-slate-500 hover:text-red-400"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {previewUrl && (
+                                    <div className="mt-2 relative w-full h-32 bg-slate-900 rounded-lg overflow-hidden border border-slate-700">
+                                        <img src={previewUrl} alt="Preview" className="w-full h-full object-contain" />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="bg-slate-900/50 rounded-lg p-3 text-xs text-slate-500 space-y-1">

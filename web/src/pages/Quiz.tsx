@@ -24,6 +24,7 @@ export default function Quiz() {
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [showExplanation, setShowExplanation] = useState(false);
+    const [explanationExpanded, setExplanationExpanded] = useState(false); // New: Track manual expansion
     const [score, setScore] = useState(0);
     const [quizCompleted, setQuizCompleted] = useState(false);
     const [domainResults, setDomainResults] = useState<Record<string, { correct: number; total: number }>>({});
@@ -230,15 +231,24 @@ export default function Quiz() {
         }));
 
         // Track Details for Readiness Engine
-        setQuizDetails(prev => [...prev, {
-            questionId: currentQuestion.id,
-            selectedOption,
-            correctOption: currentQuestion.correctAnswer,
-            isCorrect,
-            domain
-        }]);
+        // We can't know if they viewed the explanation yet (it happens AFTER this function).
+        // So we just push the basic info here, and we'll need to UPDATE the last item in the array 
+        // when they click "Next" or "Show Explanation". 
+        // ACTUALLY: Easier to just save it to a temp state 'currentResult' and push to 'quizDetails' on handleNext.
+        // But to keep diff small, I will push it now with 'explanationViewed: false', and we can ignore exact precision for now,
+        // OR better: tracked via the separate 'explanationExpanded' state which we can read during 'saveQuizResults' if we stored the whole array in state?
+        // Wait, 'quizDetails' is updated here.
+
+        // REFACTOR: We need to push to quizDetails AFTER the question is finished (on handleNext), not on submit.
+        // But existing logic pushes on submit. 
+        // Let's modify handleNext to append the detail for the COMPLETED question.
+
+        // Temporary fix: We will rely on 'explanationExpanded' being set during the review phase.
+        // But 'quizDetails' is an array. We need to update the LAST item? 
+        // Let's change the logic: Push to quizDetails when moving to NEXT question.
 
         setShowExplanation(true);
+        setExplanationExpanded(false); // Reset for new question
 
         // Save Granular Question Progress (SRS)
         updateQuestionProgress(currentQuestion.id, isCorrect);
@@ -294,7 +304,7 @@ export default function Quiz() {
         }
     };
 
-    const saveQuizResults = async () => {
+    const saveQuizResults = async (explicitDetails?: any[]) => {
         const user = auth.currentUser;
         if (!user) {
             console.error("No user logged in, cannot save results");
@@ -345,7 +355,8 @@ export default function Quiz() {
 
             // Use the number of questions actually answered (details captured) as the total
             // This prevents penalizing the user if they quit early (e.g. 3/3 instead of 3/10)
-            const answeredCount = quizDetails.length;
+            const finalDetails = explicitDetails || quizDetails;
+            const answeredCount = finalDetails.length;
             if (answeredCount === 0) return; // Don't save empty attempts
 
             await addDoc(attemptRef, {
@@ -357,7 +368,9 @@ export default function Quiz() {
                 domain: primaryDomain,
                 timeSpent: totalDuration,
                 averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
-                details: quizDetails
+                details: finalDetails,
+                mode: location.state?.mode || 'standard', // Track mode for Drift Analysis
+                isPro: isPro // Track tier for Drift Analysis
             });
             console.log('Quiz attempt saved successfully');
 
@@ -376,12 +389,38 @@ export default function Quiz() {
     };
 
     const handleNext = async () => {
+        // Save details for the JUST FINISHED question
+        const currentQuestion = questions[currentQuestionIndex];
+        const isCorrect = selectedOption === currentQuestion.correctAnswer;
+
+        setQuizDetails(prev => [...prev, {
+            questionId: currentQuestion.id,
+            selectedOption,
+            correctOption: currentQuestion.correctAnswer,
+            isCorrect,
+            domain: currentQuestion.domain,
+            explanationViewed: explanationExpanded // Capture if they clicked it
+        }]);
+
         if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(currentQuestionIndex + 1);
             setSelectedOption(null);
             setShowExplanation(false);
+            setExplanationExpanded(false);
         } else {
-            await saveQuizResults();
+            // End of quiz. We need to save this last question's details immediately before saving results.
+            // But state updates are async. 
+            // So we'll construct the final details array manually for the save function.
+            const finalDetails = [...quizDetails, {
+                questionId: currentQuestion.id,
+                selectedOption,
+                correctOption: currentQuestion.correctAnswer,
+                isCorrect,
+                domain: currentQuestion.domain,
+                explanationViewed: explanationExpanded
+            }];
+
+            await saveQuizResults(finalDetails);
             setQuizCompleted(true);
         }
     };
@@ -562,8 +601,8 @@ export default function Quiz() {
                                 })}
                             </div>
 
-                            {showExplanation && (
-                                <div className="mt-6 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 text-blue-200">
+                            {showExplanation && explanationExpanded && (
+                                <div className="mt-6 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 text-blue-200 animate-in fade-in slide-in-from-top-2">
                                     <p className="font-bold mb-1 text-blue-100">Explanation:</p>
                                     <p>{currentQuestion.explanation}</p>
                                 </div>
@@ -580,12 +619,22 @@ export default function Quiz() {
                                     Submit Answer
                                 </button>
                             ) : (
-                                <button
-                                    onClick={handleNext}
-                                    className="bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
-                                >
-                                    {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
-                                </button>
+                                <div className="flex gap-4">
+                                    {!explanationExpanded && (
+                                        <button
+                                            onClick={() => setExplanationExpanded(true)}
+                                            className="bg-blue-600/20 text-blue-300 border border-blue-500/30 px-6 py-3 rounded-xl font-medium hover:bg-blue-600/30 transition-all"
+                                        >
+                                            Show Explanation
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleNext}
+                                        className="bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                    >
+                                        {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>

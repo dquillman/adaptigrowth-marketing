@@ -4,6 +4,7 @@ import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
 import { getFunctions, type Functions } from 'firebase/functions';
 import { getAnalytics, type Analytics } from "firebase/analytics";
 import { getPerformance, type FirebasePerformance } from "firebase/performance";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBBlyZqdAJw_yNNfUQfVW59eYgkrBJLUCQ",
@@ -21,6 +22,7 @@ let auth: Auth;
 let functions: Functions;
 let analytics: Analytics;
 let perf: FirebasePerformance;
+let storage: FirebaseStorage;
 
 try {
     app = initializeApp(firebaseConfig);
@@ -34,6 +36,7 @@ try {
     console.log('Analytics initialized');
     perf = getPerformance(app);
     console.log('Performance initialized');
+    storage = getStorage(app);
 
     // if (location.hostname === "localhost") {
     //     connectFirestoreEmulator(db, 'localhost', 8080);
@@ -46,4 +49,4 @@ try {
 }
 
 const googleProvider = new GoogleAuthProvider();
-export { db, auth, googleProvider, functions, analytics, perf };
+export { db, auth, googleProvider, functions, analytics, perf, storage };

@@ -1,7 +1,13 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Users, Megaphone, Activity, LayoutDashboard, AlertCircle, Stethoscope } from 'lucide-react';
 import QuestionEditor from './components/QuestionEditor';
 import Dashboard from './pages/Dashboard';
 import ExamEditor from './pages/ExamEditor';
+import UsersPage from './pages/UsersPage';
+import MarketingPage from './pages/MarketingPage';
+import ExamHealthPage from './pages/ExamHealthPage';
+import { SystemHealthPage } from './pages/SystemHealthPage';
+
 import Login from './pages/Login';
 import Settings from './pages/Settings';
 import IssuesList from './pages/IssuesList';
@@ -35,11 +41,23 @@ function Layout() {
         <nav className="mt-8 flex-1 px-4 space-y-2">
           <Link to="/" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
+              <LayoutDashboard className="w-5 h-5" />
             </div>
             <span className="font-medium">Dashboard</span>
+          </Link>
+
+          <Link to="/system-health" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Activity className="w-5 h-5" />
+            </div>
+            <span className="font-medium">System Health</span>
+          </Link>
+
+          <Link to="/users" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Users</span>
           </Link>
 
           <Link to="/questions/new" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
@@ -61,13 +79,24 @@ function Layout() {
           </Link>
           <Link to="/issues" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <AlertCircle className="w-5 h-5" />
             </div>
             <span className="font-medium">Issues</span>
           </Link>
+          <Link to="/marketing" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Marketing</span>
+          </Link>
+          <Link to="/exam-health" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Stethoscope className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Exam Health</span>
+          </Link>
         </nav>
+
 
         <div className="p-6 border-t border-white/5">
           <div className="bg-slate-800/50 rounded-xl p-4 border border-white/5">
@@ -76,7 +105,7 @@ function Layout() {
               <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
               <span className="text-sm text-slate-300">Operational</span>
             </div>
-            <div className="mt-2 text-[10px] text-slate-600 font-mono">v0.1.8</div>
+            <div className="mt-2 text-[10px] text-slate-600 font-mono">v1.10.0 (Phase 3)</div>
           </div>
         </div>
       </aside>
@@ -87,6 +116,11 @@ function Layout() {
           <Route path="/" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/users" element={
+            <ProtectedRoute>
+              <UsersPage />
             </ProtectedRoute>
           } />
           <Route path="/exams/:examId" element={
@@ -109,7 +143,23 @@ function Layout() {
               <IssuesList />
             </ProtectedRoute>
           } />
+          <Route path="/marketing" element={
+            <ProtectedRoute>
+              <MarketingPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/exam-health" element={
+            <ProtectedRoute>
+              <ExamHealthPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/system-health" element={
+            <ProtectedRoute>
+              <SystemHealthPage />
+            </ProtectedRoute>
+          } />
         </Routes>
+
       </main>
     </div>
   );

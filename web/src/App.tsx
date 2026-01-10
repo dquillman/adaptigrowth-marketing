@@ -132,7 +132,39 @@ function AppLayout() {
 
 import { ExamProvider } from "./contexts/ExamContext";
 
+// --- Analytics Hook ---
+import { httpsCallable } from 'firebase/functions';
+import { functions } from './firebase';
+
+function useAnalytics() {
+  useEffect(() => {
+    const trackVisit = async () => {
+      // Basic unique session tracking
+      if (sessionStorage.getItem('visited_session')) return;
+
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const source = searchParams.get('utm_source') || 'direct'; // Default to direct
+
+        // Log to backend
+        const logVisitor = httpsCallable(functions, 'logVisitorEvent');
+        await logVisitor({ source, path: window.location.pathname });
+
+        // Mark session as tracked
+        sessionStorage.setItem('visited_session', 'true');
+        console.log('Analytics: Visit logged from', source);
+      } catch (error) {
+        console.error('Analytics: Failed to log visit', error);
+      }
+    };
+
+    trackVisit();
+  }, []);
+}
+
 function App() {
+  useAnalytics(); // Initialize Analytics
+
   return (
     <AuthProvider>
       <SidebarProvider>

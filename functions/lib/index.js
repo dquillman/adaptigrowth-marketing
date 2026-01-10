@@ -1,14 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.resetExamProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = void 0;
+exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const openai_1 = require("openai");
 admin.initializeApp();
 const db = admin.firestore();
-const openai = new openai_1.default({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy init OpenAI to prevent deploy-time crashes if env var is missing
+let openai;
+const getOpenAI = () => {
+    if (!openai) {
+        if (!process.env.OPENAI_API_KEY) {
+            console.warn("OPENAI_API_KEY is not set.");
+        }
+        openai = new openai_1.default({
+            apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-deploy',
+        });
+    }
+    return openai;
+};
 // Simple SM-2 implementation for MVP
 const calculatePriority = (mastery) => {
     if (!mastery || mastery.total === 0)
@@ -131,7 +141,7 @@ exports.generateQuestions = functions
         difficultyPrompt = "Difficulty: Mixed distribution (approx 30% Easy, 40% Medium, 30% Hard).";
     }
     try {
-        const completion = await openai.chat.completions.create({
+        const completion = await getOpenAI().chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
                 {
@@ -329,7 +339,7 @@ exports.batchGenerateQuestions = functions
             const storedStemsArray = Array.from(existingStems);
             const randomSample = storedStemsArray.sort(() => 0.5 - Math.random()).slice(0, 30);
             try {
-                const completion = await openai.chat.completions.create({
+                const completion = await getOpenAI().chat.completions.create({
                     model: "gpt-4o-mini",
                     messages: [
                         {
@@ -506,6 +516,107 @@ exports.deleteExamQuestions = functions
  * Resets all progress for a specific user and exam.
  * Deletes:
  * 1. userMastery document
+ * 2. quizAttempts (optional, but good for clean slate)
+ */
+exports.resetUserProgress = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+    const userId = context.auth.uid;
+    const { examId } = data;
+    if (!examId)
+        throw new functions.https.HttpsError('invalid-argument', 'examId is required');
+    try {
+        // 1. Delete Mastery
+        await db.collection('userMastery').doc(`${userId}_${examId}`).delete();
+        // 2. Delete Attempts (Optional - might want to keep history?)
+        // For now, keeping attempts but resetting mastery is safer.
+        // If user wants FULL reset, we can delete attempts too.
+        return { success: true, message: 'Progress reset.' };
+    }
+    catch (error) {
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+// --- Admin Functions ---
+exports.getAdminUserList = functions.https.onCall(async (data, context) => {
+    // Basic security check (ideally check for admin claim or specific email)
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+    // In a real app, verify admin role here.
+    // const adminEmails = ['daveq@...'];
+    // if (!adminEmails.includes(context.auth.token.email)) ...
+    try {
+        const listUsersResult = await admin.auth().listUsers(1000); // Limit 1000 for MVP
+        const users = listUsersResult.users;
+        // Fetch Firestore profiles (to see Pro status)
+        const profilesSnap = await db.collection('users').get();
+        const profilesMap = new Map();
+        profilesSnap.forEach(doc => {
+            profilesMap.set(doc.id, doc.data());
+        });
+        // Merge Data
+        const mergedUsers = users.map(user => {
+            const profile = profilesMap.get(user.uid);
+            return {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+                creationTime: user.metadata.creationTime,
+                lastSignInTime: user.metadata.lastSignInTime,
+                isPro: (profile === null || profile === void 0 ? void 0 : profile.isPro) || false,
+                stripeCustomerId: profile === null || profile === void 0 ? void 0 : profile.stripeCustomerId,
+                subscriptionStatus: profile === null || profile === void 0 ? void 0 : profile.subscriptionStatus
+            };
+        });
+        // Sort by Creation Time (Newest First)
+        mergedUsers.sort((a, b) => {
+            const timeA = new Date(a.creationTime).getTime();
+            const timeB = new Date(b.creationTime).getTime();
+            return timeB - timeA;
+        });
+        return { users: mergedUsers };
+    }
+    catch (error) {
+        console.error("Error fetching users:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+exports.getGlobalStats = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    try {
+        const today = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        // 1. Quiz Activity (Last 30 Days)
+        // Note: In high traffic, don't query collection directly. Use aggregated counters. 
+        // For MVP, querying is okay.
+        const attemptsSnap = await db.collection('quizAttempts')
+            .where('timestamp', '>=', thirtyDaysAgo)
+            .get();
+        const activityByDate = {};
+        attemptsSnap.forEach(doc => {
+            const date = doc.data().timestamp.toDate().toISOString().split('T')[0];
+            activityByDate[date] = (activityByDate[date] || 0) + 1;
+        });
+        const activityGraph = Object.entries(activityByDate)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+        return {
+            activityGraph
+        };
+    }
+    catch (error) {
+        console.error("Error fetching stats:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+/**
+ * Resets all progress for a specific user and exam.
+ * Deletes:
+ * 1. userMastery document
  * 2. All quizAttempts for that exam
  */
 exports.resetExamProgress = functions.https.onCall(async (data, context) => {
@@ -552,6 +663,10 @@ Object.defineProperty(exports, "createPortalSession", { enumerable: true, get: f
 Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return stripe_1.stripeWebhook; } });
 Object.defineProperty(exports, "getSubscriptionDetails", { enumerable: true, get: function () { return stripe_1.getSubscriptionDetails; } });
 Object.defineProperty(exports, "cancelSubscription", { enumerable: true, get: function () { return stripe_1.cancelSubscription; } });
+var analytics_1 = require("./analytics");
+Object.defineProperty(exports, "analyzeExamHealth", { enumerable: true, get: function () { return analytics_1.analyzeExamHealth; } });
+var quality_1 = require("./quality"); // Phase 2
+Object.defineProperty(exports, "evaluateQuestionQuality", { enumerable: true, get: function () { return quality_1.evaluateQuestionQuality; } });
 async function deleteQueryBatch(db, query, resolve) {
     const snapshot = await query.get();
     const batchSize = snapshot.size;
@@ -566,9 +681,135 @@ async function deleteQueryBatch(db, query, resolve) {
     });
     await batch.commit();
     // Recurse on the next process tick, to avoid
-    // exploding the stack.
     process.nextTick(() => {
         deleteQueryBatch(db, query, resolve);
     });
 }
+// --- Marketing Functions ---
+exports.logVisitorEvent = functions.https.onCall(async (data, context) => {
+    // Note: Publicly callable, but we should rate limit in production.
+    const { source = 'direct' } = data;
+    const today = new Date().toISOString().split('T')[0];
+    const statsRef = db.collection('dailyStats').doc(today);
+    try {
+        await statsRef.set({
+            date: today,
+            visitors: admin.firestore.FieldValue.increment(1),
+            [`sources.${source}`]: admin.firestore.FieldValue.increment(1)
+        }, { merge: true });
+        return { success: true };
+    }
+    catch (error) {
+        console.error("Error logging visitor:", error);
+        return { success: false };
+    }
+});
+exports.generateMarketingCopy = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    const { topic, tone, platform } = data;
+    if (!topic || !platform) {
+        throw new functions.https.HttpsError('invalid-argument', 'Topic and Platform are required.');
+    }
+    try {
+        const prompt = `
+        Act as an expert digital marketer for "Exam Coach AI" (an app helping people pass PMP/Certification exams).
+        
+        Write a ${platform} post about: "${topic}".
+        Tone: ${tone || 'Professional'}.
+        
+        Requirements:
+        - Use engaging hooks.
+        - Include relevant hashtags if applicable to the platform.
+        - Encourage users to try the app.
+        - Keep it concise and optimized for ${platform}.
+        `;
+        const completion = await getOpenAI().chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                { role: "system", content: "You are a world-class marketing copywriter." },
+                { role: "user", content: prompt }
+            ],
+        });
+        const copy = completion.choices[0].message.content || "";
+        return { copy };
+    }
+    catch (error) {
+        console.error("Error generating marketing copy:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+exports.getMarketingAnalytics = functions.https.onCall(async (data, context) => {
+    var _a, _b, _c, _d;
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    try {
+        const today = new Date();
+        const stats = [];
+        // Fetch Real Data Collections
+        const usersSnap = await db.collection('users').get();
+        const attemptsSnap = await db.collection('quizAttempts').get();
+        const dailyStatsSnap = await db.collection('dailyStats').orderBy('date', 'desc').limit(30).get();
+        const dailyStatsMap = new Map();
+        dailyStatsSnap.docs.forEach(doc => {
+            dailyStatsMap.set(doc.id, doc.data());
+        });
+        // Helper to check date
+        const isSameDate = (d1, d2) => d1.toISOString().split('T')[0] === d2.toISOString().split('T')[0];
+        // Generate last 30 days
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            // 1. Visitors & Sources (Real from dailyStats)
+            const dayStats = dailyStatsMap.get(dateStr) || { visitors: 0, sources: {} };
+            const visitors = dayStats.visitors || 0;
+            const sources = {
+                organic: ((_a = dayStats.sources) === null || _a === void 0 ? void 0 : _a.organic) || 0,
+                social: ((_b = dayStats.sources) === null || _b === void 0 ? void 0 : _b.social) || 0,
+                direct: ((_c = dayStats.sources) === null || _c === void 0 ? void 0 : _c.direct) || 0,
+                ads: ((_d = dayStats.sources) === null || _d === void 0 ? void 0 : _d.ads) || 0
+            };
+            // 2. Signups (Real)
+            const signups = usersSnap.docs.filter(doc => {
+                var _a;
+                const created = ((_a = doc.data().createdAt) === null || _a === void 0 ? void 0 : _a.toDate()) || new Date(doc.data().creationTime || 0);
+                return isSameDate(created, d);
+            }).length;
+            // 3. Activations (Real - First Quiz Attempt)
+            // Ideally we check if it was their *first* attempt, but for MVP we'll just count unique active users that day
+            const activeUsers = new Set();
+            attemptsSnap.docs.forEach(doc => {
+                if (isSameDate(doc.data().timestamp.toDate(), d)) {
+                    activeUsers.add(doc.data().userId);
+                }
+            });
+            const activations = activeUsers.size;
+            // 4. Upgrades (Real - Payment records)
+            // NOTE: Assuming there's a 'payments' collection or looking at users with subscriptionStatus === 'active'
+            // For now, we'll estimate based on users table 'subscriptionStatus' change date if available, 
+            // OR just hardcode 0 if no payment history collection is available to context.
+            // Let's look for users created on this day who match 'pmp_pro'
+            const upgrades = usersSnap.docs.filter(doc => {
+                var _a;
+                const created = ((_a = doc.data().createdAt) === null || _a === void 0 ? void 0 : _a.toDate()) || new Date(doc.data().creationTime || 0);
+                return isSameDate(created, d) && doc.data().subscriptionStatus === 'active';
+            }).length; // This is a rough proxy: "New Users who are Active"
+            stats.push({
+                date: dateStr,
+                visitors,
+                signups,
+                activations,
+                upgrades,
+                revenue: upgrades * 29,
+                sources
+            });
+        }
+        return { stats };
+    }
+    catch (error) {
+        console.error("Error fetching analytics:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
 //# sourceMappingURL=index.js.map

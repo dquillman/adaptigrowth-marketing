@@ -23,6 +23,20 @@
                     "order": "ASCENDING"
                 },
                 {
+                    "fieldPath": "timestamp",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "quizAttempts",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "examId",
+                    "order": "ASCENDING"
+                },
+                {
                     "fieldPath": "userId",
                     "order": "ASCENDING"
                 },
@@ -68,6 +82,20 @@
                 },
                 {
                     "fieldPath": "createdAt",
+                    "order": "DESCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "system_metrics",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "type",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "timestamp",
                     "order": "DESCENDING"
                 }
             ]

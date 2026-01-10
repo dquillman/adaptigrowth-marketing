@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Loader2, MessageSquare, CheckCircle2, Trash2, AlertCircle, ArrowUpDown, Search, Filter, Calendar, ArchiveRestore, RefreshCcw, XCircle } from 'lucide-react';
+import { Loader2, MessageSquare, CheckCircle2, Trash2, AlertCircle, ArrowUpDown, Search, Filter, Calendar, ArchiveRestore, RefreshCcw, XCircle, Image as ImageIcon } from 'lucide-react';
 
 interface Issue {
     id: string;
@@ -14,6 +14,7 @@ interface Issue {
     status: 'new' | 'working' | 'fixed' | 'released';
     version: string;
     deleted?: boolean;
+    attachmentUrl?: string;
 }
 
 export default function IssuesList() {
@@ -318,6 +319,17 @@ export default function IssuesList() {
                                         <div className="max-w-md">
                                             <p className="text-slate-300 line-clamp-2">{issue.description}</p>
                                             <p className="text-xs text-slate-500 mt-1 font-mono truncate">{issue.path}</p>
+                                            {issue.attachmentUrl && (
+                                                <a
+                                                    href={issue.attachmentUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-slate-900 rounded border border-slate-700 text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                                                >
+                                                    <ImageIcon className="w-3 h-3" />
+                                                    View Screenshot
+                                                </a>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">

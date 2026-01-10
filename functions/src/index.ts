@@ -5,9 +5,21 @@ import OpenAI from "openai";
 admin.initializeApp();
 
 const db = admin.firestore();
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+
+
+// Lazy init OpenAI to prevent deploy-time crashes if env var is missing
+let openai: OpenAI;
+const getOpenAI = () => {
+    if (!openai) {
+        if (!process.env.OPENAI_API_KEY) {
+            console.warn("OPENAI_API_KEY is not set.");
+        }
+        openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-deploy',
+        });
+    }
+    return openai;
+};
 
 interface MasteryData {
     correct: number;
@@ -26,6 +38,13 @@ const calculatePriority = (mastery: MasteryData | undefined): number => {
     return 10; // Low priority if mastered
 };
 
+// Helper to check if dates are within N days
+const isRecent = (timestamp: admin.firestore.Timestamp, days: number) => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return timestamp.toDate() > cutoff;
+};
+
 export const getAdaptiveQuestions = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
@@ -36,27 +55,112 @@ export const getAdaptiveQuestions = functions.https.onCall(async (data, context)
     const count = data.count || 10;
 
     try {
-        // 1. Fetch User Mastery
-        const masteryRef = db.collection('userMastery').doc(`${userId}_${examId}`);
-        const masteryDoc = await masteryRef.get();
+        // 1. Fetch Data Parallelly
+        const [masteryDoc, questionsSnap, attemptsSnap] = await Promise.all([
+            db.collection('userMastery').doc(`${userId}_${examId}`).get(),
+            db.collection('questions').where('examId', '==', examId).limit(200).get(), // Bump limit for variants
+            db.collection('quizAttempts')
+                .where('userId', '==', userId)
+                .where('examId', '==', examId)
+                .orderBy('timestamp', 'desc')
+                .limit(100) // Scan last 100 attempts for history
+                .get()
+        ]);
+
         const masteryData = masteryDoc.exists ? masteryDoc.data()?.masteryData || {} : {};
+        const allQuestions = questionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // 2. Determine Weakest Domains
-        // We'll fetch all questions for now (MVP) and filter/sort in memory.
-        // In production, we'd query specific collections based on metadata.
-        const questionsSnapshot = await db.collection('questions').where('examId', '==', examId).limit(100).get();
-        const allQuestions = questionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Map attempts for quick lookup: questionId -> { isCorrect, timestamp }
+        const attemptHistory = new Map();
+        attemptsSnap.forEach(doc => {
+            const att = doc.data();
+            // We want the MOST RECENT attempt for each question, which is guaranteed by desc sort order if we only set if missing
+            if (!attemptHistory.has(att.questionId)) {
+                attemptHistory.set(att.questionId, {
+                    isCorrect: att.isCorrect,
+                    timestamp: att.timestamp
+                });
+            }
+        });
 
-        // 3. Score Questions based on Domain Mastery
-        const scoredQuestions = allQuestions.map((q: any) => {
+        // 2. Group by Variant
+        const variantGroups: Record<string, any[]> = {};
+        const singles: any[] = [];
+
+        allQuestions.forEach((q: any) => {
+            if (q.variantGroupId) {
+                if (!variantGroups[q.variantGroupId]) variantGroups[q.variantGroupId] = [];
+                variantGroups[q.variantGroupId].push(q);
+            } else {
+                singles.push(q);
+            }
+        });
+
+        const candidates: any[] = [...singles];
+
+        // 3. Process Variants (Select 1 per group)
+        Object.entries(variantGroups).forEach(([groupId, variants]) => {
+            if (variants.length === 0) return;
+
+            // Integrity Check: Warn if mixed domains
+            const domains = new Set(variants.map(v => v.domain));
+            if (domains.size > 1) {
+                console.warn(`Integrity Warning: Variant Group ${groupId} has mixed domains: ${Array.from(domains).join(', ')}`);
+            }
+
+            const domain = variants[0].domain || 'General';
+            const domainStats = masteryData[domain] || { correct: 0, total: 0 };
+            const domainAccuracy = domainStats.total > 0 ? (domainStats.correct / domainStats.total) : 0;
+            const isStruggling = domainAccuracy < 0.60;
+
+            let selectedVariant = null;
+
+            if (isStruggling) {
+                // RULE 1: CONSISTENCY
+                // Check if user has seen any of these variants before
+                const lastSeenVariant = variants.find(v => attemptHistory.has(v.id));
+
+                if (lastSeenVariant) {
+                    // Have they mastered it? If yes, maybe rotate. If no (wrong or just seen), stick to it.
+                    const history = attemptHistory.get(lastSeenVariant.id);
+                    if (!history.isCorrect) {
+                        selectedVariant = lastSeenVariant; // Keep showing until they get it right
+                    }
+                }
+            }
+
+            if (!selectedVariant) {
+                // RULE 2: ANTI-MEMORIZATION / ROTATION
+                // Filter out variants answered correctly in last 14 days
+                const validVariants = variants.filter(v => {
+                    const h = attemptHistory.get(v.id);
+                    if (h && h.isCorrect && isRecent(h.timestamp, 14)) {
+                        return false; // Suppress recently mastered
+                    }
+                    return true;
+                });
+
+                if (validVariants.length > 0) {
+                    // Pick random from valid
+                    selectedVariant = validVariants[Math.floor(Math.random() * validVariants.length)];
+                } else {
+                    // All variants mastered recently? Pick the one seen longest ago (or random)
+                    selectedVariant = variants[Math.floor(Math.random() * variants.length)];
+                }
+            }
+
+            if (selectedVariant) candidates.push(selectedVariant);
+        });
+
+        // 4. Score Candidates
+        const scoredQuestions = candidates.map((q: any) => {
             const domain = q.domain || 'General';
             const domainMastery = masteryData[domain];
             const priority = calculatePriority(domainMastery);
-            // Add some randomness so it's not the same questions every time
             return { ...q, score: priority + Math.random() * 20 };
         });
 
-        // 4. Sort and Return Top N
+        // 5. Sort and Return Top N
         scoredQuestions.sort((a, b) => b.score - a.score);
         return scoredQuestions.slice(0, count);
 
@@ -153,7 +257,7 @@ export const generateQuestions = functions
         }
 
         try {
-            const completion = await openai.chat.completions.create({
+            const completion = await getOpenAI().chat.completions.create({
                 model: "gpt-4o-mini",
                 messages: [
                     {
@@ -397,7 +501,7 @@ export const batchGenerateQuestions = functions
                 const randomSample = storedStemsArray.sort(() => 0.5 - Math.random()).slice(0, 30);
 
                 try {
-                    const completion = await openai.chat.completions.create({
+                    const completion = await getOpenAI().chat.completions.create({
                         model: "gpt-4o-mini",
                         messages: [
                             {
@@ -598,6 +702,122 @@ export const deleteExamQuestions = functions
  * Resets all progress for a specific user and exam.
  * Deletes:
  * 1. userMastery document
+ * 2. quizAttempts (optional, but good for clean slate)
+ */
+export const resetUserProgress = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+
+    const userId = context.auth.uid;
+    const { examId } = data;
+
+    if (!examId) throw new functions.https.HttpsError('invalid-argument', 'examId is required');
+
+    try {
+        // 1. Delete Mastery
+        await db.collection('userMastery').doc(`${userId}_${examId}`).delete();
+
+        // 2. Delete Attempts (Optional - might want to keep history?)
+        // For now, keeping attempts but resetting mastery is safer.
+        // If user wants FULL reset, we can delete attempts too.
+
+        return { success: true, message: 'Progress reset.' };
+    } catch (error: any) {
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+// --- Admin Functions ---
+
+export const getAdminUserList = functions.https.onCall(async (data, context) => {
+    // Basic security check (ideally check for admin claim or specific email)
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+
+    // In a real app, verify admin role here.
+    // const adminEmails = ['daveq@...'];
+    // if (!adminEmails.includes(context.auth.token.email)) ...
+
+    try {
+        const listUsersResult = await admin.auth().listUsers(1000); // Limit 1000 for MVP
+        const users = listUsersResult.users;
+
+        // Fetch Firestore profiles (to see Pro status)
+        const profilesSnap = await db.collection('users').get();
+        const profilesMap = new Map();
+        profilesSnap.forEach(doc => {
+            profilesMap.set(doc.id, doc.data());
+        });
+
+        // Merge Data
+        const mergedUsers = users.map(user => {
+            const profile = profilesMap.get(user.uid);
+            return {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL,
+                creationTime: user.metadata.creationTime,
+                lastSignInTime: user.metadata.lastSignInTime,
+                isPro: profile?.isPro || false,
+                stripeCustomerId: profile?.stripeCustomerId,
+                subscriptionStatus: profile?.subscriptionStatus
+            };
+        });
+
+        // Sort by Creation Time (Newest First)
+        mergedUsers.sort((a, b) => {
+            const timeA = new Date(a.creationTime).getTime();
+            const timeB = new Date(b.creationTime).getTime();
+            return timeB - timeA;
+        });
+
+        return { users: mergedUsers };
+
+    } catch (error: any) {
+        console.error("Error fetching users:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+export const getGlobalStats = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+    try {
+        const today = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+
+        // 1. Quiz Activity (Last 30 Days)
+        // Note: In high traffic, don't query collection directly. Use aggregated counters. 
+        // For MVP, querying is okay.
+        const attemptsSnap = await db.collection('quizAttempts')
+            .where('timestamp', '>=', thirtyDaysAgo)
+            .get();
+
+        const activityByDate: Record<string, number> = {};
+        attemptsSnap.forEach(doc => {
+            const date = doc.data().timestamp.toDate().toISOString().split('T')[0];
+            activityByDate[date] = (activityByDate[date] || 0) + 1;
+        });
+
+        const activityGraph = Object.entries(activityByDate)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        return {
+            activityGraph
+        };
+
+    } catch (error: any) {
+        console.error("Error fetching stats:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+/**
+ * Resets all progress for a specific user and exam.
+ * Deletes:
+ * 1. userMastery document
  * 2. All quizAttempts for that exam
  */
 export const resetExamProgress = functions.https.onCall(async (data, context) => {
@@ -651,6 +871,8 @@ export const resetExamProgress = functions.https.onCall(async (data, context) =>
 });
 
 export { createCheckoutSession, createPortalSession, stripeWebhook, getSubscriptionDetails, cancelSubscription } from './stripe';
+export { analyzeExamHealth } from './analytics';
+export { evaluateQuestionQuality } from './quality'; // Phase 2
 
 
 async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: FirebaseFirestore.Query, resolve: (value?: unknown) => void) {
@@ -670,8 +892,153 @@ async function deleteQueryBatch(db: FirebaseFirestore.Firestore, query: Firebase
     await batch.commit();
 
     // Recurse on the next process tick, to avoid
-    // exploding the stack.
     process.nextTick(() => {
         deleteQueryBatch(db, query, resolve);
     });
 }
+
+// --- Marketing Functions ---
+
+export const logVisitorEvent = functions.https.onCall(async (data, context) => {
+    // Note: Publicly callable, but we should rate limit in production.
+    const { source = 'direct' } = data;
+    const today = new Date().toISOString().split('T')[0];
+    const statsRef = db.collection('dailyStats').doc(today);
+
+    try {
+        await statsRef.set({
+            date: today,
+            visitors: admin.firestore.FieldValue.increment(1),
+            [`sources.${source}`]: admin.firestore.FieldValue.increment(1)
+        }, { merge: true });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error logging visitor:", error);
+        return { success: false };
+    }
+});
+
+export const generateMarketingCopy = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+    const { topic, tone, platform } = data;
+    if (!topic || !platform) {
+        throw new functions.https.HttpsError('invalid-argument', 'Topic and Platform are required.');
+    }
+
+    try {
+        const prompt = `
+        Act as an expert digital marketer for "Exam Coach AI" (an app helping people pass PMP/Certification exams).
+        
+        Write a ${platform} post about: "${topic}".
+        Tone: ${tone || 'Professional'}.
+        
+        Requirements:
+        - Use engaging hooks.
+        - Include relevant hashtags if applicable to the platform.
+        - Encourage users to try the app.
+        - Keep it concise and optimized for ${platform}.
+        `;
+
+        const completion = await getOpenAI().chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                { role: "system", content: "You are a world-class marketing copywriter." },
+                { role: "user", content: prompt }
+            ],
+        });
+
+        const copy = completion.choices[0].message.content || "";
+        return { copy };
+
+    } catch (error: any) {
+        console.error("Error generating marketing copy:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+export const getMarketingAnalytics = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+    try {
+        const today = new Date();
+        const stats: any[] = [];
+
+        // Fetch Real Data Collections
+        const usersSnap = await db.collection('users').get();
+        const attemptsSnap = await db.collection('quizAttempts').get();
+        const dailyStatsSnap = await db.collection('dailyStats').orderBy('date', 'desc').limit(30).get();
+
+        const dailyStatsMap = new Map();
+        dailyStatsSnap.docs.forEach(doc => {
+            dailyStatsMap.set(doc.id, doc.data());
+        });
+
+        // Helper to check date
+        const isSameDate = (d1: Date, d2: Date) =>
+            d1.toISOString().split('T')[0] === d2.toISOString().split('T')[0];
+
+        // Generate last 30 days
+        for (let i = 29; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+
+            // 1. Visitors & Sources (Real from dailyStats)
+            const dayStats = dailyStatsMap.get(dateStr) || { visitors: 0, sources: {} };
+            const visitors = dayStats.visitors || 0;
+            const sources = {
+                organic: dayStats.sources?.organic || 0,
+                social: dayStats.sources?.social || 0,
+                direct: dayStats.sources?.direct || 0,
+                ads: dayStats.sources?.ads || 0
+            };
+
+            // 2. Signups (Real)
+            const signups = usersSnap.docs.filter(doc => {
+                const created = doc.data().createdAt?.toDate() || new Date(doc.data().creationTime || 0);
+                return isSameDate(created, d);
+            }).length;
+
+            // 3. Activations (Real - First Quiz Attempt)
+            // Ideally we check if it was their *first* attempt, but for MVP we'll just count unique active users that day
+            const activeUsers = new Set();
+            attemptsSnap.docs.forEach(doc => {
+                if (isSameDate(doc.data().timestamp.toDate(), d)) {
+                    activeUsers.add(doc.data().userId);
+                }
+            });
+            const activations = activeUsers.size;
+
+            // 4. Upgrades (Real - Payment records)
+            // NOTE: Assuming there's a 'payments' collection or looking at users with subscriptionStatus === 'active'
+            // For now, we'll estimate based on users table 'subscriptionStatus' change date if available, 
+            // OR just hardcode 0 if no payment history collection is available to context.
+            // Let's look for users created on this day who match 'pmp_pro'
+            const upgrades = usersSnap.docs.filter(doc => {
+                const created = doc.data().createdAt?.toDate() || new Date(doc.data().creationTime || 0);
+                return isSameDate(created, d) && doc.data().subscriptionStatus === 'active';
+            }).length; // This is a rough proxy: "New Users who are Active"
+
+            stats.push({
+                date: dateStr,
+                visitors,
+                signups,
+                activations,
+                upgrades,
+                revenue: upgrades * 29, // Est $29/mo
+                sources
+            });
+        }
+
+        return { stats };
+
+    } catch (error: any) {
+        console.error("Error fetching analytics:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+
+
