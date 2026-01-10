@@ -31,9 +31,7 @@ function Layout() {
       <aside className="w-72 bg-slate-900/50 backdrop-blur-xl border-r border-white/5 flex flex-col relative z-20">
         <div className="p-8 border-b border-white/5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold font-display shadow-[0_0_15px_rgba(2,132,199,0.4)]">
-              A
-            </div>
+            <img src="/favicon.png" alt="Admin Console Logo" className="w-8 h-8 rounded-lg object-contain shadow-[0_0_15px_rgba(2,132,199,0.4)]" />
             <h1 className="text-xl font-bold text-white font-display tracking-tight">Admin Console</h1>
           </div>
         </div>

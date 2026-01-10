@@ -9,9 +9,7 @@ export default function About() {
                     <div className="flex h-16 justify-between items-center">
                         <div className="flex items-center gap-3">
                             <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                                <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white font-bold font-display shadow-lg shadow-brand-500/20">
-                                    E
-                                </div>
+                                <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="w-8 h-8 rounded-lg object-contain shadow-lg shadow-brand-500/20" />
                                 <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </Link>
                             <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">

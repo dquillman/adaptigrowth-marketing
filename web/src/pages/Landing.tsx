@@ -25,7 +25,7 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-slate-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center font-bold text-white">E</div>
+            <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="h-8 w-8 rounded-lg object-contain" />
             <span className="text-lg font-bold tracking-tight text-white">Exam Coach Pro AI</span>
           </div>
           <div className="flex items-center gap-6">
@@ -235,7 +235,7 @@ export default function Landing() {
       <footer className="border-t border-slate-800 bg-slate-950 py-12">
         <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded bg-slate-800 flex items-center justify-center text-xs text-white font-bold">E</div>
+            <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="h-6 w-6 rounded object-contain" />
             <span className="text-slate-400 font-semibold">Exam Coach Pro AI</span>
           </div>
           <p className="text-slate-600 text-sm">© {new Date().getFullYear()} Exam Coach Pro AI. All rights reserved.</p>

@@ -33,7 +33,7 @@ export default function Sidebar() {
         <aside className={`fixed left-0 top-0 z-40 h-screen ${isCollapsed ? 'w-20' : 'w-64'} bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300`}>
             {/* Brand */}
             <div className={`flex px-6 py-6 items-center gap-2 border-b border-slate-900 ${isCollapsed ? 'justify-center' : ''} relative`}>
-                <div className="h-8 w-8 min-w-8 rounded-lg bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center font-bold text-white">E</div>
+                <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="h-8 w-8 min-w-8 rounded-lg object-contain" />
                 {!isCollapsed && (
                     <div className="flex flex-col overflow-hidden">
                         <span className="text-lg font-bold tracking-tight text-white truncate">Exam Coach Pro AI</span>

@@ -55,9 +55,7 @@ export default function Login() {
                 </div>
 
                 <div className="text-center">
-                    <div className="mx-auto w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center text-white font-bold font-display text-xl mb-4">
-                        E
-                    </div>
+                    <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="mx-auto w-12 h-12 rounded-xl object-contain mb-4" />
                     <h2 className="text-3xl font-bold tracking-tight text-white font-display">
                         {isLogin ? 'Welcome back' : 'Create an account'}
                     </h2>
