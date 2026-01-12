@@ -11,7 +11,7 @@ import { SmartQuizService } from '../services/smartQuiz';
 import { XPService } from '../services/xpService';
 import LevelBadge from '../components/LevelBadge';
 import ExamSelector from '../components/ExamSelector';
-import SpeedAccuracyChart from '../components/analytics/SpeedAccuracyChart';
+
 import LevelDetailModal from '../components/LevelDetailModal';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
 import { useExam } from '../contexts/ExamContext';
@@ -485,18 +485,7 @@ export default function Dashboard() {
                 </main>
 
 
-                {/* Analytics Section */}
-                <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                            <div>
-                                <h3 className="text-xl font-bold text-white font-display">Performance Trends</h3>
-                                <p className="text-slate-400 text-sm">Visualize your improvement in speed and accuracy over time.</p>
-                            </div>
-                        </div>
-                        <SpeedAccuracyChart currentExamId={selectedExamId} />
-                    </div>
-                </div>
+
 
                 {/* Danger Zone */}
                 <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
