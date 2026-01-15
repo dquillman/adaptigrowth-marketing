@@ -33,8 +33,23 @@ export default function Login() {
                 await createUserWithEmailAndPassword(auth, email, password);
                 window.location.href = '/app';
             }
-        } catch (err) {
-            setError((err as Error).message);
+        } catch (err: any) {
+            console.error("Login Error:", err);
+            let message = "An error occurred during sign in.";
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+                message = "Invalid email or password. Please check your credentials.";
+            } else if (err.code === 'auth/email-already-in-use') {
+                message = "This email is already registered. Please sign in instead.";
+            } else if (err.code === 'auth/weak-password') {
+                message = "Password should be at least 6 characters.";
+            } else if (err.code === 'auth/operation-not-allowed') {
+                message = "Email/Password login is not enabled in Firebase Console.";
+            } else if (err.message && err.message.includes('400')) {
+                message = "Invalid request. Please check your input.";
+            } else {
+                message = err.message || message;
+            }
+            setError(message);
         }
     };
 

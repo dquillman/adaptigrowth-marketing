@@ -761,7 +761,8 @@ export const getAdminUserList = functions.https.onCall(async (data, context) => 
                 lastSignInTime: user.metadata.lastSignInTime,
                 isPro: profile?.isPro || false,
                 stripeCustomerId: profile?.stripeCustomerId,
-                subscriptionStatus: profile?.subscriptionStatus
+                subscriptionStatus: profile?.subscriptionStatus,
+                trial: profile?.trial
             };
         });
 
@@ -1042,3 +1043,171 @@ export const getMarketingAnalytics = functions.https.onCall(async (data, context
 
 
 
+
+// --- Exam Update Monitor Functions ---
+
+export const checkForExamUpdates = functions.pubsub.schedule('every sunday 00:00').onRun(async (context) => {
+    await performExamUpdateCheck();
+});
+
+export const triggerExamUpdateCheck = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    try {
+        const results = await performExamUpdateCheck();
+        return { success: true, results };
+    } catch (error: any) {
+        console.error("Exam update check failed:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+const performExamUpdateCheck = async () => {
+    const sourcesSnapshot = await db.collection('exam_update_sources').get();
+    const results: any[] = [];
+    const crypto = require('crypto'); // Re-added crypto import
+
+    const updatePromises = sourcesSnapshot.docs.map(async (doc) => {
+        const source = doc.data();
+        let status = 'ok';
+        let signature = source.lastKnownSignature;
+        let lastChangeDetectedAt = source.lastChangeDetectedAt;
+        let lastErrorCode = null;
+        let lastErrorMessage = null;
+
+        try {
+            console.log(`Checking ${source.url}...`);
+            const response = await axios.get(source.url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                },
+                validateStatus: () => true, // Helper to catch 403s manually
+                timeout: 10000
+            });
+
+            if ([401, 403, 429].includes(response.status)) {
+                status = 'manual_review';
+                lastErrorCode = response.status;
+                lastErrorMessage = `Access blocked (${response.status}). Manual verification required.`;
+            } else if (response.status >= 500) {
+                status = 'error';
+                lastErrorCode = response.status;
+                lastErrorMessage = `Server error (${response.status})`;
+            } else if (response.status >= 400) {
+                status = 'error';
+                lastErrorCode = response.status;
+                lastErrorMessage = `Client error (${response.status})`;
+            } else {
+                // 200 OK
+                let newSignature = '';
+                if (response.headers['etag']) {
+                    newSignature = `etag:${response.headers['etag']}`;
+                } else if (response.headers['last-modified']) {
+                    newSignature = `mod:${response.headers['last-modified']}`;
+                } else {
+                    const hash = crypto.createHash('sha256').update(JSON.stringify(response.data)).digest('hex');
+                    newSignature = `hash:${hash}`;
+                }
+
+                if (source.lastKnownSignature && newSignature !== source.lastKnownSignature) {
+                    status = 'changed';
+                    lastChangeDetectedAt = admin.firestore.Timestamp.now();
+                } else {
+                    // If it was 'reviewed_ok', we can keep it or set to 'ok'. 
+                    // Let's set to 'ok' to indicate automated check passed.
+                    // BUT per requirements "Keep reviewed_ok as reviewed_ok until..."
+                    if (source.status === 'reviewed_ok') {
+                        status = 'reviewed_ok';
+                    } else {
+                        status = 'ok';
+                    }
+                }
+                signature = newSignature;
+            }
+
+        } catch (error: any) {
+            console.error(`Error checking ${source.name}:`, error.message);
+            status = 'error';
+            lastErrorMessage = error.message;
+        }
+
+        const updateData: any = {
+            lastCheckedAt: admin.firestore.Timestamp.now(),
+            status,
+            lastKnownSignature: signature,
+            lastChangeDetectedAt,
+            lastErrorCode,
+            lastErrorMessage
+        };
+
+        // If status is manual_review or error, we don't overwrite the last signature usually, 
+        // but keeping it null or stale is fine.
+
+        await doc.ref.update(updateData);
+        results.push({ name: source.name, status, url: source.url });
+    });
+
+    await Promise.all(updatePromises);
+    return results;
+};
+
+export const markSourceReviewed = functions.https.onCall(async (data: { sourceId: string, status: string, note?: string }, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    if (!data.sourceId) throw new functions.https.HttpsError('invalid-argument', 'Missing sourceId');
+
+    const status = data.status || 'reviewed_ok';
+    const note = data.note || null;
+
+    try {
+        await db.collection('exam_update_sources').doc(data.sourceId).update({
+            status: status,
+            lastHumanReviewedAt: admin.firestore.Timestamp.now(),
+            lastHumanReviewNote: note,
+            // Clear errors
+            lastErrorCode: null,
+            lastErrorMessage: null
+        });
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to mark reviewed:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
+export const seedExamSources = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+    const sources = [
+        {
+            name: "PMI PMP Exam Content Outline (ECO)",
+            url: "https://www.pmi.org/-/media/pmi/documents/public/pdf/certifications/pmp-examination-content-outline.pdf",
+            type: "pdf",
+            lastCheckedAt: null,
+            lastKnownSignature: null,
+            status: "ok",
+            lastChangeDetectedAt: null,
+            notes: "The official blueprint for the exam."
+        },
+        {
+            name: "PMI Exam Updates Page",
+            url: "https://www.pmi.org/certifications/project-management-pmp/earn-the-pmp/pmp-exam-preparation/pmp-exam-updates",
+            type: "web",
+            lastCheckedAt: null,
+            lastKnownSignature: null,
+            status: "ok",
+            lastChangeDetectedAt: null,
+            notes: "Official page announcing changes to the PMP exam."
+        }
+    ];
+
+    let count = 0;
+    for (const source of sources) {
+        // Check if exists
+        const snapshot = await db.collection('exam_update_sources').where('name', '==', source.name).get();
+        if (snapshot.empty) {
+            await db.collection('exam_update_sources').add(source);
+            count++;
+        }
+    }
+    return { success: true, message: `Seeded ${count} sources.` };
+});

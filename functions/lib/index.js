@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = void 0;
+exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const openai_1 = require("openai");
@@ -30,6 +30,12 @@ const calculatePriority = (mastery) => {
         return 50; // Medium priority
     return 10; // Low priority if mastered
 };
+// Helper to check if dates are within N days
+const isRecent = (timestamp, days) => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return timestamp.toDate() > cutoff;
+};
 exports.getAdaptiveQuestions = functions.https.onCall(async (data, context) => {
     var _a;
     if (!context.auth) {
@@ -39,24 +45,101 @@ exports.getAdaptiveQuestions = functions.https.onCall(async (data, context) => {
     const examId = data.examId || 'default-exam';
     const count = data.count || 10;
     try {
-        // 1. Fetch User Mastery
-        const masteryRef = db.collection('userMastery').doc(`${userId}_${examId}`);
-        const masteryDoc = await masteryRef.get();
+        // 1. Fetch Data Parallelly
+        const [masteryDoc, questionsSnap, attemptsSnap] = await Promise.all([
+            db.collection('userMastery').doc(`${userId}_${examId}`).get(),
+            db.collection('questions').where('examId', '==', examId).limit(200).get(),
+            db.collection('quizAttempts')
+                .where('userId', '==', userId)
+                .where('examId', '==', examId)
+                .orderBy('timestamp', 'desc')
+                .limit(100) // Scan last 100 attempts for history
+                .get()
+        ]);
         const masteryData = masteryDoc.exists ? ((_a = masteryDoc.data()) === null || _a === void 0 ? void 0 : _a.masteryData) || {} : {};
-        // 2. Determine Weakest Domains
-        // We'll fetch all questions for now (MVP) and filter/sort in memory.
-        // In production, we'd query specific collections based on metadata.
-        const questionsSnapshot = await db.collection('questions').where('examId', '==', examId).limit(100).get();
-        const allQuestions = questionsSnapshot.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
-        // 3. Score Questions based on Domain Mastery
-        const scoredQuestions = allQuestions.map((q) => {
+        const allQuestions = questionsSnap.docs.map(doc => (Object.assign({ id: doc.id }, doc.data())));
+        // Map attempts for quick lookup: questionId -> { isCorrect, timestamp }
+        const attemptHistory = new Map();
+        attemptsSnap.forEach(doc => {
+            const att = doc.data();
+            // We want the MOST RECENT attempt for each question, which is guaranteed by desc sort order if we only set if missing
+            if (!attemptHistory.has(att.questionId)) {
+                attemptHistory.set(att.questionId, {
+                    isCorrect: att.isCorrect,
+                    timestamp: att.timestamp
+                });
+            }
+        });
+        // 2. Group by Variant
+        const variantGroups = {};
+        const singles = [];
+        allQuestions.forEach((q) => {
+            if (q.variantGroupId) {
+                if (!variantGroups[q.variantGroupId])
+                    variantGroups[q.variantGroupId] = [];
+                variantGroups[q.variantGroupId].push(q);
+            }
+            else {
+                singles.push(q);
+            }
+        });
+        const candidates = [...singles];
+        // 3. Process Variants (Select 1 per group)
+        Object.entries(variantGroups).forEach(([groupId, variants]) => {
+            if (variants.length === 0)
+                return;
+            // Integrity Check: Warn if mixed domains
+            const domains = new Set(variants.map(v => v.domain));
+            if (domains.size > 1) {
+                console.warn(`Integrity Warning: Variant Group ${groupId} has mixed domains: ${Array.from(domains).join(', ')}`);
+            }
+            const domain = variants[0].domain || 'General';
+            const domainStats = masteryData[domain] || { correct: 0, total: 0 };
+            const domainAccuracy = domainStats.total > 0 ? (domainStats.correct / domainStats.total) : 0;
+            const isStruggling = domainAccuracy < 0.60;
+            let selectedVariant = null;
+            if (isStruggling) {
+                // RULE 1: CONSISTENCY
+                // Check if user has seen any of these variants before
+                const lastSeenVariant = variants.find(v => attemptHistory.has(v.id));
+                if (lastSeenVariant) {
+                    // Have they mastered it? If yes, maybe rotate. If no (wrong or just seen), stick to it.
+                    const history = attemptHistory.get(lastSeenVariant.id);
+                    if (!history.isCorrect) {
+                        selectedVariant = lastSeenVariant; // Keep showing until they get it right
+                    }
+                }
+            }
+            if (!selectedVariant) {
+                // RULE 2: ANTI-MEMORIZATION / ROTATION
+                // Filter out variants answered correctly in last 14 days
+                const validVariants = variants.filter(v => {
+                    const h = attemptHistory.get(v.id);
+                    if (h && h.isCorrect && isRecent(h.timestamp, 14)) {
+                        return false; // Suppress recently mastered
+                    }
+                    return true;
+                });
+                if (validVariants.length > 0) {
+                    // Pick random from valid
+                    selectedVariant = validVariants[Math.floor(Math.random() * validVariants.length)];
+                }
+                else {
+                    // All variants mastered recently? Pick the one seen longest ago (or random)
+                    selectedVariant = variants[Math.floor(Math.random() * variants.length)];
+                }
+            }
+            if (selectedVariant)
+                candidates.push(selectedVariant);
+        });
+        // 4. Score Candidates
+        const scoredQuestions = candidates.map((q) => {
             const domain = q.domain || 'General';
             const domainMastery = masteryData[domain];
             const priority = calculatePriority(domainMastery);
-            // Add some randomness so it's not the same questions every time
             return Object.assign(Object.assign({}, q), { score: priority + Math.random() * 20 });
         });
-        // 4. Sort and Return Top N
+        // 5. Sort and Return Top N
         scoredQuestions.sort((a, b) => b.score - a.score);
         return scoredQuestions.slice(0, count);
     }
@@ -567,7 +650,8 @@ exports.getAdminUserList = functions.https.onCall(async (data, context) => {
                 lastSignInTime: user.metadata.lastSignInTime,
                 isPro: (profile === null || profile === void 0 ? void 0 : profile.isPro) || false,
                 stripeCustomerId: profile === null || profile === void 0 ? void 0 : profile.stripeCustomerId,
-                subscriptionStatus: profile === null || profile === void 0 ? void 0 : profile.subscriptionStatus
+                subscriptionStatus: profile === null || profile === void 0 ? void 0 : profile.subscriptionStatus,
+                trial: profile === null || profile === void 0 ? void 0 : profile.trial
             };
         });
         // Sort by Creation Time (Newest First)
@@ -713,7 +797,7 @@ exports.generateMarketingCopy = functions.https.onCall(async (data, context) => 
     }
     try {
         const prompt = `
-        Act as an expert digital marketer for "Exam Coach AI" (an app helping people pass PMP/Certification exams).
+        Act as an expert digital marketer for "Exam Coach Pro AI" (an app helping people pass PMP/Certification exams).
         
         Write a ${platform} post about: "${topic}".
         Tone: ${tone || 'Professional'}.
@@ -811,5 +895,168 @@ exports.getMarketingAnalytics = functions.https.onCall(async (data, context) => 
         console.error("Error fetching analytics:", error);
         throw new functions.https.HttpsError('internal', error.message);
     }
+});
+// --- Exam Update Monitor Functions ---
+exports.checkForExamUpdates = functions.pubsub.schedule('every sunday 00:00').onRun(async (context) => {
+    await performExamUpdateCheck();
+});
+exports.triggerExamUpdateCheck = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    try {
+        const results = await performExamUpdateCheck();
+        return { success: true, results };
+    }
+    catch (error) {
+        console.error("Exam update check failed:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+const performExamUpdateCheck = async () => {
+    const sourcesSnapshot = await db.collection('exam_update_sources').get();
+    const results = [];
+    const crypto = require('crypto'); // Re-added crypto import
+    const updatePromises = sourcesSnapshot.docs.map(async (doc) => {
+        const source = doc.data();
+        let status = 'ok';
+        let signature = source.lastKnownSignature;
+        let lastChangeDetectedAt = source.lastChangeDetectedAt;
+        let lastErrorCode = null;
+        let lastErrorMessage = null;
+        try {
+            console.log(`Checking ${source.url}...`);
+            const response = await axios_1.default.get(source.url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                },
+                validateStatus: () => true,
+                timeout: 10000
+            });
+            if ([401, 403, 429].includes(response.status)) {
+                status = 'manual_review';
+                lastErrorCode = response.status;
+                lastErrorMessage = `Access blocked (${response.status}). Manual verification required.`;
+            }
+            else if (response.status >= 500) {
+                status = 'error';
+                lastErrorCode = response.status;
+                lastErrorMessage = `Server error (${response.status})`;
+            }
+            else if (response.status >= 400) {
+                status = 'error';
+                lastErrorCode = response.status;
+                lastErrorMessage = `Client error (${response.status})`;
+            }
+            else {
+                // 200 OK
+                let newSignature = '';
+                if (response.headers['etag']) {
+                    newSignature = `etag:${response.headers['etag']}`;
+                }
+                else if (response.headers['last-modified']) {
+                    newSignature = `mod:${response.headers['last-modified']}`;
+                }
+                else {
+                    const hash = crypto.createHash('sha256').update(JSON.stringify(response.data)).digest('hex');
+                    newSignature = `hash:${hash}`;
+                }
+                if (source.lastKnownSignature && newSignature !== source.lastKnownSignature) {
+                    status = 'changed';
+                    lastChangeDetectedAt = admin.firestore.Timestamp.now();
+                }
+                else {
+                    // If it was 'reviewed_ok', we can keep it or set to 'ok'. 
+                    // Let's set to 'ok' to indicate automated check passed.
+                    // BUT per requirements "Keep reviewed_ok as reviewed_ok until..."
+                    if (source.status === 'reviewed_ok') {
+                        status = 'reviewed_ok';
+                    }
+                    else {
+                        status = 'ok';
+                    }
+                }
+                signature = newSignature;
+            }
+        }
+        catch (error) {
+            console.error(`Error checking ${source.name}:`, error.message);
+            status = 'error';
+            lastErrorMessage = error.message;
+        }
+        const updateData = {
+            lastCheckedAt: admin.firestore.Timestamp.now(),
+            status,
+            lastKnownSignature: signature,
+            lastChangeDetectedAt,
+            lastErrorCode,
+            lastErrorMessage
+        };
+        // If status is manual_review or error, we don't overwrite the last signature usually, 
+        // but keeping it null or stale is fine.
+        await doc.ref.update(updateData);
+        results.push({ name: source.name, status, url: source.url });
+    });
+    await Promise.all(updatePromises);
+    return results;
+};
+exports.markSourceReviewed = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    if (!data.sourceId)
+        throw new functions.https.HttpsError('invalid-argument', 'Missing sourceId');
+    const status = data.status || 'reviewed_ok';
+    const note = data.note || null;
+    try {
+        await db.collection('exam_update_sources').doc(data.sourceId).update({
+            status: status,
+            lastHumanReviewedAt: admin.firestore.Timestamp.now(),
+            lastHumanReviewNote: note,
+            // Clear errors
+            lastErrorCode: null,
+            lastErrorMessage: null
+        });
+        return { success: true };
+    }
+    catch (error) {
+        console.error("Failed to mark reviewed:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+exports.seedExamSources = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    const sources = [
+        {
+            name: "PMI PMP Exam Content Outline (ECO)",
+            url: "https://www.pmi.org/-/media/pmi/documents/public/pdf/certifications/pmp-examination-content-outline.pdf",
+            type: "pdf",
+            lastCheckedAt: null,
+            lastKnownSignature: null,
+            status: "ok",
+            lastChangeDetectedAt: null,
+            notes: "The official blueprint for the exam."
+        },
+        {
+            name: "PMI Exam Updates Page",
+            url: "https://www.pmi.org/certifications/project-management-pmp/earn-the-pmp/pmp-exam-preparation/pmp-exam-updates",
+            type: "web",
+            lastCheckedAt: null,
+            lastKnownSignature: null,
+            status: "ok",
+            lastChangeDetectedAt: null,
+            notes: "Official page announcing changes to the PMP exam."
+        }
+    ];
+    let count = 0;
+    for (const source of sources) {
+        // Check if exists
+        const snapshot = await db.collection('exam_update_sources').where('name', '==', source.name).get();
+        if (snapshot.empty) {
+            await db.collection('exam_update_sources').add(source);
+            count++;
+        }
+    }
+    return { success: true, message: `Seeded ${count} sources.` };
 });
 //# sourceMappingURL=index.js.map

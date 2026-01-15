@@ -36,7 +36,7 @@ export const evaluateQuestionQuality = functions.https.onCall(async (_data, cont
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
 
     // const sevenDaysAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000); // Unused
-    const oneDayAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+
 
     try {
         // 2. Fetch Questions that need evaluation

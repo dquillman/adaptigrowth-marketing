@@ -1,17 +1,22 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Users, Megaphone, Activity, LayoutDashboard, AlertCircle, Stethoscope } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { Users, Megaphone, Activity, AlertCircle, Stethoscope, Target, BarChart3, BookOpen, UserCheck } from 'lucide-react';
 import QuestionEditor from './components/QuestionEditor';
 import Dashboard from './pages/Dashboard';
 import ExamEditor from './pages/ExamEditor';
 import UsersPage from './pages/UsersPage';
 import MarketingPage from './pages/MarketingPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import ExamUpdateMonitorPage from './pages/ExamUpdateMonitorPage';
+
 import ExamHealthPage from './pages/ExamHealthPage';
 import { SystemHealthPage } from './pages/SystemHealthPage';
 
 import Login from './pages/Login';
 import Settings from './pages/Settings';
 import IssuesList from './pages/IssuesList';
+import TestersPage from './pages/TestersPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import CustomerAcquisitionPage from './pages/CustomerAcquisitionPage';
 
 function Layout() {
   const location = useLocation();
@@ -37,19 +42,31 @@ function Layout() {
         </div>
 
         <nav className="mt-8 flex-1 px-4 space-y-2">
-          <Link to="/" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+          {/* EXAMS (Formerly Dashboard) */}
+          <Link to="/exams" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
-              <LayoutDashboard className="w-5 h-5" />
+              <BookOpen className="w-5 h-5" />
             </div>
-            <span className="font-medium">Dashboard</span>
+            <span className="font-medium">Exams</span>
           </Link>
 
-          <Link to="/system-health" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+          {/* ANALYTICS (New) */}
+          <Link to="/analytics" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
-              <Activity className="w-5 h-5" />
+              <BarChart3 className="w-5 h-5" />
             </div>
-            <span className="font-medium">System Health</span>
+            <span className="font-medium">Analytics</span>
           </Link>
+
+          {/* EXAM MONITORS */}
+          <Link to="/exam-updates" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Stethoscope className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Update Monitor</span>
+          </Link>
+
+          <div className="h-px bg-white/5 my-2 mx-4"></div>
 
           <Link to="/users" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
@@ -81,17 +98,43 @@ function Layout() {
             </div>
             <span className="font-medium">Issues</span>
           </Link>
+          <Link to="/testers" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <UserCheck className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Testers</span>
+          </Link>
+
+          <div className="h-px bg-white/5 my-2 mx-4"></div>
+
+          <Link to="/get-customers" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Target className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Get Customers (Coach)</span>
+          </Link>
+
           <Link to="/marketing" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
               <Megaphone className="w-5 h-5" />
             </div>
-            <span className="font-medium">Marketing</span>
+            <span className="font-medium">Marketing Assets</span>
           </Link>
+
+          <div className="h-px bg-white/5 my-2 mx-4"></div>
+
           <Link to="/exam-health" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
             <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
               <Stethoscope className="w-5 h-5" />
             </div>
             <span className="font-medium">Exam Health</span>
+          </Link>
+
+          <Link to="/system-health" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <Activity className="w-5 h-5" />
+            </div>
+            <span className="font-medium">System Health</span>
           </Link>
         </nav>
 
@@ -103,7 +146,7 @@ function Layout() {
               <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
               <span className="text-sm text-slate-300">Operational</span>
             </div>
-            <div className="mt-2 text-[10px] text-slate-600 font-mono">v1.10.0 (Phase 3)</div>
+            <div className="mt-2 text-[10px] text-slate-600 font-mono">v1.10.1 (UI Update)</div>
           </div>
         </div>
       </aside>
@@ -111,9 +154,20 @@ function Layout() {
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8 lg:p-12 relative z-10">
         <Routes>
-          <Route path="/" element={
+          <Route path="/" element={<Navigate to="/exams" replace />} />
+          <Route path="/exams" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/analytics" element={
+            <ProtectedRoute>
+              <AnalyticsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/exam-updates" element={
+            <ProtectedRoute>
+              <ExamUpdateMonitorPage />
             </ProtectedRoute>
           } />
           <Route path="/users" element={
@@ -141,6 +195,11 @@ function Layout() {
               <IssuesList />
             </ProtectedRoute>
           } />
+          <Route path="/testers" element={
+            <ProtectedRoute>
+              <TestersPage />
+            </ProtectedRoute>
+          } />
           <Route path="/marketing" element={
             <ProtectedRoute>
               <MarketingPage />
@@ -154,6 +213,11 @@ function Layout() {
           <Route path="/system-health" element={
             <ProtectedRoute>
               <SystemHealthPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/get-customers" element={
+            <ProtectedRoute>
+              <CustomerAcquisitionPage />
             </ProtectedRoute>
           } />
         </Routes>

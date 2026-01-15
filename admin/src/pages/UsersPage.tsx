@@ -16,6 +16,11 @@ interface UserData {
     lastSignInTime: string;
     isPro: boolean;
     subscriptionStatus?: string;
+    trial?: {
+        status: "active" | "expired" | "converted";
+        startDate: { _seconds: number, _nanoseconds: number };
+        endDate: { _seconds: number, _nanoseconds: number };
+    };
 }
 
 interface ActivityPoint {
@@ -208,6 +213,7 @@ export default function UsersPage() {
                             <tr>
                                 <th className="px-6 py-4">User</th>
                                 <th className="px-6 py-4">Plan</th>
+                                <th className="px-6 py-4">Trial</th>
                                 <th className="px-6 py-4">Joined</th>
                                 <th className="px-6 py-4">Last Active</th>
                                 <th className="px-6 py-4 text-right">Status</th>
@@ -234,9 +240,27 @@ export default function UsersPage() {
                                                 PRO
                                             </span>
                                         ) : (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700/50 text-slate-400 border border-slate-600/50">
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
                                                 Starter
                                             </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {user.trial?.status === 'active' ? (
+                                            <div className="flex flex-col">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 w-fit">
+                                                    Active
+                                                </span>
+                                                <span className="text-[10px] text-slate-500 mt-1 pl-1">
+                                                    Ends {new Date(user.trial.endDate._seconds * 1000).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                        ) : user.trial?.status === 'expired' ? (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+                                                Expired
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-600 text-xs">-</span>
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
@@ -246,7 +270,11 @@ export default function UsersPage() {
                                         {new Date(user.lastSignInTime).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <span className={`inline-block w-2 h-2 rounded-full ${user.isPro ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-slate-500'
+                                        <span className={`inline-block w-2 h-2 rounded-full ${user.isPro
+                                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
+                                            : user.trial?.status === 'active'
+                                                ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]'
+                                                : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
                                             }`}></span>
                                     </td>
                                 </tr>

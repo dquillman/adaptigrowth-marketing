@@ -16,6 +16,7 @@ import LevelDetailModal from '../components/LevelDetailModal';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
 import { useExam } from '../contexts/ExamContext';
 import ReportIssueModal from '../components/ReportIssueModal';
+import { useTrial } from '../hooks/useTrial';
 
 interface QuizAttempt {
     id: string;
@@ -55,6 +56,8 @@ export default function Dashboard() {
 
     const [showLevelModal, setShowLevelModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+
+    const { trial, startTrial } = useTrial();
 
     // 1. Fetch domain totals when exam context changes
     useEffect(() => {
@@ -317,171 +320,227 @@ export default function Dashboard() {
                 </nav >
 
                 <main className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-                    {/* Welcome Section */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
-                            <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
+                    {/* Trial Banner */}
+                    {trial.status === 'active' && (
+                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-xl p-4 flex items-center justify-between border border-indigo-400/30 shadow-lg">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-500/20 rounded-lg backdrop-blur-sm">
+                                    <span className="text-xl">🎁</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-white font-bold text-base">7-Day Free Trial Active</h3>
+                                    <p className="text-indigo-200 text-sm">
+                                        You have <strong className="text-white">{trial.daysRemaining} days remaining</strong> of full access.
+                                    </p>
+                                </div>
+                            </div>
+                            <Link to="/app/pricing" className="px-4 py-2 bg-white text-indigo-700 font-bold rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-md">
+                                Secure This Price
+                            </Link>
                         </div>
+                    )}
 
-                        <div className="flex gap-4">
-                            <button
-                                onClick={handleSmartStart}
-                                className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
-                            >
-                                Start Daily Practice
-                            </button>
-                            <button
-                                onClick={handleWeakestStart}
-                                className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
-                                title="Targets your weakest domains"
-                            >
-                                <span className="mr-2">⚡</span> Smart Practice
-                            </button>
-                            <button
-                                onClick={() => navigate('/app/simulator')}
-                                className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
-                                title="Full length timed exam simulation"
-                            >
-                                <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Mastery Rings Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {examDomains.map((domain, index) => {
-                            const colors = ['#C084FC', '#F472B6', '#34D399']; // Neon Purple, Neon Pink, Neon Green
-                            const color = colors[index % colors.length];
-                            const mastered = domainMasteryCounts[domain] || 0;
-                            const total = domainTotalCounts[domain] || 0;
-
-                            return (
-                                <button
-                                    key={domain}
-                                    onClick={() => navigate('/app/quiz', { state: { filterDomain: domain } })}
-                                    className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700 flex flex-col items-center hover:border-brand-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group text-left w-full relative overflow-hidden"
-                                >
-                                    <div className={`absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity`} style={{ backgroundColor: color }} />
-
-                                    <MasteryRing percentage={getPercentage(domain)} color={color} label="" />
-
-                                    <div className="mt-4 text-center">
-                                        <h3 className="text-lg font-bold text-white group-hover:text-brand-300 transition-colors">{domain}</h3>
-                                        <p className="text-sm font-medium text-slate-400 mt-1">
-                                            <span className="text-white font-bold">{mastered}</span>
-                                            <span className="mx-1 text-slate-600">/</span>
-                                            <span className="text-slate-500">{total}</span>
-                                            <span className="ml-1 text-xs uppercase tracking-wide opacity-70">Mastered</span>
-                                        </p>
-                                        <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
-                                            <span className="text-xs font-bold text-brand-400 uppercase tracking-widest border border-brand-500/30 px-4 py-1.5 rounded-full bg-brand-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
-                                                Practice Domain
-                                            </span>
-                                        </div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* Stats & Activity */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Recent Activity */}
-                        <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                            <h3 className="text-lg font-bold text-white mb-4 font-display">Recent Activity</h3>
-                            <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
-                                <div className="space-y-3">
-                                    {recentActivity.length === 0 ? (
-                                        <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
-                                    ) : (
-                                        recentActivity.map((attempt) => (
-                                            <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
-                                                        Q
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="font-medium text-slate-200">Practice Quiz</p>
-                                                            <span className="text-xs text-slate-500">
-                                                                {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
-                                                                    month: 'short',
-                                                                    day: 'numeric',
-                                                                    hour: 'numeric',
-                                                                    minute: '2-digit'
-                                                                }) : 'Just now'}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
-                                                    </div>
-                                                </div>
-                                                <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
-                                                    {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
-                                                </span>
-                                            </div>
-                                        ))
-                                    )}
+                    {/* Expired Trial Blocker */}
+                    {trial.status === 'expired' && (
+                        <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
+                            <div className="relative z-10">
+                                <h3 className="text-2xl font-bold text-white mb-2 font-display">Your 7-day free trial has ended.</h3>
+                                <p className="text-slate-400 mb-6 max-w-lg mx-auto">
+                                    We hope you enjoyed your practice sessions! To continue studying and access your detailed analytics, please upgrade your plan.
+                                </p>
+                                <div className="flex flex-col items-center gap-4">
+                                    <Link
+                                        to="/app/pricing"
+                                        className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-8 py-3 text-base font-bold text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 transition-all hover:-translate-y-0.5"
+                                    >
+                                        Upgrade to continue studying
+                                    </Link>
+                                    <a
+                                        href="mailto:support@examcoach.ai?subject=Question%20about%20Exam%20Coach%20Membership"
+                                        className="text-sm text-slate-500 hover:text-white transition-colors underline decoration-slate-700 hover:decoration-white"
+                                    >
+                                        Have questions or need help deciding?
+                                    </a>
                                 </div>
                             </div>
                         </div>
+                    )}
 
-                        {/* Daily Goal */}
-                        <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
-                            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
-                            <div className="flex justify-between items-start mb-2 relative z-10">
-                                <h3 className="text-lg font-bold font-display">Daily Goal</h3>
-                                <button
-                                    onClick={() => setIsEditingGoal(!isEditingGoal)}
-                                    className="text-brand-200 hover:text-white transition-colors"
-                                >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
-                                </button>
+                    {/* Main Content - Blurred if Expired */}
+                    <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
+                        {/* Welcome Section */}
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
+                                <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
                             </div>
 
-                            {
-                                isEditingGoal ? (
-                                    <div className="mb-4 relative z-10">
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="number"
-                                                value={newGoal}
-                                                onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
-                                                className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
-                                            />
-                                            <button
-                                                onClick={saveGoal}
-                                                className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
-                                            >
-                                                Save
-                                            </button>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={handleSmartStart}
+                                    className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                >
+                                    Start Daily Practice
+                                </button>
+                                <button
+                                    onClick={handleWeakestStart}
+                                    className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
+                                    title="Targets your weakest domains"
+                                >
+                                    <span className="mr-2">⚡</span> Smart Practice
+                                </button>
+                                <button
+                                    onClick={() => navigate('/app/simulator')}
+                                    className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
+                                    title="Full length timed exam simulation"
+                                >
+                                    <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
+                                </button>
+                                {trial.status === 'none' && (
+                                    <button
+                                        onClick={startTrial}
+                                        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 transition-all transform hover:-translate-y-0.5 border border-emerald-400/20"
+                                    >
+                                        Start 7-Day Free Trial
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Mastery Rings Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                            {examDomains.map((domain, index) => {
+                                const colors = ['#C084FC', '#F472B6', '#34D399']; // Neon Purple, Neon Pink, Neon Green
+                                const color = colors[index % colors.length];
+                                const mastered = domainMasteryCounts[domain] || 0;
+                                const total = domainTotalCounts[domain] || 0;
+
+                                return (
+                                    <button
+                                        key={domain}
+                                        onClick={() => navigate('/app/quiz', { state: { filterDomain: domain } })}
+                                        className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700 flex flex-col items-center hover:border-brand-500/50 hover:bg-slate-800/80 transition-all cursor-pointer group text-left w-full relative overflow-hidden"
+                                    >
+                                        <div className={`absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity`} style={{ backgroundColor: color }} />
+
+                                        <MasteryRing percentage={getPercentage(domain)} color={color} label="" />
+
+                                        <div className="mt-4 text-center">
+                                            <h3 className="text-lg font-bold text-white group-hover:text-brand-300 transition-colors">{domain}</h3>
+                                            <p className="text-sm font-medium text-slate-400 mt-1">
+                                                <span className="text-white font-bold">{mastered}</span>
+                                                <span className="mx-1 text-slate-600">/</span>
+                                                <span className="text-slate-500">{total}</span>
+                                                <span className="ml-1 text-xs uppercase tracking-wide opacity-70">Mastered</span>
+                                            </p>
+                                            <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
+                                                <span className="text-xs font-bold text-brand-400 uppercase tracking-widest border border-brand-500/30 px-4 py-1.5 rounded-full bg-brand-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
+                                                    Practice Domain
+                                                </span>
+                                            </div>
                                         </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Stats & Activity */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+                            {/* Recent Activity */}
+                            <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
+                                <h3 className="text-lg font-bold text-white mb-4 font-display">Recent Activity</h3>
+                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
+                                    <div className="space-y-3">
+                                        {recentActivity.length === 0 ? (
+                                            <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
+                                        ) : (
+                                            recentActivity.map((attempt) => (
+                                                <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
+                                                            Q
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <p className="font-medium text-slate-200">Practice Quiz</p>
+                                                                <span className="text-xs text-slate-500">
+                                                                    {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
+                                                                        month: 'short',
+                                                                        day: 'numeric',
+                                                                        hour: 'numeric',
+                                                                        minute: '2-digit'
+                                                                    }) : 'Just now'}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
+                                                        {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                                                    </span>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
-                                ) : (
-                                    <>
-                                        <div className="flex items-end gap-2 mb-4 relative z-10">
-                                            <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
-                                            <span className="text-brand-200 mb-1 font-medium">questions</span>
+                                </div>
+                            </div>
+
+                            {/* Daily Goal */}
+                            <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
+                                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
+                                <div className="flex justify-between items-start mb-2 relative z-10">
+                                    <h3 className="text-lg font-bold font-display">Daily Goal</h3>
+                                    <button
+                                        onClick={() => setIsEditingGoal(!isEditingGoal)}
+                                        className="text-brand-200 hover:text-white transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {
+                                    isEditingGoal ? (
+                                        <div className="mb-4 relative z-10">
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="number"
+                                                    value={newGoal}
+                                                    onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
+                                                    className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
+                                                />
+                                                <button
+                                                    onClick={saveGoal}
+                                                    className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
+                                                >
+                                                    Save
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
-                                            <div
-                                                className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
-                                                style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
-                                            ></div>
-                                        </div>
-                                    </>
-                                )
-                            }
-                            <p className="text-sm text-brand-100/80 relative z-10">
-                                {dailyProgress >= dailyGoal
-                                    ? "Goal reached! You're crushing it! 🚀"
-                                    : "Keep it up! Consistency is key to passing your exam."}
-                            </p>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-end gap-2 mb-4 relative z-10">
+                                                <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
+                                                <span className="text-brand-200 mb-1 font-medium">questions</span>
+                                            </div>
+                                            <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
+                                                <div
+                                                    className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
+                                                    style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </>
+                                    )
+                                }
+                                <p className="text-sm text-brand-100/80 relative z-10">
+                                    {dailyProgress >= dailyGoal
+                                        ? "Goal reached! You're crushing it! 🚀"
+                                        : "Keep it up! Consistency is key to passing your exam."}
+                                </p>
+                            </div>
                         </div>
                     </div>
-
                 </main>
 
 

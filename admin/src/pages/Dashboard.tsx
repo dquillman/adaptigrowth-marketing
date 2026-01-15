@@ -109,7 +109,7 @@ export default function Dashboard() {
         <div className="space-y-10">
             <div className="flex justify-between items-end">
                 <div>
-                    <h2 className="text-4xl font-bold text-white font-display tracking-tight">Exam Management</h2>
+                    <h1 className="text-4xl font-bold text-white font-display tracking-tight">Exams</h1>
                     <p className="text-slate-400 mt-2 text-lg">Orchestrate your content and AI generation pipelines.</p>
                 </div>
                 <div className="flex gap-4">
