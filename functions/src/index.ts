@@ -6,6 +6,24 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
+// ===== USER PROFILE CREATION =====
+// Auto-create user profile on signup with default 'user' role
+export const createUserProfile = functions.auth.user().onCreate(async (user) => {
+    try {
+        await db.collection('users').doc(user.uid).set({
+            email: user.email,
+            displayName: user.displayName || null,
+            photoURL: user.photoURL || null,
+            role: 'user', // Default role
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`Created profile for user ${user.uid} with role: user`);
+    } catch (error) {
+        console.error(`Failed to create profile for user ${user.uid}:`, error);
+    }
+});
+
 
 // Lazy init OpenAI to prevent deploy-time crashes if env var is missing
 let openai: OpenAI;
@@ -666,9 +684,8 @@ export const batchGenerateQuestions = functions
 export const deleteExamQuestions = functions
     .runWith({ timeoutSeconds: 540, memory: '1GB' })
     .https.onCall(async (data, context) => {
-        if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-        }
+        // Verify admin access
+        await requireAdmin(context);
 
         const examId = data.examId;
         if (!examId) {
@@ -728,15 +745,29 @@ export const resetUserProgress = functions.https.onCall(async (data, context) =>
 
 // --- Admin Functions ---
 
-export const getAdminUserList = functions.https.onCall(async (data, context) => {
-    // Basic security check (ideally check for admin claim or specific email)
+// Helper function to verify admin role
+async function requireAdmin(context: functions.https.CallableContext): Promise<void> {
     if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     }
 
-    // In a real app, verify admin role here.
-    // const adminEmails = ['daveq@...'];
-    // if (!adminEmails.includes(context.auth.token.email)) ...
+    const profileDoc = await db.collection('users').doc(context.auth.uid).get();
+
+    if (!profileDoc.exists) {
+        throw new functions.https.HttpsError('permission-denied', 'User profile not found');
+    }
+
+    const role = profileDoc.data()?.role;
+
+    if (role !== 'admin') {
+        console.warn(`Admin access denied for user ${context.auth.uid} (${context.auth.token.email}) with role: ${role}`);
+        throw new functions.https.HttpsError('permission-denied', 'Admin access required');
+    }
+}
+
+export const getAdminUserList = functions.https.onCall(async (data, context) => {
+    // Verify admin access
+    await requireAdmin(context);
 
     try {
         const listUsersResult = await admin.auth().listUsers(1000); // Limit 1000 for MVP
@@ -762,7 +793,8 @@ export const getAdminUserList = functions.https.onCall(async (data, context) => 
                 isPro: profile?.isPro || false,
                 stripeCustomerId: profile?.stripeCustomerId,
                 subscriptionStatus: profile?.subscriptionStatus,
-                trial: profile?.trial
+                trial: profile?.trial,
+                role: profile?.role || 'user'
             };
         });
 
@@ -782,7 +814,8 @@ export const getAdminUserList = functions.https.onCall(async (data, context) => 
 });
 
 export const getGlobalStats = functions.https.onCall(async (data, context) => {
-    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    // Verify admin access
+    await requireAdmin(context);
 
     try {
         const today = new Date();
@@ -876,6 +909,9 @@ export const resetExamProgress = functions.https.onCall(async (data, context) =>
  * Removes all related data including quiz attempts, mastery records, etc.
  */
 export const deleteUser = functions.https.onCall(async (data, context) => {
+    // Verify admin access
+    await requireAdmin(context);
+
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
     }

@@ -17,6 +17,7 @@ import IssuesList from './pages/IssuesList';
 import TestersPage from './pages/TestersPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import CustomerAcquisitionPage from './pages/CustomerAcquisitionPage';
+import IdentityIndicator from './components/IdentityIndicator';
 
 function Layout() {
   const location = useLocation();
@@ -153,6 +154,9 @@ function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-8 lg:p-12 relative z-10">
+        <div className="absolute top-6 right-8 lg:top-8 lg:right-12 z-50">
+          <IdentityIndicator />
+        </div>
         <Routes>
           <Route path="/" element={<Navigate to="/exams" replace />} />
           <Route path="/exams" element={

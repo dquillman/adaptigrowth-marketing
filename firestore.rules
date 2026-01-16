@@ -1,50 +1,117 @@
 rules_version = '2';
 service cloud.firestore {
-  // Updated rules to allow authenticated access
   match /databases/{database}/documents {
+    
+    // ===== HELPER FUNCTIONS =====
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ===== USER PROFILES =====
+    match /users/{userId} {
+      // Users can read their own profile, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Users can create their own profile on signup
+      allow create: if isOwner(userId) && request.resource.data.role == 'user';
+      
+      // Users can update their own profile (except role)
+      allow update: if isOwner(userId) && 
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']);
+      
+      // Only admins can change roles
+      allow update: if isAdmin();
+      
+      // Subcollections under users/{userId}
+      match /{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // ===== ADMIN-ONLY COLLECTIONS =====
+    
+    // Issues - Users can create (bug reports), only admins can read/manage
+    // Issues reporting (only logged in users can create)
+    match /issues/{issueId} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Testers - Admin only
+    match /testers/{testerId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Exam Health Metrics - Admin only
+    match /examHealth/{docId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // System Metrics - Admin only
+    match /system_metrics/{docId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Exam Update Sources - Admin only
+    match /exam_update_sources/{docId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // ===== USER-ACCESSIBLE COLLECTIONS =====
+    
+    // Questions - Public read, admin write
     match /questions/{questionId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
+    
+    // User Mastery - Users can read/write their own
     match /userMastery/{docId} {
-      allow read, write: if true;
+      allow read, write: if isAuthenticated() && 
+                            docId.matches('^' + request.auth.uid + '_.*');
     }
+    
+    // Quiz Attempts - Users can create their own, read their own
     match /quizAttempts/{attemptId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
     }
+    
+    // Study Plans - Users can manage their own
     match /study_plans/{planId} {
-      allow read, write: if request.auth != null && (resource.data.userId == request.auth.uid || request.resource.data.userId == request.auth.uid);
+      allow read, write: if isAuthenticated() && 
+                            (resource.data.userId == request.auth.uid || 
+                             request.resource.data.userId == request.auth.uid);
     }
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
+    
+    // Exams - Public read, admin write
     match /exams/{examId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
-    match /issues/{issueId} {
-      allow read: if request.auth != null;
-      allow create: if true; // Allow users to create issues without auth
-      allow update, delete: if request.auth != null; // Only admins can update/delete
-    }
-    match /testers/{testerId} {
-      allow read, write: if request.auth != null; // Admin-only
-    }
-    match /examHealth/{docId} {
-      allow read, write: if request.auth != null;
-    }
-    match /system_metrics/{docId} {
-      allow read, write: if request.auth != null;
-    }
+    
+    // Admin Workflows - Per-user, admin only
     match /admin_workflows/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAdmin() && isOwner(userId);
     }
+    
+    // Admin Marketing Assets - Per-user, admin only
     match /admin_marketing_assets/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAdmin() && isOwner(userId);
     }
-    match /exam_update_sources/{docId} {
-      allow read, write: if request.auth != null;
-    }
+    
+    // Default deny all
     match /{document=**} {
       allow read, write: if false;
     }
