@@ -10,7 +10,7 @@ export default function Landing() {
     if (user) {
       navigate("/app");
     } else {
-      navigate("/login");
+      navigate("/login?mode=signup");
     }
   };
 
@@ -222,7 +222,7 @@ export default function Landing() {
             Join the busy professionals who are passing their PMP with Exam Coach Pro AI.
           </p>
           <button
-            onClick={() => navigate("/login")}
+            onClick={handleCta}
             className="rounded-full bg-white px-10 py-4 text-lg font-bold text-slate-900 hover:bg-slate-100 hover:scale-105 transition-all shadow-xl"
           >
             Start Your Free Trial

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Loader2, UserPlus, Edit2, Copy, Check, Search, Filter } from 'lucide-react';
+import { Loader2, UserPlus, Edit2, Copy, Check, Search, Filter, Clock, Trash2 } from 'lucide-react';
 
 interface Tester {
     id: string;
@@ -29,6 +29,8 @@ export default function TestersPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingTester, setEditingTester] = useState<Tester | null>(null);
     const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [copiedInstructions, setCopiedInstructions] = useState(false);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +94,48 @@ export default function TestersPage() {
         setTimeout(() => setCopiedEmail(null), 2000);
     };
 
+    const markActiveNow = async (testerId: string) => {
+        try {
+            await updateDoc(doc(db, 'testers', testerId), {
+                lastActiveAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+            });
+            setToast({ message: 'Marked active.', type: 'success' });
+            setTimeout(() => setToast(null), 3000);
+        } catch (error) {
+            console.error('Error marking active:', error);
+            setToast({ message: 'Failed to mark active.', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    const copyInstructions = () => {
+        const text = "Please use the 'Report a Problem' button in the header for anything confusing, broken, or any suggestions. That's the best way for me to track and fix things.";
+        navigator.clipboard.writeText(text);
+        setCopiedInstructions(true);
+        setToast({ message: 'Copied.', type: 'success' });
+        setTimeout(() => {
+            setCopiedInstructions(false);
+            setToast(null);
+        }, 3000);
+    };
+
+    const deleteTester = async (testerId: string, testerName: string) => {
+        if (!confirm(`Are you sure you want to delete "${testerName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            await deleteDoc(doc(db, 'testers', testerId));
+            setToast({ message: 'Tester deleted.', type: 'success' });
+            setTimeout(() => setToast(null), 3000);
+        } catch (error) {
+            console.error('Error deleting tester:', error);
+            setToast({ message: 'Failed to delete tester.', type: 'error' });
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
+
     const getStatusColor = (status: Tester['status']) => {
         switch (status) {
             case 'active': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
@@ -141,6 +185,36 @@ export default function TestersPage() {
                     >
                         <UserPlus className="w-4 h-4" />
                         Add Tester
+                    </button>
+                </div>
+            </div>
+
+            {/* Tester Instructions Card */}
+            <div className="bg-slate-800/50 rounded-xl border border-white/5 p-4">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-2">
+                            Send to testers
+                        </h3>
+                        <p className="text-slate-300 text-sm leading-relaxed">
+                            Please use the 'Report a Problem' button in the header for anything confusing, broken, or any suggestions. That's the best way for me to track and fix things.
+                        </p>
+                    </div>
+                    <button
+                        onClick={copyInstructions}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors whitespace-nowrap"
+                    >
+                        {copiedInstructions ? (
+                            <>
+                                <Check className="w-4 h-4" />
+                                Copied
+                            </>
+                        ) : (
+                            <>
+                                <Copy className="w-4 h-4" />
+                                Copy
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
@@ -284,13 +358,29 @@ export default function TestersPage() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => setEditingTester(tester)}
-                                            className="p-2 hover:bg-brand-500/10 text-slate-500 hover:text-brand-400 rounded-lg transition-colors"
-                                            title="Edit Tester"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => markActiveNow(tester.id)}
+                                                className="p-2 hover:bg-emerald-500/10 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors"
+                                                title="Mark Active Now"
+                                            >
+                                                <Clock className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setEditingTester(tester)}
+                                                className="p-2 hover:bg-brand-500/10 text-slate-500 hover:text-brand-400 rounded-lg transition-colors"
+                                                title="Edit Tester"
+                                            >
+                                                <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => deleteTester(tester.id, tester.name)}
+                                                className="p-2 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 rounded-lg transition-colors"
+                                                title="Delete Tester"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -308,6 +398,18 @@ export default function TestersPage() {
                         setEditingTester(null);
                     }}
                 />
+            )}
+
+            {/* Toast Notification */}
+            {toast && (
+                <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-2">
+                    <div className={`px-6 py-3 rounded-lg shadow-lg border ${toast.type === 'success'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        }`}>
+                        {toast.message}
+                    </div>
+                </div>
             )}
         </div>
     );

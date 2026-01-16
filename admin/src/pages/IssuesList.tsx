@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy, doc, updateDoc, Timestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Loader2, MessageSquare, CheckCircle2, Trash2, AlertCircle, Search, Filter, Calendar, ArchiveRestore, RefreshCcw, XCircle, Image as ImageIcon, UserCheck } from 'lucide-react';
+import { Loader2, MessageSquare, CheckCircle2, Trash2, AlertCircle, Search, Filter, Calendar, ArchiveRestore, RefreshCcw, XCircle, Image as ImageIcon, UserCheck, Play, CheckCircle } from 'lucide-react';
 import IssueDetailDrawer from '../components/IssueDetailDrawer';
 
 interface Issue {
@@ -39,6 +39,7 @@ export default function IssuesList() {
     const [dateFilter, setDateFilter] = useState('');
     const [showDeleted, setShowDeleted] = useState(false);
     const [showOnlyTesters, setShowOnlyTesters] = useState(false);
+    const [focusMode, setFocusMode] = useState(false);
 
     // Detail Drawer State
     const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
@@ -100,7 +101,10 @@ export default function IssuesList() {
         // Tester Filter
         const matchesTester = !showOnlyTesters || isTesterIssue(issue);
 
-        return matchesStatus && matchesType && matchesPriority && matchesSearch && matchesDate && matchesDeleted && matchesTester;
+        // Focus Mode Filter
+        const matchesFocusMode = !focusMode || issue.status === 'working';
+
+        return matchesStatus && matchesType && matchesPriority && matchesSearch && matchesDate && matchesDeleted && matchesTester && matchesFocusMode;
     });
 
     // Smart sorting: Status priority -> Priority -> Timestamp
@@ -143,11 +147,20 @@ export default function IssuesList() {
     const updateStatus = async (id: string, newStatus: Issue['status']) => {
         try {
             await updateDoc(doc(db, 'issues', id), {
-                status: newStatus
+                status: newStatus,
+                updatedAt: Timestamp.now()
             });
         } catch (error) {
             console.error("Error updating status:", error);
         }
+    };
+
+    const startWork = async (id: string) => {
+        await updateStatus(id, 'working');
+    };
+
+    const finishFixed = async (id: string) => {
+        await updateStatus(id, 'fixed');
     };
 
     const deleteIssue = async (id: string) => {
@@ -292,6 +305,16 @@ export default function IssuesList() {
 
                 <div className="flex gap-2">
                     <button
+                        onClick={() => setFocusMode(!focusMode)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${focusMode
+                            ? 'bg-purple-500/10 text-purple-400 border-purple-500/50 hover:bg-purple-500/20'
+                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700'
+                            }`}
+                    >
+                        <Play className="w-4 h-4" />
+                        {focusMode ? 'Focus Mode ON' : 'Focus Mode'}
+                    </button>
+                    <button
                         onClick={() => setShowOnlyTesters(!showOnlyTesters)}
                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold border transition-colors ${showOnlyTesters
                             ? 'bg-brand-500/10 text-brand-400 border-brand-500/50 hover:bg-brand-500/20'
@@ -313,6 +336,15 @@ export default function IssuesList() {
                     </button>
                 </div>
             </div>
+
+            {/* Focus Mode Banner */}
+            {focusMode && (
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg px-4 py-3">
+                    <p className="text-sm text-purple-400 font-medium">
+                        Focus Mode: showing WORKING issues only
+                    </p>
+                </div>
+            )}
 
             <div className="bg-slate-800/50 rounded-2xl border border-white/5 overflow-hidden">
                 <div className="overflow-x-auto">
@@ -432,13 +464,33 @@ export default function IssuesList() {
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button
-                                                    onClick={() => deleteIssue(issue.id)}
-                                                    className="p-2 hover:bg-rose-500/10 text-slate-500 hover:text-rose-500 rounded-lg transition-colors"
-                                                    title="Move to Trash"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {issue.status !== 'working' && (
+                                                        <button
+                                                            onClick={() => startWork(issue.id)}
+                                                            className="p-2 hover:bg-purple-500/10 text-slate-500 hover:text-purple-400 rounded-lg transition-colors"
+                                                            title="Start Work"
+                                                        >
+                                                            <Play className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {(issue.status === 'working' || issue.status === 'needs_info') && (
+                                                        <button
+                                                            onClick={() => finishFixed(issue.id)}
+                                                            className="p-2 hover:bg-emerald-500/10 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors"
+                                                            title="Finish (Fixed)"
+                                                        >
+                                                            <CheckCircle className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => deleteIssue(issue.id)}
+                                                        className="p-2 hover:bg-rose-500/10 text-slate-500 hover:text-rose-500 rounded-lg transition-colors"
+                                                        title="Move to Trash"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>

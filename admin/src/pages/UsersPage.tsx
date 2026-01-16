@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
-import { Loader2, Users, Activity, Search, ShieldCheck } from 'lucide-react';
+import { Loader2, Users, Activity, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
@@ -56,6 +56,29 @@ export default function UsersPage() {
 
         fetchData();
     }, []);
+
+    const [deleteConfirm, setDeleteConfirm] = useState<{ uid: string; email: string } | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeleteUser = async (uid: string) => {
+        try {
+            setDeleting(true);
+            const deleteUserFn = httpsCallable(functions, 'deleteUser');
+            await deleteUserFn({ uid });
+
+            // Remove user from local state
+            setUsers(users.filter(u => u.uid !== uid));
+            setDeleteConfirm(null);
+
+            // Show success message (you could add a toast notification here)
+            alert('User deleted successfully');
+        } catch (error: any) {
+            console.error("Error deleting user:", error);
+            alert(`Failed to delete user: ${error.message}`);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     // Derived Stats
     const totalUsers = users.length;
@@ -217,6 +240,7 @@ export default function UsersPage() {
                                 <th className="px-6 py-4">Joined</th>
                                 <th className="px-6 py-4">Last Active</th>
                                 <th className="px-6 py-4 text-right">Status</th>
+                                <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -277,12 +301,57 @@ export default function UsersPage() {
                                                 : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
                                             }`}></span>
                                     </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button
+                                            onClick={() => setDeleteConfirm({ uid: user.uid, email: user.email })}
+                                            className="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
+                                            title="Delete user"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            {deleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4">
+                        <h3 className="text-xl font-bold text-white mb-2">Delete User</h3>
+                        <p className="text-slate-400 mb-6">
+                            Are you sure you want to delete <span className="text-white font-medium">{deleteConfirm.email}</span>?
+                            This action cannot be undone and will permanently delete all user data.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setDeleteConfirm(null)}
+                                disabled={deleting}
+                                className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => handleDeleteUser(deleteConfirm.uid)}
+                                disabled={deleting}
+                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {deleting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    'Delete User'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,21 +1,46 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { APP_VERSION } from '../version';
 
 export default function Login() {
-    const [isLogin, setIsLogin] = useState(true);
+    const [searchParams] = useSearchParams();
+    const mode = searchParams.get('mode');
+
+    // Default to signup if mode=signup in URL, otherwise login
+    const [isLogin, setIsLogin] = useState(mode !== 'signup');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    // Removed direct useLocation access since we don't need debug info anymore
-
     const handleGoogleSignIn = async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
+            const result = await signInWithPopup(auth, googleProvider);
+
+            // Check if this is a new user and auto-start trial
+            const { doc, getDoc, setDoc, Timestamp } = await import('firebase/firestore');
+            const { db } = await import('../firebase');
+
+            const userRef = doc(db, 'users', result.user.uid);
+            const userDoc = await getDoc(userRef);
+
+            if (!userDoc.exists()) {
+                // New user - automatically start 7-day trial
+                const now = new Date();
+                const endDate = new Date();
+                endDate.setDate(now.getDate() + 7);
+
+                const trialPayload = {
+                    status: 'active',
+                    startDate: Timestamp.fromDate(now),
+                    endDate: Timestamp.fromDate(endDate)
+                };
+
+                await setDoc(userRef, { trial: trialPayload }, { merge: true });
+            }
+
             window.location.href = '/app';
         } catch (err) {
             setError((err as Error).message);
@@ -30,7 +55,26 @@ export default function Login() {
                 await signInWithEmailAndPassword(auth, email, password);
                 window.location.href = '/app';
             } else {
-                await createUserWithEmailAndPassword(auth, email, password);
+                // Sign up - create new account
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+                // Automatically start 7-day trial for new signups
+                const { doc, setDoc, Timestamp } = await import('firebase/firestore');
+                const { db } = await import('../firebase');
+
+                const now = new Date();
+                const endDate = new Date();
+                endDate.setDate(now.getDate() + 7);
+
+                const trialPayload = {
+                    status: 'active',
+                    startDate: Timestamp.fromDate(now),
+                    endDate: Timestamp.fromDate(endDate)
+                };
+
+                const userRef = doc(db, 'users', userCredential.user.uid);
+                await setDoc(userRef, { trial: trialPayload }, { merge: true });
+
                 window.location.href = '/app';
             }
         } catch (err: any) {

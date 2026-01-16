@@ -31,7 +31,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
     const DAILY_LIMIT = 5;
 
-    // 1. Listen for Pro Status
+    // 1. Listen for Pro Status (includes Trial users)
     useEffect(() => {
         if (!user) {
             setIsPro(false);
@@ -41,7 +41,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
         const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
             if (doc.exists()) {
-                setIsPro(doc.data()?.isPro || false);
+                const data = doc.data();
+                const isPaidPro = data?.isPro || false;
+
+                // Check if user has an active trial
+                const trialData = data?.trial;
+                let hasActiveTrial = false;
+
+                if (trialData && trialData.status === 'active') {
+                    // Verify trial hasn't expired
+                    const now = new Date();
+                    const endDate = trialData.endDate?.toDate?.() || null;
+                    hasActiveTrial = endDate && now <= endDate;
+                }
+
+                // Grant Pro access if either paid Pro OR active trial
+                setIsPro(isPaidPro || hasActiveTrial);
             } else {
                 setIsPro(false);
             }

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = void 0;
+exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const openai_1 = require("openai");
@@ -739,6 +739,68 @@ exports.resetExamProgress = functions.https.onCall(async (data, context) => {
     catch (error) {
         console.error("Error resetting progress:", error);
         throw new functions.https.HttpsError('internal', `Failed to reset progress: ${error.message}`);
+    }
+});
+/**
+ * Deletes a user from Firebase Authentication and Firestore.
+ * Removes all related data including quiz attempts, mastery records, etc.
+ */
+exports.deleteUser = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+    const { uid } = data;
+    if (!uid) {
+        throw new functions.https.HttpsError('invalid-argument', 'User ID is required.');
+    }
+    // Prevent self-deletion
+    if (context.auth.uid === uid) {
+        throw new functions.https.HttpsError('failed-precondition', 'Cannot delete your own account.');
+    }
+    try {
+        // 1. Delete user from Firebase Authentication
+        await admin.auth().deleteUser(uid);
+        // 2. Delete user document from Firestore
+        await db.collection('users').doc(uid).delete();
+        // 3. Delete quiz attempts
+        const attemptsQuery = db.collection('quizAttempts').where('userId', '==', uid);
+        const attemptsSnap = await attemptsQuery.get();
+        const batch1 = db.batch();
+        attemptsSnap.docs.forEach(doc => {
+            batch1.delete(doc.ref);
+        });
+        await batch1.commit();
+        // 4. Delete user mastery records (format: userId_examId)
+        const masteryQuery = db.collection('userMastery');
+        const masterySnap = await masteryQuery.get();
+        const batch2 = db.batch();
+        masterySnap.docs.forEach(doc => {
+            if (doc.id.startsWith(`${uid}_`)) {
+                batch2.delete(doc.ref);
+            }
+        });
+        await batch2.commit();
+        // 5. Delete question progress subcollection
+        const progressQuery = db.collection('users').doc(uid).collection('questionProgress');
+        const progressSnap = await progressQuery.get();
+        const batch3 = db.batch();
+        progressSnap.docs.forEach(doc => {
+            batch3.delete(doc.ref);
+        });
+        await batch3.commit();
+        return {
+            success: true,
+            message: `User ${uid} and all related data deleted successfully.`,
+            deletedRecords: {
+                quizAttempts: attemptsSnap.size,
+                masteryRecords: masterySnap.docs.filter(doc => doc.id.startsWith(`${uid}_`)).length,
+                questionProgress: progressSnap.size
+            }
+        };
+    }
+    catch (error) {
+        console.error("Error deleting user:", error);
+        throw new functions.https.HttpsError('internal', `Failed to delete user: ${error.message}`);
     }
 });
 var stripe_1 = require("./stripe");
