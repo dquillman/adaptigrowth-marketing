@@ -6,6 +6,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { getEffectiveAccess } from '../utils/effectiveAccess';
 
 interface UserData {
     uid: string;
@@ -15,6 +16,9 @@ interface UserData {
     creationTime: string;
     lastSignInTime: string;
     isPro: boolean;
+    plan?: string;
+    testerOverride?: boolean;
+    testerExpiresAt?: { _seconds: number, _nanoseconds: number };
     subscriptionStatus?: string;
     trial?: {
         status: "active" | "expired" | "converted";
@@ -58,7 +62,73 @@ export default function UsersPage() {
     }, []);
 
     const [deleteConfirm, setDeleteConfirm] = useState<{ uid: string; email: string } | null>(null);
+    const [grantConfirm, setGrantConfirm] = useState<{ uid: string; email: string } | null>(null);
+    const [revokeConfirm, setRevokeConfirm] = useState<{ uid: string; email: string } | null>(null); // New
     const [deleting, setDeleting] = useState(false);
+    const [granting, setGranting] = useState(false);
+    const [revoking, setRevoking] = useState(false); // New
+
+    const handleGrantTesterPro = async (uid: string) => {
+        try {
+            setGranting(true);
+            const grantFn = httpsCallable(functions, 'grantTesterPro');
+            await grantFn({ targetUserId: uid });
+
+            // Optimistic Update
+            setUsers(users.map(u => {
+                if (u.uid === uid) {
+                    const now = new Date();
+                    // 14 days from now
+                    const expiresAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+                    return {
+                        ...u,
+                        isPro: true,
+                        plan: 'pro',
+                        testerOverride: true,
+                        testerExpiresAt: { _seconds: Math.floor(expiresAt.getTime() / 1000), _nanoseconds: 0 },
+                        trial: undefined // Clear trial state locally
+                    };
+                }
+                return u;
+            }));
+            setGrantConfirm(null);
+            alert('Tester Pro Access Granted for 14 Days.');
+        } catch (error: any) {
+            console.error("Error granting tester pro:", error);
+            alert(`Failed to grant access: ${error.message}`);
+        } finally {
+            setGranting(false);
+        }
+    };
+
+    const handleRevokeTesterPro = async (uid: string) => {
+        try {
+            setRevoking(true);
+            const revokeFn = httpsCallable(functions, 'revokeTesterPro');
+            await revokeFn({ targetUserId: uid });
+
+            // Optimistic Update
+            setUsers(users.map(u => {
+                if (u.uid === uid) {
+                    return {
+                        ...u,
+                        isPro: false,
+                        plan: 'starter',
+                        testerOverride: false,
+                        testerExpiresAt: undefined
+                    };
+                }
+                return u;
+            }));
+            setRevokeConfirm(null);
+            alert('Tester Pro Access Revoked.');
+        } catch (error: any) {
+            console.error("Error revoking tester pro:", error);
+            alert(`Failed to revoke access: ${error.message}`);
+        } finally {
+            setRevoking(false);
+        }
+    };
 
     const handleDeleteUser = async (uid: string) => {
         try {
@@ -236,7 +306,7 @@ export default function UsersPage() {
                             <tr>
                                 <th className="px-6 py-4">User</th>
                                 <th className="px-6 py-4">Plan</th>
-                                <th className="px-6 py-4">Trial</th>
+                                <th className="px-6 py-4">Access</th>
                                 <th className="px-6 py-4">Joined</th>
                                 <th className="px-6 py-4">Last Active</th>
                                 <th className="px-6 py-4 text-right">Status</th>
@@ -262,6 +332,11 @@ export default function UsersPage() {
                                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
                                                 <ShieldCheck className="w-3 h-3" />
                                                 PRO
+                                                {user.testerOverride && (
+                                                    <span className="ml-1 text-[10px] bg-purple-500/20 px-1 rounded border border-purple-500/30 uppercase tracking-wider">
+                                                        Tester
+                                                    </span>
+                                                )}
                                             </span>
                                         ) : (
                                             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -270,22 +345,36 @@ export default function UsersPage() {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {user.trial?.status === 'active' ? (
-                                            <div className="flex flex-col">
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 w-fit">
-                                                    Active
-                                                </span>
-                                                <span className="text-[10px] text-slate-500 mt-1 pl-1">
-                                                    Ends {new Date(user.trial.endDate._seconds * 1000).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                        ) : user.trial?.status === 'expired' ? (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                                                Expired
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-600 text-xs">-</span>
-                                        )}
+                                        {(() => {
+                                            const status = getEffectiveAccess(user);
+                                            // Map helper colors to Tailwind classes
+                                            const colorClasses: Record<string, string> = {
+                                                purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+                                                yellow: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                                                emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                                red: 'bg-red-500/10 text-red-400 border-red-500/20',
+                                                slate: 'text-slate-600',
+                                            };
+                                            const badgeClass = colorClasses[status.badgeColor] || colorClasses.slate;
+
+                                            // Handle plain text for 'none' case to match original styling
+                                            if (status.type === 'none') {
+                                                return <span className="text-slate-600 text-xs">-</span>;
+                                            }
+
+                                            return (
+                                                <div className="flex flex-col">
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border w-fit ${badgeClass}`}>
+                                                        {status.label}
+                                                    </span>
+                                                    {status.subtext && (
+                                                        <span className="text-[10px] text-slate-500 mt-1 pl-1">
+                                                            {status.subtext}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4">
                                         {new Date(user.creationTime).toLocaleDateString()}
@@ -302,13 +391,83 @@ export default function UsersPage() {
                                             }`}></span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => setDeleteConfirm({ uid: user.uid, email: user.email })}
-                                            className="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
-                                            title="Delete user"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        {(() => {
+                                            const status = getEffectiveAccess(user);
+                                            const isInvalidTester = status.type === 'tester_invalid';
+
+                                            // Show Fix/Revoke for Invalid Testers
+                                            if (isInvalidTester) {
+                                                return (
+                                                    <div className="flex gap-1 justify-end">
+                                                        <button
+                                                            onClick={() => setGrantConfirm({ uid: user.uid, email: user.email })}
+                                                            className="text-amber-400 hover:text-amber-300 transition-colors p-2 hover:bg-amber-500/10 rounded-lg"
+                                                            title="Fix Tester (Grant 14 Days)"
+                                                        >
+                                                            <Activity className="w-4 h-4" /> {/* Or a Wrench/Refresh icon if available */}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setRevokeConfirm({ uid: user.uid, email: user.email })}
+                                                            className="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
+                                                            title="Revoke Tester Access"
+                                                        >
+                                                            <ShieldCheck className="w-4 h-4" /> {/* Strike-through logically */}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeleteConfirm({ uid: user.uid, email: user.email })}
+                                                            className="text-slate-500 hover:text-red-300 transition-colors p-2 hover:bg-slate-700/50 rounded-lg"
+                                                            title="Delete user"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Show Revoke for Active Testers
+                                            if (status.type === 'tester') {
+                                                return (
+                                                    <div className="flex gap-1 justify-end">
+                                                        <button
+                                                            onClick={() => setRevokeConfirm({ uid: user.uid, email: user.email })}
+                                                            className="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
+                                                            title="Revoke Tester Access"
+                                                        >
+                                                            <ShieldCheck className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeleteConfirm({ uid: user.uid, email: user.email })}
+                                                            className="text-slate-500 hover:text-red-300 transition-colors p-2 hover:bg-slate-700/50 rounded-lg"
+                                                            title="Delete user"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Default Actions
+                                            return (
+                                                <div className="flex gap-1 justify-end">
+                                                    <button
+                                                        onClick={() => setDeleteConfirm({ uid: user.uid, email: user.email })}
+                                                        className="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
+                                                        title="Delete user"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                    {!user.isPro && (
+                                                        <button
+                                                            onClick={() => setGrantConfirm({ uid: user.uid, email: user.email })}
+                                                            className="text-purple-400 hover:text-purple-300 transition-colors p-2 hover:bg-purple-500/10 rounded-lg"
+                                                            title="Grant Tester Pro"
+                                                        >
+                                                            <ShieldCheck className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                 </tr>
                             ))}
@@ -318,40 +477,130 @@ export default function UsersPage() {
             </div>
 
             {/* Delete Confirmation Dialog */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4">
-                        <h3 className="text-xl font-bold text-white mb-2">Delete User</h3>
-                        <p className="text-slate-400 mb-6">
-                            Are you sure you want to delete <span className="text-white font-medium">{deleteConfirm.email}</span>?
-                            This action cannot be undone and will permanently delete all user data.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                disabled={deleting}
-                                className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => handleDeleteUser(deleteConfirm.uid)}
-                                disabled={deleting}
-                                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {deleting ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                        Deleting...
-                                    </>
-                                ) : (
-                                    'Delete User'
-                                )}
-                            </button>
+            {
+                deleteConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4">
+                            <h3 className="text-xl font-bold text-white mb-2">Delete User</h3>
+                            <p className="text-slate-400 mb-6">
+                                Are you sure you want to delete <span className="text-white font-medium">{deleteConfirm.email}</span>?
+                                This action cannot be undone and will permanently delete all user data.
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    disabled={deleting}
+                                    className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteUser(deleteConfirm.uid)}
+                                    disabled={deleting}
+                                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {deleting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        'Delete User'
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* Grant Pro Confirmation Dialog */}
+            {
+                grantConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4">
+                            <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
+                                <ShieldCheck className="w-6 h-6 text-purple-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Grant Tester Pro Access</h3>
+                            <p className="text-slate-400 mb-6">
+                                Grant <span className="text-white font-medium">{grantConfirm.email}</span> 14 days of Pro access?
+                                <br /><br />
+                                <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded">
+                                    NOTE: This does NOT start a Stripe subscription.
+                                </span>
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setGrantConfirm(null)}
+                                    disabled={granting}
+                                    className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleGrantTesterPro(grantConfirm.uid)}
+                                    disabled={granting}
+                                    className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {granting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Granting...
+                                        </>
+                                    ) : (
+                                        'Grant Access'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Revoke Pro Confirmation Dialog */}
+            {
+                revokeConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4">
+                            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+                                <ShieldCheck className="w-6 h-6 text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Revoke Tester Pro Access</h3>
+                            <p className="text-slate-400 mb-6">
+                                Revoke Tester Pro access for <span className="text-white font-medium">{revokeConfirm.email}</span>?
+                                <br /><br />
+                                <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded">
+                                    This will revert them to the Starter plan.
+                                </span>
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setRevokeConfirm(null)}
+                                    disabled={revoking}
+                                    className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleRevokeTesterPro(revokeConfirm.uid)}
+                                    disabled={revoking}
+                                    className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {revoking ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Revoking...
+                                        </>
+                                    ) : (
+                                        'Revoke Access'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div>
     );
 }

@@ -2,7 +2,9 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import OpenAI from "openai";
 
+console.log("Global Index Execution Started");
 admin.initializeApp();
+console.log("Admin Initialized");
 
 const db = admin.firestore();
 
@@ -794,6 +796,8 @@ export const getAdminUserList = functions.https.onCall(async (data, context) => 
                 stripeCustomerId: profile?.stripeCustomerId,
                 subscriptionStatus: profile?.subscriptionStatus,
                 trial: profile?.trial,
+                testerOverride: profile?.testerOverride,
+                testerExpiresAt: profile?.testerExpiresAt,
                 role: profile?.role || 'user'
             };
         });
@@ -1319,3 +1323,53 @@ export const seedExamSources = functions.https.onCall(async (data, context) => {
     }
     return { success: true, message: `Seeded ${count} sources.` };
 });
+
+// --- Session Cleanup Function ---
+/**
+ * Automatically closes abandoned sessions that haven't sent a heartbeat.
+ * Runs every 5 minutes.
+ */
+export const cleanupTimedOutSessions = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
+    const timeoutThreshold = new Date();
+    timeoutThreshold.setMinutes(timeoutThreshold.getMinutes() - 15);
+
+    try {
+        const expiredSessions = await db.collection('user_sessions')
+            .where('logoutAt', '==', null)
+            .where('lastSeenAt', '<', timeoutThreshold)
+            .limit(500)
+            .get();
+
+        if (expiredSessions.empty) {
+            return null;
+        }
+
+        const batch = db.batch();
+        const now = admin.firestore.Timestamp.now();
+
+        expiredSessions.forEach(doc => {
+            const data = doc.data();
+            const loginAt = data.loginAt;
+            let durationSec = null;
+
+            if (loginAt && loginAt.toMillis) {
+                durationSec = Math.round((now.toMillis() - loginAt.toMillis()) / 1000);
+            }
+
+            batch.update(doc.ref, {
+                logoutAt: now,
+                endedBy: 'timeout',
+                durationSec: durationSec
+            });
+        });
+
+        await batch.commit();
+        console.log(`Successfully closed ${expiredSessions.size} timed-out sessions.`);
+        return null;
+    } catch (error) {
+        console.error('Error cleaning up sessions:', error);
+        return null;
+    }
+});
+
+export * from './tester_management';
