@@ -127,15 +127,23 @@ import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import TrialModal from "./components/TrialModal";
 
 // --- Layouts ---
+import IdentityIndicator from "./components/IdentityIndicator";
+
 function AppLayout() {
   const { isCollapsed } = useSidebar();
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex relative">
       <TrialModal />
-      {/* Global Version Label */}
-      <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs font-mono text-white/50 pointer-events-none z-50">
-        Version: {APP_VERSION}
+      {/* Global Identity & Version Label */}
+      <div className="absolute top-4 right-8 flex flex-col items-end gap-2 pointer-events-none z-50">
+        <div className="pointer-events-auto">
+          <IdentityIndicator />
+        </div>
+        <div className="text-xs font-mono text-white/30 px-2">
+          v{APP_VERSION}
+        </div>
       </div>
+
       <Sidebar />
       <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} p-8 transition-all duration-300`}>
         <Outlet />

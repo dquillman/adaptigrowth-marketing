@@ -8,7 +8,6 @@ export default function ProtectedRoute() {
     const [user, setUser] = useState<User | null>(null);
     const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         // Use a flag to prevent state updates on unmounted component
@@ -34,7 +33,6 @@ export default function ProtectedRoute() {
 
                 if (!profileDoc.exists()) {
                     console.error('User profile not found for', currentUser.email);
-                    setError('User profile not found.');
                     setIsAdmin(false);
                     setLoading(false);
                     return;
@@ -44,7 +42,6 @@ export default function ProtectedRoute() {
 
                 if (role !== 'admin') {
                     console.warn(`Access denied: User ${currentUser.email} has role '${role}', expected 'admin'`);
-                    setError('Admin access required');
                     setIsAdmin(false);
                     setLoading(false);
                     return;
@@ -52,13 +49,11 @@ export default function ProtectedRoute() {
 
                 // User is admin
                 setIsAdmin(true);
-                setError(null);
                 setLoading(false);
 
             } catch (err) {
                 if (mounted) {
                     console.error('Error checking admin status:', err);
-                    setError('Error verifying admin access');
                     setIsAdmin(false);
                     setLoading(false);
                 }
@@ -70,6 +65,14 @@ export default function ProtectedRoute() {
             unsubscribe();
         };
     }, []);
+
+    useEffect(() => {
+        if (isAdmin === false) {
+            signOut(auth).then(() => {
+                window.location.href = '/login';
+            });
+        }
+    }, [isAdmin]);
 
     if (loading) {
         return (
@@ -89,21 +92,11 @@ export default function ProtectedRoute() {
     if (isAdmin === false) {
         return (
             <div className="h-screen w-full flex items-center justify-center bg-slate-950">
-                <div className="max-w-md w-full p-8 bg-slate-900/50 backdrop-blur-xl border border-red-500/30 rounded-3xl text-center shadow-2xl relative z-10">
-                    <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <span className="text-4xl text-red-500">🔒</span>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center">
+                        <span className="text-2xl text-red-500">🔒</span>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">Access Denied</h2>
-                    <p className="text-slate-400 mb-8">{error || 'You do not have administrative privileges.'}</p>
-                    <button
-                        onClick={async () => {
-                            await signOut(auth);
-                            window.location.href = '/login';
-                        }}
-                        className="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-500/20 transform hover:-translate-y-0.5"
-                    >
-                        Return to Login
-                    </button>
+                    <p className="text-slate-400 font-medium">Unauthorized. Redirecting...</p>
                 </div>
             </div>
         );
