@@ -4,7 +4,6 @@ exports.stripeWebhook = exports.cancelSubscription = exports.getSubscriptionDeta
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const stripe_1 = require("stripe");
-const db = admin.firestore();
 // Initialize Stripe with secret key from environment variables
 // We use a getter to avoid initializing if the key is missing during build
 const getStripe = () => {
@@ -64,6 +63,7 @@ exports.createPortalSession = functions.https.onCall(async (data, context) => {
     const { returnUrl } = data;
     const userId = context.auth.uid;
     try {
+        const db = admin.firestore();
         const userDoc = await db.collection('users').doc(userId).get();
         const customerId = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.stripeCustomerId;
         if (!customerId) {
@@ -89,6 +89,7 @@ exports.getSubscriptionDetails = functions.https.onCall(async (data, context) =>
     if (!context.auth)
         throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
     const userId = context.auth.uid;
+    const db = admin.firestore();
     const userDoc = await db.collection('users').doc(userId).get();
     const customerId = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.stripeCustomerId;
     if (!customerId)
@@ -141,6 +142,7 @@ exports.cancelSubscription = functions.https.onCall(async (data, context) => {
         // OPTIONAL: Verify ownership? 
         // Stripe doesn't inherently check if `subscriptionId` belongs to `userId` unless we fetch customer first.
         // For robustness, getting the customer ID from user doc is safer.
+        const db = admin.firestore();
         const userDoc = await db.collection('users').doc(userId).get();
         const customerId = (_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.stripeCustomerId;
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -211,6 +213,7 @@ async function handleCheckoutSessionCompleted(session) {
     }
     console.log(`Granting Pro access to user ${userId}`);
     // Update user document
+    const db = admin.firestore();
     await db.collection('users').doc(userId).set({
         isPro: true,
         stripeCustomerId: customerId,
@@ -223,6 +226,7 @@ async function handleSubscriptionDeleted(sub) {
     // For MVP, if we don't have a direct mapping easily accessible without querying, 
     // we might need to query users by stripeCustomerId.
     const customerId = sub.customer;
+    const db = admin.firestore();
     const usersSnap = await db.collection('users').where('stripeCustomerId', '==', customerId).limit(1).get();
     if (!usersSnap.empty) {
         const userDoc = usersSnap.docs[0];

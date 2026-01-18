@@ -237,14 +237,13 @@ export default function ReadinessReportPage() {
                                         {domain.status} {domain.totalQuestions > 0 ? `(${Math.round(domain.score)}%)` : ''}
                                     </span>
                                 </div>
-                                <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                                <div className="w-full h-4 bg-slate-700 rounded-full overflow-hidden border border-slate-600/50">
                                     <div
-                                        className={`h-full rounded-full transition-all duration-500 ${domain.status === 'Insufficient' ? 'bg-slate-600' :
-                                            domain.score >= 75 ? 'bg-emerald-500' :
-                                                domain.score >= 60 ? 'bg-amber-500' :
-                                                    'bg-red-500'
-                                            }`}
-                                        style={{ width: `${domain.score}%` }}
+                                        className="h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(0,0,0,0.2)]"
+                                        style={{
+                                            width: `${domain.score}%`,
+                                            backgroundColor: `hsl(${Math.min(domain.score * 1.2, 120)}, 85%, 45%)`
+                                        }}
                                     />
                                 </div>
                             </div>

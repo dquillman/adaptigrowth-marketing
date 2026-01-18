@@ -1,5 +1,8 @@
 import { Link, useParams, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
+import TutorBreakdown, { type TutorResponse } from '../components/TutorBreakdown';
 import { doc, setDoc, getDoc, collection, query, getDocs, addDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { XPService } from '../services/xpService';
@@ -25,6 +28,8 @@ export default function Quiz() {
     const [loading, setLoading] = useState(true);
     const [showExplanation, setShowExplanation] = useState(false);
     const [explanationExpanded, setExplanationExpanded] = useState(false); // New: Track manual expansion
+    const [tutorBreakdown, setTutorBreakdown] = useState<TutorResponse | null>(null);
+    const [loadingBreakdown, setLoadingBreakdown] = useState(false);
     const [score, setScore] = useState(0);
     const [quizCompleted, setQuizCompleted] = useState(false);
     const [domainResults, setDomainResults] = useState<Record<string, { correct: number; total: number }>>({});
@@ -249,6 +254,17 @@ export default function Quiz() {
 
         setShowExplanation(true);
         setExplanationExpanded(false); // Reset for new question
+        setTutorBreakdown(null); // Reset breakdown
+
+        // Trigger Tutor Breakdown generation if incorrect (or just pre-fetch?)
+        // For MVP, if incorrect, we might want to fetch it.
+        // Actually, let's fetch it on demand OR if incorrect to show immediately.
+        if (!isCorrect) {
+            setExplanationExpanded(true); // Open automatically on wrong
+            fetchTutorBreakdown(currentQuestion, selectedOption);
+        } else {
+            // Pre-fetch silently logic could go here, but for now wait for user to click "Show Explanation"
+        }
 
         // Save Granular Question Progress (SRS)
         updateQuestionProgress(currentQuestion.id, isCorrect);
@@ -301,6 +317,57 @@ export default function Quiz() {
 
         } catch (error) {
             console.error("Error updating question progress:", error);
+        }
+    };
+
+    const fetchTutorBreakdown = async (question: Question, selectedOptIdx: number) => {
+        setLoadingBreakdown(true);
+        try {
+            const generateFn = httpsCallable(functions, 'generateTutorBreakdown');
+            const result = await generateFn({
+                questionStem: question.stem,
+                options: question.options,
+                correctAnswerIndex: question.correctAnswer,
+                userSelectedOptionIndex: selectedOptIdx,
+                correctRationale: question.explanation,
+                examDomain: question.domain
+            });
+            setTutorBreakdown(result.data as TutorResponse);
+        } catch (err) {
+            console.error("Failed to generate tutor breakdown:", err);
+            // Fallback: Create a simple breakdown from the existing explanation
+            setTutorBreakdown({
+                verdict: "Coach is seemingly offline. Here is the standard explanation:",
+                comparison: [{
+                    optionIndex: question.correctAnswer,
+                    text: question.options[question.correctAnswer],
+                    explanation: "Correct Answer" // Minimal placeholder
+                }],
+                examLens: question.explanation
+            });
+        } finally {
+            setLoadingBreakdown(false);
+        }
+    };
+
+    const [depthContent, setDepthContent] = useState<string | null>(null);
+    const [depthLoading, setDepthLoading] = useState(false);
+
+    const handleExpandDepth = async (type: 'simple' | 'memory') => {
+        setDepthLoading(true);
+        try {
+            const generateFn = httpsCallable(functions, 'generateTutorDeepDive');
+            const result = await generateFn({
+                context: tutorBreakdown,
+                style: type
+            });
+            // @ts-ignore
+            setDepthContent(result.data.content);
+        } catch (err) {
+            console.error("Failed to generate depth:", err);
+            setDepthContent("Could not generate deep dive at this time.");
+        } finally {
+            setDepthLoading(false);
         }
     };
 
@@ -407,6 +474,8 @@ export default function Quiz() {
             setSelectedOption(null);
             setShowExplanation(false);
             setExplanationExpanded(false);
+            setTutorBreakdown(null);
+            setDepthContent(null);
         } else {
             // End of quiz. We need to save this last question's details immediately before saving results.
             // But state updates are async. 
@@ -602,9 +671,42 @@ export default function Quiz() {
                             </div>
 
                             {showExplanation && explanationExpanded && (
-                                <div className="mt-6 p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 text-blue-200 animate-in fade-in slide-in-from-top-2">
-                                    <p className="font-bold mb-1 text-blue-100">Explanation:</p>
-                                    <p>{currentQuestion.explanation}</p>
+                                <div className="mt-6">
+                                    <div className="bg-blue-900/20 rounded-lg border border-blue-500/30 text-blue-200 p-4 mb-4">
+                                        <p className="font-bold mb-1 text-blue-100">Let’s walk through the thinking behind this question.</p>
+                                    </div>
+
+                                    {/* Fallback to legacy explanation if breakdown fails or is loading? 
+                                        Actually TutorBreakdown handles loading. 
+                                        If we have NO breakdown and NOT loading, we should show legacy text?
+                                        My fetchTutorBreakdown sets a fallback object, so breakdown shouldn't be null after fetch.
+                                        But if Correct -> we didn't fetch yet.
+                                     */}
+                                    {!tutorBreakdown && !loadingBreakdown ? (
+                                        // This happens if user Clicked "Show Explanation" on a CORRECT answer and we haven't fetched yet.
+                                        // We should probably fetch now? Or just show legacy?
+                                        // Let's trigger fetch if null.
+                                        <div className="text-center p-4">
+                                            <button
+                                                onClick={() => fetchTutorBreakdown(currentQuestion, selectedOption!)}
+                                                className="text-brand-400 hover:text-brand-300 underline"
+                                            >
+                                                Load Coach Breakdown
+                                            </button>
+                                            <div className="mt-4 p-4 bg-slate-800/50 rounded text-slate-300 text-left">
+                                                <p className="font-bold text-slate-400 text-xs uppercase mb-2">Standard Explanation</p>
+                                                {currentQuestion.explanation}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <TutorBreakdown
+                                            breakdown={tutorBreakdown}
+                                            loading={loadingBreakdown}
+                                            onExpandDepth={handleExpandDepth}
+                                            depthContent={depthContent}
+                                            depthLoading={depthLoading}
+                                        />
+                                    )}
                                 </div>
                             )}
                         </div>

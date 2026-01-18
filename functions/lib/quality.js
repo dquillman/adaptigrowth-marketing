@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.evaluateQuestionQuality = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const db = admin.firestore();
 // Point-Biserial Correlation Calculation
 // Measures relationship between getting a specific item correct and total score
 function calculatePointBiserial(attempts) {
@@ -33,6 +32,7 @@ exports.evaluateQuestionQuality = functions.https.onCall(async (_data, context) 
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     // const sevenDaysAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000); // Unused
     try {
+        const db = admin.firestore();
         // 2. Fetch Questions that need evaluation
         // Optimization: In a real system, query for questions with new attempts since lastEvaluated.
         // For this phase, we'll scan all, or limit to a batch.

@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-const db = admin.firestore();
+
 
 // Point-Biserial Correlation Calculation
 // Measures relationship between getting a specific item correct and total score
@@ -39,6 +39,7 @@ export const evaluateQuestionQuality = functions.https.onCall(async (_data, cont
 
 
     try {
+        const db = admin.firestore();
         // 2. Fetch Questions that need evaluation
         // Optimization: In a real system, query for questions with new attempts since lastEvaluated.
         // For this phase, we'll scan all, or limit to a batch.

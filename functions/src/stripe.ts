@@ -2,7 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import Stripe from "stripe";
 
-const db = admin.firestore();
+
 
 // Initialize Stripe with secret key from environment variables
 // We use a getter to avoid initializing if the key is missing during build
@@ -70,6 +70,7 @@ export const createPortalSession = functions.https.onCall(async (data, context) 
     const userId = context.auth.uid;
 
     try {
+        const db = admin.firestore();
         const userDoc = await db.collection('users').doc(userId).get();
         const customerId = userDoc.data()?.stripeCustomerId;
 
@@ -97,6 +98,7 @@ export const getSubscriptionDetails = functions.https.onCall(async (data, contex
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
 
     const userId = context.auth.uid;
+    const db = admin.firestore();
     const userDoc = await db.collection('users').doc(userId).get();
     const customerId = userDoc.data()?.stripeCustomerId;
 
@@ -154,6 +156,7 @@ export const cancelSubscription = functions.https.onCall(async (data, context) =
         // OPTIONAL: Verify ownership? 
         // Stripe doesn't inherently check if `subscriptionId` belongs to `userId` unless we fetch customer first.
         // For robustness, getting the customer ID from user doc is safer.
+        const db = admin.firestore();
         const userDoc = await db.collection('users').doc(userId).get();
         const customerId = userDoc.data()?.stripeCustomerId;
 
@@ -237,6 +240,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     console.log(`Granting Pro access to user ${userId}`);
 
     // Update user document
+    const db = admin.firestore();
     await db.collection('users').doc(userId).set({
         isPro: true,
         stripeCustomerId: customerId,
@@ -250,6 +254,7 @@ async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
     // For MVP, if we don't have a direct mapping easily accessible without querying, 
     // we might need to query users by stripeCustomerId.
     const customerId = sub.customer as string;
+    const db = admin.firestore();
 
     const usersSnap = await db.collection('users').where('stripeCustomerId', '==', customerId).limit(1).get();
 

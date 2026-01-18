@@ -124,10 +124,13 @@ export default function SimulatorResults() {
                                             <span className="text-slate-300">{stat.name}</span>
                                             <span className="font-bold text-white">{stat.score}%</span>
                                         </div>
-                                        <div className="w-full bg-slate-700 rounded-full h-2">
+                                        <div className="w-full bg-slate-700 rounded-full h-4 border border-slate-600/50 overflow-hidden">
                                             <div
-                                                className={`h-2 rounded-full ${stat.score >= 70 ? 'bg-emerald-500' : stat.score >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
-                                                style={{ width: `${stat.score}%` }}
+                                                className="h-full rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(0,0,0,0.2)]"
+                                                style={{
+                                                    width: `${stat.score}%`,
+                                                    backgroundColor: `hsl(${Math.min(stat.score * 1.2, 120)}, 85%, 45%)`
+                                                }}
                                             ></div>
                                         </div>
                                     </div>

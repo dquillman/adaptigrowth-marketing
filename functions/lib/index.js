@@ -1,10 +1,26 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = exports.createUserProfile = void 0;
+exports.cleanupTimedOutSessions = exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = exports.createUserProfile = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const openai_1 = require("openai");
+console.log("Global Index Execution Started");
 admin.initializeApp();
+console.log("Admin Initialized");
 const db = admin.firestore();
 // ===== USER PROFILE CREATION =====
 // Auto-create user profile on signup with default 'user' role
@@ -680,6 +696,8 @@ exports.getAdminUserList = functions.https.onCall(async (data, context) => {
                 stripeCustomerId: profile === null || profile === void 0 ? void 0 : profile.stripeCustomerId,
                 subscriptionStatus: profile === null || profile === void 0 ? void 0 : profile.subscriptionStatus,
                 trial: profile === null || profile === void 0 ? void 0 : profile.trial,
+                testerOverride: profile === null || profile === void 0 ? void 0 : profile.testerOverride,
+                testerExpiresAt: profile === null || profile === void 0 ? void 0 : profile.testerExpiresAt,
                 role: (profile === null || profile === void 0 ? void 0 : profile.role) || 'user'
             };
         });
@@ -1152,4 +1170,48 @@ exports.seedExamSources = functions.https.onCall(async (data, context) => {
     }
     return { success: true, message: `Seeded ${count} sources.` };
 });
+// --- Session Cleanup Function ---
+/**
+ * Automatically closes abandoned sessions that haven't sent a heartbeat.
+ * Runs every 5 minutes.
+ */
+exports.cleanupTimedOutSessions = functions.pubsub.schedule('every 5 minutes').onRun(async (context) => {
+    const timeoutThreshold = new Date();
+    timeoutThreshold.setMinutes(timeoutThreshold.getMinutes() - 15);
+    try {
+        const expiredSessions = await db.collection('user_sessions')
+            .where('logoutAt', '==', null)
+            .where('lastSeenAt', '<', timeoutThreshold)
+            .limit(500)
+            .get();
+        if (expiredSessions.empty) {
+            return null;
+        }
+        const batch = db.batch();
+        const now = admin.firestore.Timestamp.now();
+        expiredSessions.forEach(doc => {
+            const data = doc.data();
+            const loginAt = data.loginAt;
+            let durationSec = null;
+            if (loginAt && loginAt.toMillis) {
+                durationSec = Math.round((now.toMillis() - loginAt.toMillis()) / 1000);
+            }
+            batch.update(doc.ref, {
+                logoutAt: now,
+                endedBy: 'timeout',
+                durationSec: durationSec
+            });
+        });
+        await batch.commit();
+        console.log(`Successfully closed ${expiredSessions.size} timed-out sessions.`);
+        return null;
+    }
+    catch (error) {
+        console.error('Error cleaning up sessions:', error);
+        return null;
+    }
+});
+__exportStar(require("./tester_management"), exports);
+__exportStar(require("./tutor"), exports);
+__exportStar(require("./diagnostics"), exports);
 //# sourceMappingURL=index.js.map

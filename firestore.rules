@@ -56,6 +56,18 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
     
+    // User Sessions tracking
+    match /user_sessions/{sessionId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Allow update if doc missing (DB returns Not Found) OR if user owns it and only touches allowed fields
+      allow update: if isAuthenticated() && 
+                    (resource == null || 
+                     (resource.data.userId == request.auth.uid && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeenAt', 'logoutAt', 'endedBy', 'durationSec'])));
+      // Allow read if doc missing (DB returns Not Found) OR if user owns it OR if admin
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
     // System Metrics - Admin only
     match /system_metrics/{docId} {
       allow read, write: if isAdmin();

@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
-const db = admin.firestore();
+
 
 interface DriftSignal {
     type: 'stagnation' | 'confusion' | 'time_drift' | 'memorization';
@@ -31,6 +31,7 @@ export const analyzeExamHealth = functions.https.onCall(async (data, context) =>
     const examId = data.examId || 'default-exam';
 
     try {
+        const db = admin.firestore();
         // 1. Fetch Recent "Pro" Attempts (Last 100)
         // We only use Pro data for quality auditing as requested
         const attemptsSnap = await db.collection('quizAttempts')

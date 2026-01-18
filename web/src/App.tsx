@@ -1,4 +1,4 @@
-﻿import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+﻿import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState, createContext, useContext, type ReactNode } from "react";
 import { onAuthStateChanged, type User, signOut } from "firebase/auth";
 import { auth } from "./firebase";
@@ -22,6 +22,7 @@ import SetupPlanner from "./pages/planner/SetupPlanner";
 import StudySchedule from "./pages/planner/StudySchedule";
 import VerbalMode from "./pages/VerbalMode";
 import ReadinessReportPage from "./pages/ReadinessReport";
+import DiagnosticsPage from "./pages/DiagnosticsPage";
 
 // --- Auth Context ---
 interface AuthContextType {
@@ -36,9 +37,12 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+import { useSessionTracker } from "./hooks/useSessionTracker";
+
 function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { closeSession } = useSessionTracker(user);
 
   useEffect(() => {
     // Safety check for auth initialization failure
@@ -56,7 +60,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = async () => {
-    await signOut(auth);
+    try {
+      await closeSession();
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Still sign out if session close fails
+      await signOut(auth);
+    }
   };
 
   if (!auth && !loading) {
@@ -113,11 +124,14 @@ import Sidebar from "./components/Sidebar";
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 
+import TrialModal from "./components/TrialModal";
+
 // --- Layouts ---
 function AppLayout() {
   const { isCollapsed } = useSidebar();
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex relative">
+      <TrialModal />
       {/* Global Version Label */}
       <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs font-mono text-white/50 pointer-events-none z-50">
         Version: {APP_VERSION}
@@ -170,44 +184,43 @@ function App() {
       <SidebarProvider>
         <ExamProvider>
           <SubscriptionProvider>
-            <Router>
-              <Routes>
-                {/* Public Routes (Accessible to everyone) */}
-                <Route path="/" element={<Landing />} />
-                <Route path="/about" element={<About />} />
+            <Routes>
+              {/* Public Routes (Accessible to everyone) */}
+              <Route path="/" element={<Landing />} />
+              <Route path="/about" element={<About />} />
 
-                {/* Auth Routes (Only for logged out users) */}
-                <Route element={<PublicOnly />}>
-                  <Route path="/login" element={<Login />} />
+              {/* Auth Routes (Only for logged out users) */}
+              <Route element={<PublicOnly />}>
+                <Route path="/login" element={<Login />} />
+              </Route>
+
+              {/* Protected Routes (Accessible only when logged in) */}
+              <Route path="/app" element={<RequireAuth />}>
+                {/* Dashboard at /app root, no sidebar */}
+                <Route index element={<Dashboard />} />
+
+                <Route element={<AppLayout />}>
+                  <Route path="exams" element={<ExamList />} />
+                  <Route path="quiz" element={<Quiz />} />
+                  <Route path="quiz/:examId" element={<Quiz />} />
+                  <Route path="pricing" element={<Pricing />} />
+                  <Route path="success" element={<Success />} />
+                  <Route path="help" element={<Help />} />
+                  <Route path="simulator" element={<SimulatorIntro />} />
+                  <Route path="simulator/exam" element={<Simulator />} />
+                  <Route path="simulator/results" element={<SimulatorResults />} />
+                  <Route path="stats" element={<Stats />} />
+                  <Route path="planner" element={<StudySchedule />} />
+                  <Route path="planner/setup" element={<SetupPlanner />} />
+                  <Route path="verbal" element={<VerbalMode />} />
+                  <Route path="readiness" element={<ReadinessReportPage />} />
+                  <Route path="diagnostics" element={<DiagnosticsPage />} />
                 </Route>
+              </Route>
 
-                {/* Protected Routes (Accessible only when logged in) */}
-                <Route path="/app" element={<RequireAuth />}>
-                  {/* Dashboard at /app root, no sidebar */}
-                  <Route index element={<Dashboard />} />
-
-                  <Route element={<AppLayout />}>
-                    <Route path="exams" element={<ExamList />} />
-                    <Route path="quiz" element={<Quiz />} />
-                    <Route path="quiz/:examId" element={<Quiz />} />
-                    <Route path="pricing" element={<Pricing />} />
-                    <Route path="success" element={<Success />} />
-                    <Route path="help" element={<Help />} />
-                    <Route path="simulator" element={<SimulatorIntro />} />
-                    <Route path="simulator/exam" element={<Simulator />} />
-                    <Route path="simulator/results" element={<SimulatorResults />} />
-                    <Route path="stats" element={<Stats />} />
-                    <Route path="planner" element={<StudySchedule />} />
-                    <Route path="planner/setup" element={<SetupPlanner />} />
-                    <Route path="verbal" element={<VerbalMode />} />
-                    <Route path="readiness" element={<ReadinessReportPage />} />
-                  </Route>
-                </Route>
-
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Router>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </SubscriptionProvider>
         </ExamProvider>
       </SidebarProvider>

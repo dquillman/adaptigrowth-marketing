@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { Users, Megaphone, Activity, AlertCircle, Stethoscope, Target, BarChart3, BookOpen, UserCheck } from 'lucide-react';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { Users, Megaphone, Activity, AlertCircle, Stethoscope, Target, BarChart3, BookOpen, UserCheck, History } from 'lucide-react';
 import QuestionEditor from './components/QuestionEditor';
 import Dashboard from './pages/Dashboard';
 import ExamEditor from './pages/ExamEditor';
@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Settings from './pages/Settings';
 import IssuesList from './pages/IssuesList';
 import TestersPage from './pages/TestersPage';
+import TesterActivityPage from './pages/TesterActivityPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import CustomerAcquisitionPage from './pages/CustomerAcquisitionPage';
 import IdentityIndicator from './components/IdentityIndicator';
@@ -106,6 +107,13 @@ function Layout() {
             <span className="font-medium">Testers</span>
           </Link>
 
+          <Link to="/activity" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
+            <div className="p-2 bg-slate-800/50 rounded-lg group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
+              <History className="w-5 h-5" />
+            </div>
+            <span className="font-medium">Activity</span>
+          </Link>
+
           <div className="h-px bg-white/5 my-2 mx-4"></div>
 
           <Link to="/get-customers" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:bg-white/5 hover:text-white rounded-xl transition-all group">
@@ -147,7 +155,7 @@ function Layout() {
               <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
               <span className="text-sm text-slate-300">Operational</span>
             </div>
-            <div className="mt-2 text-[10px] text-slate-600 font-mono">v1.10.1 (UI Update)</div>
+            <div className="mt-2 text-[10px] text-slate-600 font-mono">v1.10.3 (Cold Start Fix)</div>
           </div>
         </div>
       </aside>
@@ -159,83 +167,34 @@ function Layout() {
         </div>
         <Routes>
           <Route path="/" element={<Navigate to="/exams" replace />} />
-          <Route path="/exams" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/analytics" element={
-            <ProtectedRoute>
-              <AnalyticsPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/exam-updates" element={
-            <ProtectedRoute>
-              <ExamUpdateMonitorPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/users" element={
-            <ProtectedRoute>
-              <UsersPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/exams/:examId" element={
-            <ProtectedRoute>
-              <ExamEditor />
-            </ProtectedRoute>
-          } />
-          <Route path="/questions/new" element={
-            <ProtectedRoute>
-              <QuestionEditor />
-            </ProtectedRoute>
-          } />
-          <Route path="/settings" element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
-          } />
-          <Route path="/issues" element={
-            <ProtectedRoute>
-              <IssuesList />
-            </ProtectedRoute>
-          } />
-          <Route path="/testers" element={
-            <ProtectedRoute>
-              <TestersPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/marketing" element={
-            <ProtectedRoute>
-              <MarketingPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/exam-health" element={
-            <ProtectedRoute>
-              <ExamHealthPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/system-health" element={
-            <ProtectedRoute>
-              <SystemHealthPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/get-customers" element={
-            <ProtectedRoute>
-              <CustomerAcquisitionPage />
-            </ProtectedRoute>
-          } />
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/exams" element={<Dashboard />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/exam-updates" element={<ExamUpdateMonitorPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/exams/:examId" element={<ExamEditor />} />
+            <Route path="/questions/new" element={<QuestionEditor />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/issues" element={<IssuesList />} />
+            <Route path="/testers" element={<TestersPage />} />
+            <Route path="/activity" element={<TesterActivityPage />} />
+            <Route path="/marketing" element={<MarketingPage />} />
+            <Route path="/exam-health" element={<ExamHealthPage />} />
+            <Route path="/system-health" element={<SystemHealthPage />} />
+            <Route path="/get-customers" element={<CustomerAcquisitionPage />} />
+          </Route>
         </Routes>
 
       </main>
-    </div>
+    </div >
   );
 }
 
 function App() {
   return (
-    <Router>
-      <Layout />
-    </Router>
+    <Layout />
   );
 }
 

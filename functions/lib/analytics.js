@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeExamHealth = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const db = admin.firestore();
 exports.analyzeExamHealth = functions.https.onCall(async (data, context) => {
     if (!context.auth)
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -11,6 +10,7 @@ exports.analyzeExamHealth = functions.https.onCall(async (data, context) => {
     // if (!context.auth.token.admin) ...
     const examId = data.examId || 'default-exam';
     try {
+        const db = admin.firestore();
         // 1. Fetch Recent "Pro" Attempts (Last 100)
         // We only use Pro data for quality auditing as requested
         const attemptsSnap = await db.collection('quizAttempts')
