@@ -1071,6 +1071,67 @@ export const generateMarketingCopy = functions.https.onCall(async (data, context
     }
 });
 
+export const generateMarketingCopyVariants = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+    // Optional context from current inputs
+    const { currentPrimary, currentSecondary } = data;
+
+    try {
+        const completion = await getOpenAI().chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a helpful assistant. Return a JSON object with a "variants" array. Each item should have "primary" and "secondary" fields.`
+                },
+                {
+                    role: "user",
+                    content: `
+                    You are helping write marketing copy for a calm, trust-based exam preparation product.
+                    Audience: Anxious PMP candidates.
+                    Tone: Calm, confident, non-salesy, non-hype.
+                    Goal: Explain value without exaggeration.
+
+                    Generate 5 alternative versions of:
+                    1) A single-sentence primary value statement
+                    2) A single-sentence supporting line
+
+                    Rules:
+                    - No buzzwords
+                    - No guarantees
+                    - No urgency language
+                    - No exclamation points
+                    - Focus on thinking patterns, clarity, and confidence
+                    - Avoid phrases like 'AI-powered', 'revolutionary', or 'crush the exam'
+
+                    ${currentPrimary ? `Context (Current Primary): "${currentPrimary}"` : ''}
+                    ${currentSecondary ? `Context (Current Secondary): "${currentSecondary}"` : ''}
+
+                    Return valid JSON only.
+                    `
+                }
+            ],
+            response_format: { type: "json_object" }
+        });
+
+        const text = completion.choices[0].message.content || "{}";
+        const parsed = JSON.parse(text);
+
+        // Validation/Sanitization
+        const variants = (Array.isArray(parsed.variants) ? parsed.variants : []).map((v: any) => ({
+            primary: v.primary || "",
+            secondary: v.secondary || ""
+        }));
+
+        return { variants };
+
+    } catch (error: any) {
+        console.error("Error generating variants:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+
 export const getMarketingAnalytics = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 

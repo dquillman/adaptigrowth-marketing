@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { PatternData } from './PatternInsightCard';
 export interface TutorResponse {
     verdict: string;
     comparison: {
@@ -7,6 +8,7 @@ export interface TutorResponse {
         explanation: string;
     }[];
     examLens: string;
+    pattern?: PatternData;
 }
 
 interface TutorBreakdownProps {

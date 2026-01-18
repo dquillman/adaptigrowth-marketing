@@ -17,6 +17,7 @@ import { useSidebar } from '../contexts/SidebarContext.tsx';
 import { useExam } from '../contexts/ExamContext';
 import ReportIssueModal from '../components/ReportIssueModal';
 import { useTrial } from '../hooks/useTrial';
+import ThinkingTrapsCard from '../components/ThinkingTrapsCard';
 
 interface QuizAttempt {
     id: string;
@@ -368,44 +369,72 @@ export default function Dashboard() {
 
                     {/* Main Content - Blurred if Expired */}
                     <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
-                        {/* Welcome Section */}
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div>
-                                <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
-                                <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={handleSmartStart}
-                                    className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
-                                >
-                                    Start Daily Practice
-                                </button>
-                                <button
-                                    onClick={handleWeakestStart}
-                                    className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
-                                    title="Targets your weakest domains"
-                                >
-                                    <span className="mr-2">⚡</span> Smart Practice
-                                </button>
-                                <button
-                                    onClick={() => navigate('/app/simulator')}
-                                    className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
-                                    title="Full length timed exam simulation"
-                                >
-                                    <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
-                                </button>
-                                {trial.status === 'none' && (
+                        {/* Onboarding / Welcome Section */}
+                        {recentActivity.length === 0 && !loading ? (
+                            <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                <div className="relative z-10 max-w-2xl">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                        First Step
+                                    </div>
+                                    <h2 className="text-3xl font-bold text-white font-display mb-3 tracking-tight">Let's find your baseline.</h2>
+                                    <p className="text-indigo-100 text-lg leading-relaxed">
+                                        To give you personalized coaching, we need to see how you think.
+                                        Take a quick <strong>5-question diagnostic</strong> to uncover your hidden patterns.
+                                    </p>
+                                </div>
+                                <div className="relative z-10 mt-6 md:mt-0">
                                     <button
-                                        onClick={startTrial}
-                                        className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 transition-all transform hover:-translate-y-0.5 border border-emerald-400/20"
+                                        onClick={() => navigate('/app/quiz', { state: { mode: 'diagnostic' } })}
+                                        className="inline-flex items-center justify-center rounded-xl bg-white text-brand-700 px-8 py-4 text-lg font-bold shadow-xl hover:bg-indigo-50 hover:scale-105 transition-all w-full md:w-auto gap-2 group/btn"
                                     >
-                                        Start 7-Day Free Trial
+                                        Start Diagnostic
+                                        <svg className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                        </svg>
                                     </button>
-                                )}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
+                                    <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <button
+                                        onClick={handleSmartStart}
+                                        className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                    >
+                                        Start Daily Practice
+                                    </button>
+                                    <button
+                                        onClick={handleWeakestStart}
+                                        className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
+                                        title="Targets your weakest domains"
+                                    >
+                                        <span className="mr-2">⚡</span> Smart Practice
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/app/simulator')}
+                                        className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
+                                        title="Full length timed exam simulation"
+                                    >
+                                        <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
+                                    </button>
+                                    {trial.status === 'none' && (
+                                        <button
+                                            onClick={startTrial}
+                                            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 transition-all transform hover:-translate-y-0.5 border border-emerald-400/20"
+                                        >
+                                            Start 7-Day Free Trial
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Mastery Rings Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
@@ -485,59 +514,65 @@ export default function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Daily Goal */}
-                            <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
-                                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
-                                <div className="flex justify-between items-start mb-2 relative z-10">
-                                    <h3 className="text-lg font-bold font-display">Daily Goal</h3>
-                                    <button
-                                        onClick={() => setIsEditingGoal(!isEditingGoal)}
-                                        className="text-brand-200 hover:text-white transition-colors"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                        </svg>
-                                    </button>
+                            {/* Right Column: Goal + Traps */}
+                            <div className="space-y-6">
+                                {/* Daily Goal */}
+                                <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
+                                    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
+                                    <div className="flex justify-between items-start mb-2 relative z-10">
+                                        <h3 className="text-lg font-bold font-display">Daily Goal</h3>
+                                        <button
+                                            onClick={() => setIsEditingGoal(!isEditingGoal)}
+                                            className="text-brand-200 hover:text-white transition-colors"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    {
+                                        isEditingGoal ? (
+                                            <div className="mb-4 relative z-10">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={newGoal}
+                                                        onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
+                                                        className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
+                                                    />
+                                                    <button
+                                                        onClick={saveGoal}
+                                                        className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
+                                                    >
+                                                        Save
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div className="flex items-end gap-2 mb-4 relative z-10">
+                                                    <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
+                                                    <span className="text-brand-200 mb-1 font-medium">questions</span>
+                                                </div>
+                                                <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
+                                                    <div
+                                                        className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
+                                                        style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                            </>
+                                        )
+                                    }
+                                    <p className="text-sm text-brand-100/80 relative z-10">
+                                        {dailyProgress >= dailyGoal
+                                            ? "Goal reached! You're crushing it! 🚀"
+                                            : "Keep it up! Consistency is key to passing your exam."}
+                                    </p>
                                 </div>
 
-                                {
-                                    isEditingGoal ? (
-                                        <div className="mb-4 relative z-10">
-                                            <div className="flex gap-2">
-                                                <input
-                                                    type="number"
-                                                    value={newGoal}
-                                                    onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
-                                                    className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
-                                                />
-                                                <button
-                                                    onClick={saveGoal}
-                                                    className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
-                                                >
-                                                    Save
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-end gap-2 mb-4 relative z-10">
-                                                <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
-                                                <span className="text-brand-200 mb-1 font-medium">questions</span>
-                                            </div>
-                                            <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
-                                                <div
-                                                    className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
-                                                    style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
-                                                ></div>
-                                            </div>
-                                        </>
-                                    )
-                                }
-                                <p className="text-sm text-brand-100/80 relative z-10">
-                                    {dailyProgress >= dailyGoal
-                                        ? "Goal reached! You're crushing it! 🚀"
-                                        : "Keep it up! Consistency is key to passing your exam."}
-                                </p>
+                                {/* Thinking Traps Card */}
+                                <ThinkingTrapsCard />
                             </div>
                         </div>
                     </div>

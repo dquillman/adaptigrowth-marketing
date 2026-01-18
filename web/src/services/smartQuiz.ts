@@ -114,6 +114,93 @@ export const SmartQuizService = {
             console.error("Error generating simulation:", error);
             return [];
         }
+    },
+    /**
+     * Generates a focused quiz for a specific "Thinking Trap" (Pattern).
+     * Strategy:
+     * 1. Try to find questions tagged with this pattern (if supported in future).
+     * 2. Fallback: Find questions in the same Domain tags.
+     * 
+     * ADAPTATION:
+     * If masteryScore > 70 (Stable Mastery), we prioritize "harder" questions.
+     * REMOVED MOCK: If difficulty is missing, we use text length as a proxy for complexity.
+     */
+    generateTrapQuiz: async (
+        patternId: string,
+        domainTags: string[],
+        examId: string,
+        limitCount: number = 7,
+        masteryScore: number = 0
+    ): Promise<string[]> => {
+        console.log("Generating Trap Quiz for", patternId, "Score:", masteryScore);
+
+        let questionIds: string[] = [];
+        let pool: any[] = [];
+
+        // 1. Fetch Candidates (Domain Fallback)
+        if (domainTags && domainTags.length > 0) {
+            const primaryDomain = domainTags[0];
+            try {
+                // Fetch potentially more to find matches
+                const q = query(
+                    collection(db, 'questions'),
+                    where('examId', '==', examId),
+                    where('domain', '==', primaryDomain),
+                    limit(40) // Increased fetch limit
+                );
+
+                const snap = await getDocs(q);
+                pool = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch (error) {
+                console.error("Error fetching trap questions:", error);
+            }
+        }
+
+        // 2. Adaptive Selection
+        const isStable = masteryScore > 70;
+
+        if (isStable) {
+            console.log("User has STABLE mastery. Attempting to escalate...");
+
+            // creative error handling / heuristic:
+            // If explicit difficulty is missing, assume longer questions (stem length) are more complex.
+            const AVG_CHAR_LENGTH = 120;
+
+            const hardQuestions = pool.filter(q => {
+                const hasDifficulty = typeof q.difficulty === 'number';
+                if (hasDifficulty) {
+                    return q.difficulty > 5;
+                }
+                // Fallback Heuristic: Length > 1.5x average (approx 180 chars)
+                return (q.stem && q.stem.length > (AVG_CHAR_LENGTH * 1.5));
+            });
+
+            if (hardQuestions.length >= 3) { // Only switch if we found a decent chunk
+                console.log(`Found ${hardQuestions.length} complex questions.`);
+                pool = hardQuestions;
+            } else {
+                console.log("Insufficient complex questions found. Using standard mix.");
+            }
+        }
+
+        // 3. Select Finals
+        questionIds = pool.map(q => q.id).sort(() => 0.5 - Math.random()).slice(0, limitCount);
+
+        // 4. Final Fallback (Creative Empty Handling)
+        if (questionIds.length < limitCount) {
+            console.log("Pool exhausted. Filling with Simulation questions.");
+            const needed = limitCount - questionIds.length;
+            const fallbackIds = await SmartQuizService.generateSimulationExam(examId, needed * 2);
+
+            // Filter duplicates without set complexity
+            for (const fid of fallbackIds) {
+                if (!questionIds.includes(fid)) {
+                    questionIds.push(fid);
+                    if (questionIds.length >= limitCount) break;
+                }
+            }
+        }
+
+        return questionIds;
     }
 }
-

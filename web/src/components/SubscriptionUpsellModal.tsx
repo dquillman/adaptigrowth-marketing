@@ -7,8 +7,11 @@ interface SubscriptionUpsellModalProps {
     reason?: 'daily_limit' | 'pro_feature';
 }
 
+import { useMarketingCopy } from '../hooks/useMarketingCopy';
+
 export default function SubscriptionUpsellModal({ isOpen, onClose, reason = 'pro_feature' }: SubscriptionUpsellModalProps) {
     const navigate = useNavigate();
+    const copy = useMarketingCopy();
 
     if (!isOpen) return null;
 
@@ -18,8 +21,8 @@ export default function SubscriptionUpsellModal({ isOpen, onClose, reason = 'pro
             description: "You've completed your 5 free questions for today. Upgrade to Pro for unlimited practice.",
         },
         pro_feature: {
-            title: "Unlock Pro Features",
-            description: "This feature is available exclusively to Pro members.",
+            title: copy.pro_value_primary,
+            description: copy.pro_value_secondary,
         }
     };
 

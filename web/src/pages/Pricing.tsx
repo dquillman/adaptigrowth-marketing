@@ -10,12 +10,15 @@ import SubscriptionModal from '../components/SubscriptionModal';
 // User will provide this key later
 // const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
+import { useMarketingCopy } from '../hooks/useMarketingCopy';
+
 export default function Pricing() {
     const [loading, setLoading] = useState(false);
     const [isPro, setIsPro] = useState(false);
     const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
     const [isSubModalOpen, setIsSubModalOpen] = useState(false);
     const functions = getFunctions();
+    const copy = useMarketingCopy();
 
     const PRICE_ID_MONTHLY = "price_1ScV4PPISVVFkTmYtxipM6eN";
     const PRICE_ID_YEARLY = "price_1ScXMIPISVVFkTmY9U5uaLTk";
@@ -96,7 +99,7 @@ export default function Pricing() {
 
             <div className="max-w-4xl w-full text-center space-y-6">
                 <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                    Unlock Your Full Potential
+                    {copy.pro_value_primary}
                 </h1>
 
                 {/* Back Button */}
@@ -109,7 +112,7 @@ export default function Pricing() {
                 </button>
 
                 <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-                    Get unlimited access to AI-generated questions, advanced analytics, and domain mastery tracking.
+                    {copy.pro_value_secondary}
                 </p>
 
                 {/* Billing Toggle */}

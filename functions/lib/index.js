@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupTimedOutSessions = exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = exports.createUserProfile = void 0;
+exports.cleanupTimedOutSessions = exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopyVariants = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = exports.createUserProfile = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const openai_1 = require("openai");
@@ -931,6 +931,62 @@ exports.generateMarketingCopy = functions.https.onCall(async (data, context) => 
     }
     catch (error) {
         console.error("Error generating marketing copy:", error);
+        throw new functions.https.HttpsError('internal', error.message);
+    }
+});
+exports.generateMarketingCopyVariants = functions.https.onCall(async (data, context) => {
+    if (!context.auth)
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    // Optional context from current inputs
+    const { currentPrimary, currentSecondary } = data;
+    try {
+        const completion = await getOpenAI().chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a helpful assistant. Return a JSON object with a "variants" array. Each item should have "primary" and "secondary" fields.`
+                },
+                {
+                    role: "user",
+                    content: `
+                    You are helping write marketing copy for a calm, trust-based exam preparation product.
+                    Audience: Anxious PMP candidates.
+                    Tone: Calm, confident, non-salesy, non-hype.
+                    Goal: Explain value without exaggeration.
+
+                    Generate 5 alternative versions of:
+                    1) A single-sentence primary value statement
+                    2) A single-sentence supporting line
+
+                    Rules:
+                    - No buzzwords
+                    - No guarantees
+                    - No urgency language
+                    - No exclamation points
+                    - Focus on thinking patterns, clarity, and confidence
+                    - Avoid phrases like 'AI-powered', 'revolutionary', or 'crush the exam'
+
+                    ${currentPrimary ? `Context (Current Primary): "${currentPrimary}"` : ''}
+                    ${currentSecondary ? `Context (Current Secondary): "${currentSecondary}"` : ''}
+
+                    Return valid JSON only.
+                    `
+                }
+            ],
+            response_format: { type: "json_object" }
+        });
+        const text = completion.choices[0].message.content || "{}";
+        const parsed = JSON.parse(text);
+        // Validation/Sanitization
+        const variants = (Array.isArray(parsed.variants) ? parsed.variants : []).map((v) => ({
+            primary: v.primary || "",
+            secondary: v.secondary || ""
+        }));
+        return { variants };
+    }
+    catch (error) {
+        console.error("Error generating variants:", error);
         throw new functions.https.HttpsError('internal', error.message);
     }
 });

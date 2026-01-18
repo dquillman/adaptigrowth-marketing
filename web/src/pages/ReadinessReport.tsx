@@ -4,6 +4,8 @@ import { PredictionEngine, type ReadinessReport } from '../services/PredictionEn
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2, Lock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import PatternInsightCard, { type PatternData } from '../components/PatternInsightCard';
 
 import { useExam } from '../contexts/ExamContext';
 
@@ -13,15 +15,26 @@ export default function ReadinessReportPage() {
     const { selectedExamId, examName } = useExam();
     const navigate = useNavigate();
     const [report, setReport] = useState<ReadinessReport | null>(null);
+    const [minedPatterns, setMinedPatterns] = useState<PatternData[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchReport = async () => {
             if (!user || !selectedExamId) return;
             try {
-                // Use ID from context
-                const data = await PredictionEngine.calculateReadiness(user.uid, selectedExamId);
-                setReport(data);
+                // Parallel fetch: Readiness + Weakest Patterns
+                const [readinessData, patternsResult] = await Promise.allSettled([
+                    PredictionEngine.calculateReadiness(user.uid, selectedExamId),
+                    httpsCallable(getFunctions(), 'getWeakestPatterns')()
+                ]);
+
+                if (readinessData.status === 'fulfilled') {
+                    setReport(readinessData.value);
+                }
+
+                if (patternsResult.status === 'fulfilled' && patternsResult.value.data) {
+                    setMinedPatterns(patternsResult.value.data as PatternData[]);
+                }
             } catch (error) {
                 console.error("Failed to load readiness report", error);
             } finally {
@@ -222,6 +235,28 @@ export default function ReadinessReportPage() {
                         </div>
                     </div>
                 </div>
+
+                {/* Mindset Gaps (Weakest Patterns) */}
+                {minedPatterns.length > 0 && (
+                    <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+                        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-white flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                    Mindset Gaps
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Common "User Traps" you are falling for. Master these to boost your score.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/30">
+                            {minedPatterns.map(p => (
+                                <PatternInsightCard key={p.pattern_id} pattern={p} />
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Domain Breakdown */}
                 <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">

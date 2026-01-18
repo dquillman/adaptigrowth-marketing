@@ -1,14 +1,17 @@
-import { Link, useParams, useLocation } from 'react-router-dom';
+import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import TutorBreakdown, { type TutorResponse } from '../components/TutorBreakdown';
+import type { PatternData } from '../components/PatternInsightCard';
 import { doc, setDoc, getDoc, collection, query, getDocs, addDoc, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { XPService } from '../services/xpService';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import SubscriptionUpsellModal from '../components/SubscriptionUpsellModal';
 import { useExam } from '../contexts/ExamContext';
+import { SmartQuizService } from '../services/smartQuiz';
+import { useMarketingCopy } from '../hooks/useMarketingCopy';
 
 interface Question {
     id: string;
@@ -19,6 +22,7 @@ interface Question {
     domain: string;
     examId?: string;
     imageUrl?: string; // New field for AI image
+    difficulty?: number; // 1-10
 }
 
 export default function Quiz() {
@@ -35,8 +39,12 @@ export default function Quiz() {
     const [domainResults, setDomainResults] = useState<Record<string, { correct: number; total: number }>>({});
     const [quizDetails, setQuizDetails] = useState<any[]>([]);
 
+    // Thinking Trap Suggestion State
+    const [sessionTraps, setSessionTraps] = useState<Map<string, { count: number, pattern: PatternData }>>(new Map());
+
     const { isPro, canTakeQuiz, incrementDailyCount } = useSubscription();
     const [showUpsell, setShowUpsell] = useState(false);
+    const copy = useMarketingCopy();
 
     // Block access immediately if limit reached via direct URL, but handle graceful redirect/modal
     useEffect(() => {
@@ -53,17 +61,58 @@ export default function Quiz() {
     // ...
     const { examId: paramExamId } = useParams();
     const location = useLocation();
+    const navigate = useNavigate();
 
     // Global context fallback
     const { selectedExamId } = useExam();
 
     const [activeExamId, setActiveExamId] = useState<string>('');
+    const [reinforcementMessage, setReinforcementMessage] = useState<string | null>(null);
 
     useEffect(() => {
         // Determine the effective exam ID
         // Priority: URL Param > Context > Default
         const effectiveId = paramExamId || selectedExamId || 'default-exam';
         setActiveExamId(effectiveId);
+
+        // Pre-Quiz Reinforcement Check
+        // Only run on mount (when ActiveExamId is set roughly) or just once.
+        const checkReinforcement = () => {
+            const MEMORY_KEY = 'exam_coach_reinforcement';
+            const FREQUENCY_KEY = 'exam_coach_last_reinforcement_shown';
+            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+            const ONE_DAY = 24 * 60 * 60 * 1000;
+
+            try {
+                const memoryStr = localStorage.getItem(MEMORY_KEY);
+                if (!memoryStr) return;
+
+                const memory = JSON.parse(memoryStr);
+                const now = Date.now();
+
+                // Check Age (< 7 days)
+                if ((now - memory.timestamp) > SEVEN_DAYS) return;
+
+                // Check Frequency (< 1 per day)
+                const lastShownStr = localStorage.getItem(FREQUENCY_KEY);
+                if (lastShownStr) {
+                    const lastShown = parseInt(lastShownStr, 10);
+                    if ((now - lastShown) < ONE_DAY) return;
+                }
+
+                // VALID: Set message and update check timestamp
+                // "Quick reminder: You’re getting better at spotting [Trap Name]."
+                setReinforcementMessage(`Quick reminder: You’re getting better at spotting ${memory.patternName}.`);
+                localStorage.setItem(FREQUENCY_KEY, now.toString());
+
+            } catch (e) {
+                console.error("Reinforcement check failed", e);
+            }
+        };
+
+        // Run once
+        checkReinforcement();
+
     }, [paramExamId, selectedExamId]);
 
     // ...
@@ -78,6 +127,58 @@ export default function Quiz() {
 
                 console.log("Fetching questions and progress for:", activeExamId);
                 setLoading(true);
+
+                // TRAP MODE
+                if (location.state?.mode === 'trap') {
+                    console.log("Initializing Trap Practice Mode...");
+                    const trapIds = await SmartQuizService.generateTrapQuiz(
+                        location.state.patternId,
+                        location.state.domainTags,
+                        activeExamId,
+                        isPro ? 7 : 5, // Limit as per requirements (5-7)
+                        location.state.masteryScore || 0 // Pass mastery score if available for adaptation
+                    );
+
+                    const fetchedQs: Question[] = [];
+                    for (const id of trapIds) {
+                        const docRef = doc(db, 'questions', id);
+                        const d = await getDoc(docRef);
+                        if (d.exists()) {
+                            // difficulty is optional now, no mock random assignment.
+                            const data = d.data();
+                            fetchedQs.push({
+                                id: d.id,
+                                ...data,
+                                difficulty: data.difficulty // Only set if exists
+                            } as Question);
+                        }
+                    }
+                    setQuestions(fetchedQs);
+                    setLoading(false);
+                    return;
+                    setLoading(false);
+                    return;
+                }
+
+                // DIAGNOSTIC MODE (First Session)
+                if (location.state?.mode === 'diagnostic') {
+                    console.log("Initializing Diagnostic Mode...");
+                    const DIAG_LIMIT = 5;
+                    // Use Simulation Generator for random broad mix
+                    const diagIds = await SmartQuizService.generateSimulationExam(activeExamId, DIAG_LIMIT);
+
+                    const fetchedQs: Question[] = [];
+                    for (const id of diagIds) {
+                        const docRef = doc(db, 'questions', id);
+                        const d = await getDoc(docRef);
+                        if (d.exists()) {
+                            fetchedQs.push({ id: d.id, ...d.data() } as Question);
+                        }
+                    }
+                    setQuestions(fetchedQs);
+                    setLoading(false);
+                    return;
+                }
 
                 // Check for Smart Quiz (passed via state)
                 const stateIds = location.state?.questionIds as string[] | undefined;
@@ -263,7 +364,11 @@ export default function Quiz() {
             setExplanationExpanded(true); // Open automatically on wrong
             fetchTutorBreakdown(currentQuestion, selectedOption);
         } else {
-            // Pre-fetch silently logic could go here, but for now wait for user to click "Show Explanation"
+            // For TRAP MODE, we MUST fetch breakdown to ensure the backend updates user_pattern_stats
+            // so the user can 'graduate' from the trap.
+            if (location.state?.mode === 'trap') {
+                fetchTutorBreakdown(currentQuestion, selectedOption);
+            }
         }
 
         // Save Granular Question Progress (SRS)
@@ -333,6 +438,24 @@ export default function Quiz() {
                 examDomain: question.domain
             });
             setTutorBreakdown(result.data as TutorResponse);
+
+            // Track Thinking Traps for Suggestion Engine
+            const responseData = result.data as TutorResponse;
+            if (responseData.pattern && responseData.pattern.pattern_id) {
+                setSessionTraps(prev => {
+                    const newMap = new Map(prev);
+                    const pid = responseData.pattern!.pattern_id;
+                    const existing = newMap.get(pid);
+
+                    if (existing) {
+                        newMap.set(pid, { ...existing, count: existing.count + 1 });
+                    } else {
+                        newMap.set(pid, { count: 1, pattern: responseData.pattern! });
+                    }
+                    console.log("Tracked Pattern Miss:", pid, newMap.get(pid)?.count);
+                    return newMap;
+                });
+            }
         } catch (err) {
             console.error("Failed to generate tutor breakdown:", err);
             // Fallback: Create a simple breakdown from the existing explanation
@@ -503,11 +626,250 @@ export default function Quiz() {
     }
 
     if (quizCompleted) {
+        // DIAGNOSTIC SUMMARY (First Session Reveal)
+        if (location.state?.mode === 'diagnostic') {
+            const traps = Array.from(sessionTraps.values());
+            const topTrap = traps.length > 0 ? traps.sort((a, b) => b.count - a.count)[0] : null;
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                    <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700 animate-in fade-in zoom-in duration-500">
+
+                        <div className="mb-6">
+                            <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
+                                <span className="text-4xl">🔎</span>
+                            </div>
+                            <h2 className="text-3xl font-bold text-white font-display mb-2">Diagnostic Complete</h2>
+                            <p className="text-slate-400">Your baseline has been established.</p>
+                        </div>
+
+                        {/* REVEAL LOGIC */}
+                        {topTrap ? (
+                            <div className="bg-gradient-to-br from-indigo-900/40 to-slate-800 border border-indigo-500/30 rounded-xl p-6 mb-8 text-left relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+                                <h3 className="text-indigo-300 font-bold uppercase tracking-wider text-xs mb-2">Insight Detected</h3>
+                                <p className="text-white text-lg font-medium leading-relaxed mb-4">
+                                    "You just encountered a common PMI Thinking Trap: <strong className="text-indigo-400">{topTrap.pattern.pattern_name}</strong>."
+                                </p>
+                                <p className="text-slate-400 text-sm italic border-l-2 border-indigo-500/30 pl-3">
+                                    {topTrap.pattern.core_rule}
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 mb-8">
+                                <h3 className="text-slate-300 font-bold mb-2">Analysis</h3>
+                                <p className="text-slate-400 text-sm leading-relaxed">
+                                    "As you practice, the system learns exactly how PMI patterns affect your answers. Keep going to unlock deeper insights."
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            {topTrap ? (
+                                <button
+                                    onClick={() => {
+                                        if (isPro) {
+                                            navigate('/app/quiz', {
+                                                state: {
+                                                    mode: 'trap',
+                                                    patternId: topTrap.pattern.pattern_id,
+                                                    patternName: topTrap.pattern.pattern_name,
+                                                    domainTags: topTrap.pattern.domain_tags,
+                                                    masteryScore: 0 // Reset for practice
+                                                }
+                                            });
+                                        } else {
+                                            setShowUpsell(true);
+                                        }
+                                    }}
+                                    className="w-full bg-indigo-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-indigo-500 shadow-lg shadow-indigo-500/30 transition-all"
+                                >
+                                    {isPro ? `[ Practice This Trap ]` : `[ ${copy.pro_value_primary} ]`}
+                                </button>
+                            ) : (
+                                <Link to="/app" className="block w-full bg-brand-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all">
+                                    Continue to Dashboard
+                                </Link>
+                            )}
+
+                            {topTrap && (
+                                <Link to="/app" className="block text-slate-500 hover:text-white text-sm font-medium py-2">
+                                    Return to Dashboard
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // TRAP MODE SUMMARY
+        if (location.state?.mode === 'trap') {
+            const accuracy = (score / questions.length) * 100;
+            const trapName = location.state.patternName || "Thinking Trap";
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                    <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
+                        {/* Reinforcement Memory Generation */}
+                        {(() => {
+                            // Generate and store if not already done for this session
+                            // We can use a simple check or just overwrite since it's the end of session
+                            const REINFORCEMENT_KEY = 'exam_coach_reinforcement';
+
+                            // Only generate if accuracy is decent (e.g. > 40%) to avoid reinforcing failure
+                            if (accuracy > 40) {
+                                const messages = [
+                                    "You’re starting to recognize this trap earlier.",
+                                    "You’re catching this pattern faster than before.",
+                                    "This trap is becoming easier to spot."
+                                ];
+                                // Specific deterministic choice based on pattern name length to differ slightly per pattern but be consistent
+                                const idx = (trapName.length + Math.floor(accuracy)) % messages.length;
+                                const message = messages[idx];
+
+                                try {
+                                    localStorage.setItem(REINFORCEMENT_KEY, JSON.stringify({
+                                        message,
+                                        patternId: location.state.patternId,
+                                        patternName: trapName,
+                                        timestamp: Date.now()
+                                    }));
+                                } catch (e) {
+                                    console.error("Failed to save reinforcement", e);
+                                }
+                            }
+                            return null;
+                        })()}
+
+                        <div className="w-16 h-16 bg-brand-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-brand-500/20">
+                            {accuracy > 70 ? '📈' : accuracy > 40 ? '⚖️' : '🔧'}
+                        </div>
+
+                        <h2 className="text-2xl font-bold text-white mb-2 font-display">{trapName}</h2>
+                        <p className="text-slate-400 text-sm mb-6 uppercase tracking-wider font-bold">Session Complete</p>
+
+                        <div className="bg-slate-800/50 rounded-xl p-6 mb-8 border border-slate-700/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-slate-400 text-sm">Session Accuracy</span>
+                                <span className={`font-bold text-lg ${accuracy > 70 ? 'text-emerald-400' : 'text-slate-200'}`}>
+                                    {Math.round(accuracy)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-slate-700/50 rounded-full h-2 mb-4">
+                                <div
+                                    className={`h-2 rounded-full transition-all ${accuracy > 70 ? 'bg-emerald-500' : 'bg-brand-500'}`}
+                                    style={{ width: `${accuracy}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-slate-300 text-sm italic">
+                                "{accuracy > 80
+                                    ? "Excellent work. You successfully avoided the trap signals."
+                                    : accuracy > 50
+                                        ? "You’re starting to recognize this trap earlier. Keep going."
+                                        : "This pattern is tricky. Review the core rule and try again tomorrow."}"
+                            </p>
+                        </div>
+
+                        <Link to="/app" className="block w-full bg-brand-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">
+                            Return to Dashboard
+                        </Link>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <div className="bg-slate-800/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
                     <h2 className="text-3xl font-bold text-white mb-4 font-display">Quiz Completed!</h2>
                     <p className="text-xl text-slate-300 mb-6">You scored <span className="font-bold text-brand-400">{score} / {questions.length}</span></p>
+
+                    {/* Thinking Trap Suggestion Logic */}
+                    {(() => {
+                        // Logic: Find first pattern with >= 2 misses
+                        if (location.state?.mode === 'trap') return null; // Don't suggest while already in a trap session
+
+                        const traps = Array.from(sessionTraps.values());
+                        // Sort by count desc
+                        traps.sort((a, b) => b.count - a.count);
+                        const topTrap = traps[0];
+
+                        // THRESHOLD: >= 2 misses to trigger suggestion
+                        if (topTrap && topTrap.count >= 2) {
+                            // COOLDOWN CHECK
+                            const STORAGE_KEY = 'exam_coach_suggestion_history';
+                            const COOLDOWN_HOURS = 4;
+
+                            try {
+                                const historyStr = localStorage.getItem(STORAGE_KEY);
+                                if (historyStr) {
+                                    const history = JSON.parse(historyStr);
+                                    const lastId = history.patternId;
+                                    const lastTime = history.timestamp;
+                                    const now = Date.now();
+
+                                    // If same pattern and within cooldown window, SUPPRESS
+                                    if (lastId === topTrap.pattern.pattern_id && (now - lastTime) < (COOLDOWN_HOURS * 60 * 60 * 1000)) {
+                                        console.log("Suppressing suggestion due to cooldown:", topTrap.pattern.pattern_name);
+                                        return null;
+                                    }
+                                }
+
+                                // valid suggestion, save to history (side effect in render is bad practice usually, but for this simple key update it's acceptable vs useEffect complexity)
+                                // Better: We should ideally do this in a useEffect, but to keep the architecture simple for this MVP polish:
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                                    patternId: topTrap.pattern.pattern_id,
+                                    timestamp: Date.now()
+                                }));
+
+                            } catch (e) {
+                                console.error("Error reading suggestion history", e);
+                            }
+
+                            return (
+                                <div className="mb-8 bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-6 relative overflow-hidden group">
+                                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+                                    <div className="flex items-start gap-3 text-left">
+                                        <div className="bg-indigo-500/20 p-2 rounded-lg text-xl">🛡️</div>
+                                        <div>
+                                            <h4 className="text-indigo-200 font-bold text-sm uppercase tracking-wide mb-1">
+                                                Suggested Thinking Trap
+                                            </h4>
+                                            <h3 className="text-white font-bold text-lg mb-2">
+                                                {topTrap.pattern.pattern_name}
+                                            </h3>
+                                            <p className="text-indigo-200/80 text-sm mb-4">
+                                                This pattern may be worth practicing next.
+                                            </p>
+
+                                            <button
+                                                onClick={() => {
+                                                    if (isPro) {
+                                                        navigate('/app/quiz', {
+                                                            state: {
+                                                                mode: 'trap',
+                                                                patternId: topTrap.pattern.pattern_id,
+                                                                patternName: topTrap.pattern.pattern_name,
+                                                                domainTags: topTrap.pattern.domain_tags
+                                                            }
+                                                        });
+                                                    } else {
+                                                        setShowUpsell(true);
+                                                    }
+                                                }}
+                                                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 text-sm"
+                                            >
+                                                {isPro ? "[ Practice This Trap ]" : "[ Unlock Trap Mastery ]"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
+
                     <Link to="/app" className="inline-block bg-brand-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">
                         Return to Dashboard
                     </Link>
@@ -590,6 +952,16 @@ export default function Quiz() {
                                 </p>
                             </div>
                         </div>
+                    ) : location.state?.mode === 'trap' ? (
+                        <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-2xl">🛡️</span>
+                            <div>
+                                <h3 className="text-indigo-300 font-bold mb-1">Trap Repair: {location.state.patternName}</h3>
+                                <p className="text-sm text-slate-300">
+                                    Focused practice to master this specific exam pattern.
+                                </p>
+                            </div>
+                        </div>
                     ) : (
                         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 flex items-start gap-3">
                             <span className="text-2xl">📝</span>
@@ -620,6 +992,15 @@ export default function Quiz() {
                                         AI Scene
                                     </span>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Pre-Quiz Reinforcement Banner (Only on Q1) */}
+                        {reinforcementMessage && currentQuestionIndex === 0 && (
+                            <div className="px-8 pt-6 pb-0 animate-in slide-in-from-top-2 duration-700">
+                                <p className="text-slate-500 text-xs italic text-center">
+                                    {reinforcementMessage}
+                                </p>
                             </div>
                         )}
 
@@ -676,16 +1057,7 @@ export default function Quiz() {
                                         <p className="font-bold mb-1 text-blue-100">Let’s walk through the thinking behind this question.</p>
                                     </div>
 
-                                    {/* Fallback to legacy explanation if breakdown fails or is loading? 
-                                        Actually TutorBreakdown handles loading. 
-                                        If we have NO breakdown and NOT loading, we should show legacy text?
-                                        My fetchTutorBreakdown sets a fallback object, so breakdown shouldn't be null after fetch.
-                                        But if Correct -> we didn't fetch yet.
-                                     */}
                                     {!tutorBreakdown && !loadingBreakdown ? (
-                                        // This happens if user Clicked "Show Explanation" on a CORRECT answer and we haven't fetched yet.
-                                        // We should probably fetch now? Or just show legacy?
-                                        // Let's trigger fetch if null.
                                         <div className="text-center p-4">
                                             <button
                                                 onClick={() => fetchTutorBreakdown(currentQuestion, selectedOption!)}
