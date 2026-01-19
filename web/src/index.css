@@ -49,3 +49,20 @@
         font-family: var(--font-display);
     }
 }
+  
+/* ===============================
+   EMERGENCY GLOBAL OVERRIDE
+   =============================== */
+html, body, #root {
+  background-image: none !important;
+  background: #020617 !important;
+}
+html::before,
+body::before,
+#root::before,
+html::after,
+body::after,
+#root::after {
+  content: none !important;
+  background: none !important;
+}
