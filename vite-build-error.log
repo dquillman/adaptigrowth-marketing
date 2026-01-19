@@ -1,0 +1,164 @@
+﻿
+> web@1.12.1 build
+> tsc -b && vite build
+
+src/pages/Landing.tsx(1,31): error TS1005: ';' expected.
+src/pages/Landing.tsx(1,47): error TS1005: ';' expected.
+src/pages/Landing.tsx(9,22): error TS1005: ',' expected.
+src/pages/Landing.tsx(9,25): error TS1005: ':' expected.
+src/pages/Landing.tsx(9,25): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(9,27): error TS1005: ',' expected.
+src/pages/Landing.tsx(9,29): error TS1005: ':' expected.
+src/pages/Landing.tsx(10,28): error TS1127: Invalid character.
+src/pages/Landing.tsx(10,29): error TS1005: ':' expected.
+src/pages/Landing.tsx(10,33): error TS1005: ',' expected.
+src/pages/Landing.tsx(10,35): error TS1005: ':' expected.
+src/pages/Landing.tsx(11,18): error TS1005: ',' expected.
+src/pages/Landing.tsx(11,25): error TS1005: ':' expected.
+src/pages/Landing.tsx(12,20): error TS1005: ',' expected.
+src/pages/Landing.tsx(12,21): error TS1005: ':' expected.
+src/pages/Landing.tsx(12,21): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(12,25): error TS1005: ',' expected.
+src/pages/Landing.tsx(12,26): error TS1005: ':' expected.
+src/pages/Landing.tsx(12,26): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(12,29): error TS1005: ',' expected.
+src/pages/Landing.tsx(12,31): error TS1005: ':' expected.
+src/pages/Landing.tsx(13,23): error TS1005: ',' expected.
+src/pages/Landing.tsx(13,29): error TS1005: ',' expected.
+src/pages/Landing.tsx(13,55): error TS1005: '}' expected.
+src/pages/Landing.tsx(13,57): error TS1003: Identifier expected.
+src/pages/Landing.tsx(13,69): error TS1003: Identifier expected.
+src/pages/Landing.tsx(14,7): error TS1109: Expression expected.
+src/pages/Landing.tsx(14,8): error TS1128: Declaration or statement expected.
+src/pages/Landing.tsx(15,5): error TS1109: Expression expected.
+src/pages/Landing.tsx(16,7): error TS2657: JSX expressions must have one parent element.
+src/pages/Landing.tsx(18,23): error TS1005: ',' expected.
+src/pages/Landing.tsx(18,26): error TS1005: ':' expected.
+src/pages/Landing.tsx(18,26): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(18,28): error TS1005: ',' expected.
+src/pages/Landing.tsx(18,30): error TS1005: ':' expected.
+src/pages/Landing.tsx(19,21): error TS1005: ',' expected.
+src/pages/Landing.tsx(19,23): error TS1005: ':' expected.
+src/pages/Landing.tsx(19,27): error TS1005: ',' expected.
+src/pages/Landing.tsx(19,29): error TS1005: ':' expected.
+src/pages/Landing.tsx(20,24): error TS1005: ',' expected.
+src/pages/Landing.tsx(20,30): error TS1005: ',' expected.
+src/pages/Landing.tsx(20,32): error TS1005: ':' expected.
+src/pages/Landing.tsx(25,34): error TS1005: ',' expected.
+src/pages/Landing.tsx(25,35): error TS1005: ':' expected.
+src/pages/Landing.tsx(25,35): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(25,38): error TS1005: ',' expected.
+src/pages/Landing.tsx(25,40): error TS1005: ':' expected.
+src/pages/Landing.tsx(25,52): error TS1005: ',' expected.
+src/pages/Landing.tsx(25,53): error TS1005: ':' expected.
+src/pages/Landing.tsx(25,53): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(25,57): error TS1005: ',' expected.
+src/pages/Landing.tsx(25,58): error TS1005: ':' expected.
+src/pages/Landing.tsx(29,33): error TS1005: ',' expected.
+src/pages/Landing.tsx(29,37): error TS1005: ':' expected.
+src/pages/Landing.tsx(29,37): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(29,40): error TS1005: ',' expected.
+src/pages/Landing.tsx(29,42): error TS1005: ':' expected.
+src/pages/Landing.tsx(33,34): error TS1005: ',' expected.
+src/pages/Landing.tsx(33,35): error TS1005: ':' expected.
+src/pages/Landing.tsx(33,35): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(33,38): error TS1005: ',' expected.
+src/pages/Landing.tsx(33,40): error TS1005: ':' expected.
+src/pages/Landing.tsx(33,55): error TS1005: ',' expected.
+src/pages/Landing.tsx(33,56): error TS1005: ':' expected.
+src/pages/Landing.tsx(33,56): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(33,59): error TS1005: ',' expected.
+src/pages/Landing.tsx(33,62): error TS1005: ':' expected.
+src/pages/Landing.tsx(41,25): error TS1005: ',' expected.
+src/pages/Landing.tsx(41,28): error TS1005: ':' expected.
+src/pages/Landing.tsx(41,28): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(41,30): error TS1005: ',' expected.
+src/pages/Landing.tsx(41,32): error TS1005: ':' expected.
+src/pages/Landing.tsx(42,23): error TS1005: ',' expected.
+src/pages/Landing.tsx(42,26): error TS1005: ':' expected.
+src/pages/Landing.tsx(42,26): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(42,30): error TS1005: ',' expected.
+src/pages/Landing.tsx(42,34): error TS1005: ',' expected.
+src/pages/Landing.tsx(42,36): error TS1005: ':' expected.
+src/pages/Landing.tsx(52,26): error TS1005: ',' expected.
+src/pages/Landing.tsx(52,27): error TS1005: ':' expected.
+src/pages/Landing.tsx(52,27): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(52,30): error TS1005: ',' expected.
+src/pages/Landing.tsx(52,32): error TS1005: ':' expected.
+src/pages/Landing.tsx(53,24): error TS1005: ',' expected.
+src/pages/Landing.tsx(53,28): error TS1005: ',' expected.
+src/pages/Landing.tsx(53,30): error TS1005: ':' expected.
+src/pages/Landing.tsx(54,20): error TS1005: ',' expected.
+src/pages/Landing.tsx(54,21): error TS1005: ':' expected.
+src/pages/Landing.tsx(54,21): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(54,24): error TS1005: ',' expected.
+src/pages/Landing.tsx(54,26): error TS1005: ':' expected.
+src/pages/Landing.tsx(55,31): error TS1005: ',' expected.
+src/pages/Landing.tsx(55,37): error TS1005: ',' expected.
+src/pages/Landing.tsx(55,39): error TS1005: ':' expected.
+src/pages/Landing.tsx(58,51): error TS1005: ',' expected.
+src/pages/Landing.tsx(59,52): error TS1005: ',' expected.
+src/pages/Landing.tsx(65,23): error TS1005: ',' expected.
+src/pages/Landing.tsx(65,27): error TS1005: ':' expected.
+src/pages/Landing.tsx(65,27): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(65,29): error TS1005: ',' expected.
+src/pages/Landing.tsx(65,31): error TS1005: ':' expected.
+src/pages/Landing.tsx(66,21): error TS1005: ',' expected.
+src/pages/Landing.tsx(66,22): error TS1005: ':' expected.
+src/pages/Landing.tsx(66,22): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(66,26): error TS1005: ',' expected.
+src/pages/Landing.tsx(66,31): error TS1005: ',' expected.
+src/pages/Landing.tsx(66,32): error TS1005: ':' expected.
+src/pages/Landing.tsx(67,22): error TS1005: ',' expected.
+src/pages/Landing.tsx(67,26): error TS1005: ',' expected.
+src/pages/Landing.tsx(67,28): error TS1005: ':' expected.
+src/pages/Landing.tsx(68,18): error TS1005: ',' expected.
+src/pages/Landing.tsx(68,19): error TS1005: ':' expected.
+src/pages/Landing.tsx(68,19): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(68,22): error TS1005: ',' expected.
+src/pages/Landing.tsx(68,24): error TS1005: ':' expected.
+src/pages/Landing.tsx(69,34): error TS1005: ',' expected.
+src/pages/Landing.tsx(69,45): error TS1005: ',' expected.
+src/pages/Landing.tsx(69,61): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(69,66): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(69,69): error TS1005: '}' expected.
+src/pages/Landing.tsx(69,70): error TS1003: Identifier expected.
+src/pages/Landing.tsx(69,70): error TS1005: ';' expected.
+src/pages/Landing.tsx(70,9): error TS1109: Expression expected.
+src/pages/Landing.tsx(70,10): error TS1128: Declaration or statement expected.
+src/pages/Landing.tsx(71,7): error TS1109: Expression expected.
+src/pages/Landing.tsx(72,9): error TS2657: JSX expressions must have one parent element.
+src/pages/Landing.tsx(73,37): error TS1005: ',' expected.
+src/pages/Landing.tsx(73,39): error TS1005: ':' expected.
+src/pages/Landing.tsx(73,39): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(73,41): error TS1005: ',' expected.
+src/pages/Landing.tsx(73,43): error TS1005: ':' expected.
+src/pages/Landing.tsx(73,61): error TS1005: ',' expected.
+src/pages/Landing.tsx(73,64): error TS1005: ':' expected.
+src/pages/Landing.tsx(73,64): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(73,67): error TS1005: ',' expected.
+src/pages/Landing.tsx(73,70): error TS1005: ':' expected.
+src/pages/Landing.tsx(82,37): error TS1005: ',' expected.
+src/pages/Landing.tsx(82,39): error TS1005: ':' expected.
+src/pages/Landing.tsx(82,39): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(82,41): error TS1005: ',' expected.
+src/pages/Landing.tsx(82,43): error TS1005: ':' expected.
+src/pages/Landing.tsx(82,61): error TS1005: ',' expected.
+src/pages/Landing.tsx(82,64): error TS1005: ':' expected.
+src/pages/Landing.tsx(82,64): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(82,67): error TS1005: ',' expected.
+src/pages/Landing.tsx(82,70): error TS1005: ':' expected.
+src/pages/Landing.tsx(91,37): error TS1005: ',' expected.
+src/pages/Landing.tsx(91,39): error TS1005: ':' expected.
+src/pages/Landing.tsx(91,39): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(91,41): error TS1005: ',' expected.
+src/pages/Landing.tsx(91,43): error TS1005: ':' expected.
+src/pages/Landing.tsx(91,61): error TS1005: ',' expected.
+src/pages/Landing.tsx(91,64): error TS1005: ':' expected.
+src/pages/Landing.tsx(91,64): error TS1351: An identifier or keyword cannot immediately follow a numeric literal.
+src/pages/Landing.tsx(91,67): error TS1005: ',' expected.
+src/pages/Landing.tsx(91,70): error TS1005: ':' expected.
+src/pages/Landing.tsx(98,7): error TS1128: Declaration or statement expected.
+src/pages/Landing.tsx(99,5): error TS1109: Expression expected.
+src/pages/Landing.tsx(100,3): error TS1109: Expression expected.
+src/pages/Landing.tsx(101,1): error TS1128: Declaration or statement expected.
