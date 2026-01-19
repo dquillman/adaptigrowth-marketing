@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -98,7 +98,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative">
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative" style={{ backgroundImage: "none", background: "#020617" }}>
             <div className="absolute top-4 right-4 text-white text-xs font-mono">Version: {APP_VERSION}</div>
             <div className="max-w-md w-full bg-slate-900 rounded-2xl border border-slate-800 p-8 shadow-2xl">
 
@@ -109,7 +109,7 @@ export default function Login() {
                         className="flex items-center gap-2 text-sm text-slate-400 hover:text-brand-400 transition-colors mb-4 group"
                         type="button"
                     >
-                        <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to Home
+                        <span className="group-hover:-translate-x-1 transition-transform">â†</span> Back to Home
                     </button>
                 </div>
 
@@ -162,7 +162,7 @@ export default function Login() {
                                 type="password"
                                 required
                                 className="block w-full rounded-lg border border-slate-600 bg-slate-900/50 px-3 py-2 text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none focus:ring-brand-500 sm:text-sm"
-                                placeholder="••••••••"
+                                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 autoComplete="current-password"
@@ -191,3 +191,4 @@ export default function Login() {
         </div>
     );
 }
+

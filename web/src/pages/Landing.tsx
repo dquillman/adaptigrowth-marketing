@@ -1,8 +1,15 @@
-import { useNavigate } from "react-router-dom";
+﻿import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../App";
 import { APP_VERSION } from "../version";
 
 export default function Landing() {
+  const location = useLocation();
+
+  // HARD STOP: only render landing visuals on root route
+  if (location.pathname !== "/") {
+    return null;
+  }
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -15,7 +22,7 @@ export default function Landing() {
   };
 
   return (
-    <div className="bg-slate-900 min-h-screen font-sans selection:bg-brand-500/30 text-slate-200">
+    <div style={{ backgroundImage: "none" }} className="bg-slate-900 min-h-screen font-sans selection:bg-brand-500/30 text-slate-200">
       {/* Version Label */}
       <div className="absolute top-0 w-full bg-slate-950/50 text-center py-1 text-xs font-mono text-white z-[100]">
         Version: {APP_VERSION}
@@ -126,13 +133,13 @@ export default function Landing() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="text-3xl font-bold text-white sm:text-4xl mb-4">Your New Competitive Advantage</h2>
-            <p className="text-slate-400">You already have the books. Exam Coach Pro AI is the coach that tells you what to study—and what to skip.</p>
+            <p className="text-slate-400">You already have the books. Exam Coach Pro AI is the coach that tells you what to studyâ€”and what to skip.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1: Adaptive */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8 hover:border-brand-500/30 transition-colors">
-              <div className="text-4xl mb-6">💡</div>
+              <div className="text-4xl mb-6">ðŸ’¡</div>
               <h3 className="text-xl font-bold text-white mb-3">Answers That Teach</h3>
               <p className="text-slate-400 leading-relaxed">
                 Stop wasting time on topics you already know. The AI finds your weak domains (e.g., "Cost Management") and drills them until you master them.
@@ -142,7 +149,7 @@ export default function Landing() {
             {/* Feature 2: Verbal Mode */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8 hover:border-brand-500/30 transition-colors relative overflow-hidden group">
               <div className="absolute top-0 right-0 bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl">POPULAR</div>
-              <div className="text-4xl mb-6">🧬</div>
+              <div className="text-4xl mb-6">ðŸ§¬</div>
               <h3 className="text-xl font-bold text-white mb-3">Pattern Recognition</h3>
               <p className="text-slate-400 leading-relaxed">
                 The AI spots the traps you keep falling for (like "Misreading Agile Roles") and drills them until they become your strengths.
@@ -151,7 +158,7 @@ export default function Landing() {
 
             {/* Feature 3: Smart Readiness */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8 hover:border-brand-500/30 transition-colors">
-              <div className="text-4xl mb-6">📅</div>
+              <div className="text-4xl mb-6">ðŸ“…</div>
               <h3 className="text-xl font-bold text-white mb-3">Plans That Adapt</h3>
               <p className="text-slate-400 leading-relaxed">
                 Life happens. Our dynamic study plans adjust automatically based on your mastery level and how much time you actually have.
@@ -180,7 +187,7 @@ export default function Landing() {
                 <span className="text-brand-400">Total Confidence.</span>
               </h2>
               <p className="text-lg text-slate-400">
-                The PMP isn't just about what you know—it's about staying focused for 4 hours.
+                The PMP isn't just about what you knowâ€”it's about staying focused for 4 hours.
                 Our full mock exams and AI tutor prepare you for the mental marathon.
               </p>
 
@@ -206,7 +213,7 @@ export default function Landing() {
                 onClick={handleCta}
                 className="mt-4 text-brand-400 font-bold hover:text-brand-300 flex items-center gap-2 group"
               >
-                Assess Your Readiness <span className="group-hover:translate-x-1 transition-transform">→</span>
+                Assess Your Readiness <span className="group-hover:translate-x-1 transition-transform">â†’</span>
               </button>
             </div>
           </div>
@@ -238,7 +245,7 @@ export default function Landing() {
             <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="h-6 w-6 rounded object-contain" />
             <span className="text-slate-400 font-semibold">Exam Coach Pro AI</span>
           </div>
-          <p className="text-slate-600 text-sm">© {new Date().getFullYear()} Exam Coach Pro AI. All rights reserved.</p>
+          <p className="text-slate-600 text-sm">Â© {new Date().getFullYear()} Exam Coach Pro AI. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-slate-500">
             <a href="#" className="hover:text-white">Terms</a>
             <a href="#" className="hover:text-white">Privacy</a>
@@ -249,3 +256,5 @@ export default function Landing() {
     </div>
   );
 }
+
+
