@@ -1,10 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../App';
 import { db } from '../firebase';
-import { doc, onSnapshot, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getDocs, Timestamp, updateDoc } from 'firebase/firestore';
+import { getUserEntitlement, type UserEntitlement } from '../utils/entitlement';
 
 interface SubscriptionContextType {
     isPro: boolean;
+    entitlement: UserEntitlement;
     loading: boolean;
     questionsAnsweredToday: number;
     dailyLimit: number;
@@ -25,40 +27,47 @@ export function useSubscription() {
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
-    const [isPro, setIsPro] = useState(false);
+
+    // Default safe state
+    const [entitlement, setEntitlement] = useState<UserEntitlement>(getUserEntitlement(undefined));
     const [loading, setLoading] = useState(true);
     const [questionsAnsweredToday, setQuestionsAnsweredToday] = useState(0);
 
     const DAILY_LIMIT = 5;
 
-    // 1. Listen for Pro Status (includes Trial users)
+    // 1. Listen for User Profile & Entitlement
     useEffect(() => {
         if (!user) {
-            setIsPro(false);
+            setEntitlement(getUserEntitlement(undefined));
             setLoading(false);
             return;
         }
 
-        const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-            if (doc.exists()) {
-                const data = doc.data();
-                const isPaidPro = data?.isPro || false;
+        const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), async (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                const newEntitlement = getUserEntitlement(data);
 
-                // Check if user has an active trial
-                const trialData = data?.trial;
-                let hasActiveTrial = false;
-
-                if (trialData && trialData.status === 'active') {
-                    // Verify trial hasn't expired
-                    const now = new Date();
-                    const endDate = trialData.endDate?.toDate?.() || null;
-                    hasActiveTrial = endDate && now <= endDate;
+                // Check for EXPIRATION enforcement (Write operation)
+                // If the local helper says it's expired (based on time) but the DB still says 'trial'
+                // We must downgrade them in the DB to 'free'.
+                if (newEntitlement.isTrialExpired && data.plan === 'trial') {
+                    console.log("SubscriptionProvider: Trial expired, downgrading user...");
+                    try {
+                        await updateDoc(doc(db, 'users', user.uid), {
+                            plan: 'free',
+                            accessLevel: 'free',
+                            trialConsumed: true // Ensure this stays true
+                        });
+                        // The write will trigger a new snapshot, updating state naturally.
+                    } catch (err) {
+                        console.error("Failed to downgrade expired user:", err);
+                    }
                 }
 
-                // Grant Pro access if either paid Pro OR active trial
-                setIsPro(isPaidPro || hasActiveTrial);
+                setEntitlement(newEntitlement);
             } else {
-                setIsPro(false);
+                setEntitlement(getUserEntitlement(undefined));
             }
             setLoading(false);
         });
@@ -111,17 +120,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     };
 
     const checkPermission = (_feature: 'analytics' | 'simulator' | 'visual_mnemonics') => {
-        // Feature variable kept for future granular permissions if needed
-        if (isPro) return true;
-        // Starter plan blocked features
+        if (entitlement.isPro) return true;
         return false;
     };
 
+    // Derived Access State
+    const isPro = entitlement.isPro;
     const canTakeQuiz = isPro || (questionsAnsweredToday < DAILY_LIMIT);
 
     return (
         <SubscriptionContext.Provider value={{
             isPro,
+            entitlement,
             loading,
             questionsAnsweredToday,
             dailyLimit: DAILY_LIMIT,

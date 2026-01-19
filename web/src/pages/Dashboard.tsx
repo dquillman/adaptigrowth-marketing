@@ -58,7 +58,7 @@ export default function Dashboard() {
     const [showLevelModal, setShowLevelModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    const { trial, startTrial } = useTrial();
+    const { trial } = useTrial();
 
     // 1. Fetch domain totals when exam context changes
     useEffect(() => {
@@ -323,20 +323,35 @@ export default function Dashboard() {
                 <main className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8 space-y-8">
                     {/* Trial Banner */}
                     {trial.status === 'active' && (
-                        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-xl p-4 flex items-center justify-between border border-indigo-400/30 shadow-lg">
+                        <div className={`rounded-xl p-4 flex items-center justify-between border shadow-lg ${trial.daysRemaining <= 2
+                            ? 'bg-gradient-to-r from-amber-600 to-orange-700 border-amber-400/30'
+                            : 'bg-gradient-to-r from-indigo-600 to-indigo-800 border-indigo-400/30'
+                            }`}>
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-indigo-500/20 rounded-lg backdrop-blur-sm">
-                                    <span className="text-xl">🎁</span>
+                                <div className={`p-2 rounded-lg backdrop-blur-sm ${trial.daysRemaining <= 2 ? 'bg-amber-500/20' : 'bg-indigo-500/20'
+                                    }`}>
+                                    <span className="text-xl">{trial.daysRemaining <= 2 ? '⏰' : '🎉'}</span>
                                 </div>
                                 <div>
-                                    <h3 className="text-white font-bold text-base">7-Day Free Trial Active</h3>
-                                    <p className="text-indigo-200 text-sm">
-                                        You have <strong className="text-white">{trial.daysRemaining} days remaining</strong> of full access.
+                                    <h3 className="text-white font-bold text-base">
+                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : 'You’re on a 14-day Pro Trial'}
+                                    </h3>
+                                    <p className={`${trial.daysRemaining <= 2 ? 'text-amber-100' : 'text-indigo-200'} text-sm`}>
+                                        {trial.daysRemaining === 0 ? (
+                                            <>You have <strong className="text-white">{trial.hoursRemaining} hours</strong> left of full access.</>
+                                        ) : (
+                                            <>
+                                                {trial.daysRemaining <= 2
+                                                    ? <>Time remaining: <strong className="text-white">{trial.daysRemaining} days, {trial.hoursRemaining} hours</strong></>
+                                                    : <>Full access enabled. ⏳ <strong className="text-white">{trial.daysRemaining} days</strong> remaining</>
+                                                }
+                                            </>
+                                        )}
                                     </p>
                                 </div>
                             </div>
-                            <Link to="/app/pricing" className="px-4 py-2 bg-white text-indigo-700 font-bold rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-md">
-                                Secure This Price
+                            <Link to="/app/pricing" className="px-5 py-2.5 bg-white text-indigo-900 font-bold rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-md whitespace-nowrap">
+                                Upgrade Now
                             </Link>
                         </div>
                     )}
@@ -345,7 +360,7 @@ export default function Dashboard() {
                     {trial.status === 'expired' && (
                         <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
                             <div className="relative z-10">
-                                <h3 className="text-2xl font-bold text-white mb-2 font-display">Your 7-day free trial has ended.</h3>
+                                <h3 className="text-2xl font-bold text-white mb-2 font-display">🔒 Your 14-day Pro trial has ended</h3>
                                 <p className="text-slate-400 mb-6 max-w-lg mx-auto">
                                     We hope you enjoyed your practice sessions! To continue studying and access your detailed analytics, please upgrade your plan.
                                 </p>
@@ -356,12 +371,6 @@ export default function Dashboard() {
                                     >
                                         Upgrade to continue studying
                                     </Link>
-                                    <a
-                                        href="mailto:support@examcoach.ai?subject=Question%20about%20Exam%20Coach%20Membership"
-                                        className="text-sm text-slate-500 hover:text-white transition-colors underline decoration-slate-700 hover:decoration-white"
-                                    >
-                                        Have questions or need help deciding?
-                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -423,14 +432,23 @@ export default function Dashboard() {
                                     >
                                         <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
                                     </button>
-                                    {trial.status === 'none' && (
-                                        <button
-                                            onClick={startTrial}
-                                            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-400 hover:to-emerald-500 transition-all transform hover:-translate-y-0.5 border border-emerald-400/20"
-                                        >
-                                            Start 7-Day Free Trial
-                                        </button>
-                                    )}
+                                    {/* 'Start Trial' button on dashboard is handled by TrialModal now, 
+                                        or do we also keep a button if they closed the modal?
+                                        The prompt says: "Never show 'trial pending' or 'eligible'"
+                                        The button below was: {trial.status === 'none' && ( ... )}
+                                        We should probably REMOVE this button if we want to be strict,
+                                        BUT if the modal is snoozed, they need a way to trigger it?
+                                        The prompt says: "Never show 'trial pending' or 'eligible'". This implies we shouldn't have a persistent button?
+                                        Actually, "Never show 'trial pending' or 'eligible'" specifically likely refers to banners.
+                                        However, if we rely on the modal popping up, maybe we don't need the button.
+                                        BUT replacing the button is safer to avoid removing functionality if modal is dismissed.
+                                        I will remove it to be compliant with "Never show trial pending or eligible" rule strictly.
+                                        Wait, if they hit "Not now", they might want to start it later.
+                                        I'll comment it out or leave it but update it to use `startTrial` action.
+                                        Actually the prompt says: "Never show “trial pending” or “eligible”" under "Dashboard Trial Messaging (UX Upgrade)".
+                                        This strongly suggests hiding the "Start Trial" button.
+                                        I will remove it.
+                                    */}
                                 </div>
                             </div>
                         )}

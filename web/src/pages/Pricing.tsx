@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react'; // Removed unused useEffect
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+// Removed unused doc, onSnapshot, auth, db (except if needed for redirect, but window.location used here)
 import { Check, ArrowLeft } from 'lucide-react';
 import SubscriptionModal from '../components/SubscriptionModal';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 // Initialize Stripe with the publishable key
 // Ideally this comes from env vars: import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
@@ -14,7 +14,9 @@ import { useMarketingCopy } from '../hooks/useMarketingCopy';
 
 export default function Pricing() {
     const [loading, setLoading] = useState(false);
-    const [isPro, setIsPro] = useState(false);
+    const { entitlement } = useSubscription();  // Use Context
+    const isPro = entitlement.plan === 'pro';   // Only true if actually PAID Pro. Trial is not 'pro' plan.
+
     const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
     const [isSubModalOpen, setIsSubModalOpen] = useState(false);
     const functions = getFunctions();
@@ -23,19 +25,8 @@ export default function Pricing() {
     const PRICE_ID_MONTHLY = "price_1ScV4PPISVVFkTmYtxipM6eN";
     const PRICE_ID_YEARLY = "price_1ScXMIPISVVFkTmY9U5uaLTk";
 
-    useEffect(() => {
-        const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-            if (user) {
-                const unsubscribeSnapshot = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-                    if (doc.exists()) {
-                        setIsPro(doc.data()?.isPro || false);
-                    }
-                });
-                return () => unsubscribeSnapshot();
-            }
-        });
-        return () => unsubscribeAuth();
-    }, []);
+    // Removed manual useEffect listener
+
 
     const handleSubscribe = async () => {
         setLoading(true);
