@@ -46,6 +46,9 @@ export default function Quiz() {
     const [showUpsell, setShowUpsell] = useState(false);
     const copy = useMarketingCopy();
 
+    // Measurement Metrics
+    const [explanationRenderTime, setExplanationRenderTime] = useState<number | null>(null);
+
     // Block access immediately if limit reached via direct URL, but handle graceful redirect/modal
     useEffect(() => {
         if (!loading && !canTakeQuiz) {
@@ -351,9 +354,8 @@ export default function Quiz() {
 
         // Temporary fix: We will rely on 'explanationExpanded' being set during the review phase.
         // But 'quizDetails' is an array. We need to update the LAST item? 
-        // Let's change the logic: Push to quizDetails when moving to NEXT question.
-
         setShowExplanation(true);
+        setExplanationRenderTime(Date.now()); // Start latency timer
         setExplanationExpanded(false); // Reset for new question
         setTutorBreakdown(null); // Reset breakdown
 
@@ -589,7 +591,8 @@ export default function Quiz() {
             correctOption: currentQuestion.correctAnswer,
             isCorrect,
             domain: currentQuestion.domain,
-            explanationViewed: explanationExpanded // Capture if they clicked it
+            explanationViewed: explanationExpanded,
+            actionLatency: explanationRenderTime ? (Date.now() - explanationRenderTime) / 1000 : null, // Metric: Time to Next
         }]);
 
         if (currentQuestionIndex < questions.length - 1) {
@@ -609,7 +612,8 @@ export default function Quiz() {
                 correctOption: currentQuestion.correctAnswer,
                 isCorrect,
                 domain: currentQuestion.domain,
-                explanationViewed: explanationExpanded
+                explanationViewed: explanationExpanded,
+                actionLatency: explanationRenderTime ? (Date.now() - explanationRenderTime) / 1000 : null
             }];
 
             await saveQuizResults(finalDetails);
@@ -639,8 +643,8 @@ export default function Quiz() {
                             <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
                                 <span className="text-4xl">🔎</span>
                             </div>
-                            <h2 className="text-3xl font-bold text-white font-display mb-2">Diagnostic Complete</h2>
-                            <p className="text-slate-400">Your baseline has been established.</p>
+                            <h2 className="text-3xl font-bold text-white font-display mb-2">Analysis Complete. Here’s what I found.</h2>
+                            <p className="text-slate-400">I've mapped your baseline strengths and blind spots.</p>
                         </div>
 
                         {/* REVEAL LOGIC */}
@@ -959,6 +963,16 @@ export default function Quiz() {
                                 <h3 className="text-indigo-300 font-bold mb-1">Trap Repair: {location.state.patternName}</h3>
                                 <p className="text-sm text-slate-300">
                                     Focused practice to master this specific exam pattern.
+                                </p>
+                            </div>
+                        </div>
+                    ) : location.state?.mode === 'diagnostic' ? (
+                        <div className="bg-gradient-to-r from-brand-900/30 to-brand-800/30 border border-brand-500/30 rounded-xl p-4 flex items-start gap-3">
+                            <span className="text-2xl">🔎</span>
+                            <div>
+                                <h3 className="text-brand-300 font-bold mb-1">I’m analyzing your logic, not just your score.</h3>
+                                <p className="text-sm text-slate-300">
+                                    Don't worry about getting these wrong. I'm just finding your baseline.
                                 </p>
                             </div>
                         </div>

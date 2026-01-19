@@ -74,10 +74,10 @@ export default function SetupPlanner() {
             <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold font-display text-white mb-2">
-                        {editMode ? 'Update Your Study Plan' : 'Build Your AI Study Plan'}
+                        {editMode ? 'Update Your Study Plan' : 'Your Custom Plan is Ready.'}
                     </h1>
                     <p className="text-slate-400">
-                        {editMode ? 'Adjust your schedule and availability.' : `Let's create a personalized roadmap to your ${examName || 'exam'} certification.`}
+                        {editMode ? 'Adjust your schedule and availability.' : "Based on your diagnostic results, I've designed a schedule to target your specific gaps."}
                     </p>
                 </div>
 

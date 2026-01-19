@@ -378,10 +378,9 @@ export default function Dashboard() {
                                         <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
                                         First Step
                                     </div>
-                                    <h2 className="text-3xl font-bold text-white font-display mb-3 tracking-tight">Let's find your baseline.</h2>
+                                    <h2 className="text-3xl font-bold text-white font-display mb-3 tracking-tight">Let me learn how you think.</h2>
                                     <p className="text-indigo-100 text-lg leading-relaxed">
-                                        To give you personalized coaching, we need to see how you think.
-                                        Take a quick <strong>5-question diagnostic</strong> to uncover your hidden patterns.
+                                        A quick 10-minute session to help me understand your logic and tailor your study plan.
                                     </p>
                                 </div>
                                 <div className="relative z-10 mt-6 md:mt-0">

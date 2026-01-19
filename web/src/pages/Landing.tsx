@@ -60,15 +60,15 @@ export default function Landing() {
           </div>
 
           <h1 className="mx-auto max-w-4xl text-5xl font-extrabold tracking-tight text-white sm:text-7xl mb-6">
-            Pass the PMP Exam <br className="hidden sm:block" />
+            Don't Just Quiz Yourself. <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-blue-500">
-              Without wasting time.
+              Train With an AI Tutor.
             </span>
           </h1>
 
           <p className="mx-auto max-w-2xl text-lg text-slate-400 mb-10 leading-relaxed">
-            A personal AI study coach that adapts to your weaknesses, uses your dead time,
-            and tells you when you’re truly ready.
+            Most apps just test you. Exam Coach Pro explains the <i>why</i> behind every answer,
+            finds your blind spots, and builds a custom plan to get you passing confidenty.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
@@ -76,7 +76,7 @@ export default function Landing() {
               onClick={handleCta}
               className="w-full sm:w-auto rounded-full bg-brand-600 px-8 py-4 text-base font-bold text-white shadow-lg shadow-brand-600/25 hover:bg-brand-500 hover:scale-105 transition-all"
             >
-              Start Your Free Trial
+              Meet Your AI Tutor
             </button>
             <button
               onClick={() => {
@@ -85,7 +85,7 @@ export default function Landing() {
               }}
               className="w-full sm:w-auto rounded-full border border-slate-700 bg-slate-800/50 px-8 py-4 text-base font-bold text-white hover:bg-slate-800 transition-all"
             >
-              Why Most Fail
+              See How It Works
             </button>
           </div>
 
@@ -106,16 +106,16 @@ export default function Landing() {
           <h2 className="text-3xl font-bold text-white mb-12">The Real Reason Smart People Fail</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-              <div className="text-red-400 text-xl font-bold mb-2">Inefficient Studying</div>
-              <p className="text-slate-400 text-sm">Reading 500-page textbooks cover-to-cover instead of focusing on gaps.</p>
+              <div className="text-red-400 text-xl font-bold mb-2">Passive Reading</div>
+              <p className="text-slate-400 text-sm">Reading textbooks cover-to-cover doesn't work. You need active recall to build memory.</p>
             </div>
             <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-              <div className="text-red-400 text-xl font-bold mb-2">Wasted "Dead Time"</div>
-              <p className="text-slate-400 text-sm">Commutes, gym sessions, and chores are lost opportunities.</p>
+              <div className="text-red-400 text-xl font-bold mb-2">Random Drilling</div>
+              <p className="text-slate-400 text-sm"> Answering random questions is inefficient. You need to focus on what you <i>don't</i> know.</p>
             </div>
             <div className="p-6 rounded-2xl bg-slate-900/50 border border-slate-800">
-              <div className="text-red-400 text-xl font-bold mb-2">False Confidence</div>
-              <p className="text-slate-400 text-sm">Getting 80% on easy quizzes gives a false sense of readiness.</p>
+              <div className="text-red-400 text-xl font-bold mb-2">Missing The "Why"</div>
+              <p className="text-slate-400 text-sm">Getting a question right by guessing is dangerous. You need to understand the underlying logic.</p>
             </div>
           </div>
         </div>
@@ -132,8 +132,8 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1: Adaptive */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8 hover:border-brand-500/30 transition-colors">
-              <div className="text-4xl mb-6">🎯</div>
-              <h3 className="text-xl font-bold text-white mb-3">Target Your Blind Spots</h3>
+              <div className="text-4xl mb-6">💡</div>
+              <h3 className="text-xl font-bold text-white mb-3">Answers That Teach</h3>
               <p className="text-slate-400 leading-relaxed">
                 Stop wasting time on topics you already know. The AI finds your weak domains (e.g., "Cost Management") and drills them until you master them.
               </p>
@@ -142,19 +142,19 @@ export default function Landing() {
             {/* Feature 2: Verbal Mode */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8 hover:border-brand-500/30 transition-colors relative overflow-hidden group">
               <div className="absolute top-0 right-0 bg-brand-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl">POPULAR</div>
-              <div className="text-4xl mb-6">🎧</div>
-              <h3 className="text-xl font-bold text-white mb-3">Reclaim Your Commute</h3>
+              <div className="text-4xl mb-6">🧬</div>
+              <h3 className="text-xl font-bold text-white mb-3">Pattern Recognition</h3>
               <p className="text-slate-400 leading-relaxed">
-                Turn dead time into study time. Our AI Voice Tutor drills you while you drive, cook, or workout. It's like a PMP podcast that quizzes you.
+                The AI spots the traps you keep falling for (like "Misreading Agile Roles") and drills them until they become your strengths.
               </p>
             </div>
 
             {/* Feature 3: Smart Readiness */}
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-8 hover:border-brand-500/30 transition-colors">
-              <div className="text-4xl mb-6">📉</div>
-              <h3 className="text-xl font-bold text-white mb-3">Brutally Honest Readiness</h3>
+              <div className="text-4xl mb-6">📅</div>
+              <h3 className="text-xl font-bold text-white mb-3">Plans That Adapt</h3>
               <p className="text-slate-400 leading-relaxed">
-                No more guessing. We calculate your "Exam Readiness Score" based on consistency, difficulty, and volume. We tell you when you're <i>actually</i> ready suitable.
+                Life happens. Our dynamic study plans adjust automatically based on your mastery level and how much time you actually have.
               </p>
             </div>
           </div>
@@ -176,20 +176,20 @@ export default function Landing() {
             </div>
             <div className="order-1 lg:order-2 space-y-8">
               <h2 className="text-3xl font-bold text-white sm:text-4xl">
-                Train for Endurance. <br />
-                <span className="text-brand-400">Not Just Trivia.</span>
+                Real Simulation. <br />
+                <span className="text-brand-400">Total Confidence.</span>
               </h2>
               <p className="text-lg text-slate-400">
                 The PMP isn't just about what you know—it's about staying focused for 4 hours.
-                Our full mock exams simulate the hunger, fatigue, and pacing pressure of the real thing.
+                Our full mock exams and AI tutor prepare you for the mental marathon.
               </p>
 
               <ul className="space-y-4">
                 {[
-                  "180-Question Full Simulation (Timed)",
+                  "Deep Dive 'Why' Explanations",
+                  "AI-Powered Pattern Detection",
                   "Authorized Exam Content Outline (ECO) 2025",
-                  "Detailed Explanations for Every Answer",
-                  "Streak & Stamina Tracking"
+                  "Stamina & Focus Tracking"
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3 text-slate-300">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500/20 text-brand-400">
@@ -206,7 +206,7 @@ export default function Landing() {
                 onClick={handleCta}
                 className="mt-4 text-brand-400 font-bold hover:text-brand-300 flex items-center gap-2 group"
               >
-                Test Your Endurance <span className="group-hover:translate-x-1 transition-transform">→</span>
+                Assess Your Readiness <span className="group-hover:translate-x-1 transition-transform">→</span>
               </button>
             </div>
           </div>
@@ -217,15 +217,15 @@ export default function Landing() {
       <section className="py-24 relative overflow-hidden">
         <div className="absolute inset-0 bg-brand-600/10" />
         <div className="mx-auto max-w-4xl px-6 text-center relative z-10">
-          <h2 className="text-4xl font-bold text-white mb-6">Stop Wasting Time. Start Passing.</h2>
+          <h2 className="text-4xl font-bold text-white mb-6">Stop Guessing. Start Understanding.</h2>
           <p className="text-xl text-slate-400 mb-10">
-            Join the busy professionals who are passing their PMP with Exam Coach Pro AI.
+            Join the professionals who found clarity with Exam Coach Pro AI.
           </p>
           <button
             onClick={handleCta}
             className="rounded-full bg-white px-10 py-4 text-lg font-bold text-slate-900 hover:bg-slate-100 hover:scale-105 transition-all shadow-xl"
           >
-            Start Your Free Trial
+            Start For Free
           </button>
           <p className="mt-6 text-sm text-slate-500">No credit card required for trial.</p>
         </div>
