@@ -36,7 +36,7 @@ export default function Landing() {
               Log in
             </button>
             <button
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/login?mode=signup")}
               className="rounded-full bg-white px-5 py-2 text-sm font-bold text-slate-950 hover:bg-slate-200 transition-all hover:scale-105"
             >
               Get Started
