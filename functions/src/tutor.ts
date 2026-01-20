@@ -367,3 +367,4 @@ export const getWeakestPatterns = functions.https.onCall(async (data: any, conte
         throw new functions.https.HttpsError('internal', 'Failed to fetch patterns.');
     }
 });
+

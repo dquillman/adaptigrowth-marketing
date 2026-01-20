@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -37,10 +37,29 @@ export function ExamProvider({ children }: { children: ReactNode }) {
                         setExamName(data.name || 'Unknown Exam');
                         setExamDomains(data.domains || []);
                     } else {
-                        // Fallback if ID is invalid (e.g. deleted exam)
-                        console.warn(`Exam ${selectedExamId} not found, falling back.`);
-                        setExamName('Default Exam');
-                        setExamDomains([]);
+                        // Fallback if ID is invalid: Auto-select first published exam
+                        console.warn(`Exam ${selectedExamId} not found, searching for published exam...`);
+
+                        const q = query(collection(db, 'exams'), where('isPublished', '==', true), limit(1));
+                        const querySnap = await getDocs(q);
+
+                        if (!querySnap.empty) {
+                            const firstExam = querySnap.docs[0];
+                            const data = firstExam.data();
+
+                            console.log(`Auto-switching to ${firstExam.id} (${data.name})`);
+                            setSelectedExamId(firstExam.id);
+                            localStorage.setItem('selectedExamId', firstExam.id);
+
+                            // State updates will trigger re-render, but we set them here to be immediate for this cycle if needed
+                            // Actually, updating selectedExamId triggers the effect again, so we can just return or let it re-run.
+                            // But to avoid flicker, we can set them:
+                            setExamName(data.name || 'Unknown Exam');
+                            setExamDomains(data.domains || []);
+                        } else {
+                            setExamName('No Exams Found');
+                            setExamDomains([]);
+                        }
                     }
                 }
             } catch (error) {
