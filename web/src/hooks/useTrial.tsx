@@ -47,7 +47,8 @@ export function useTrial() {
 
             // New Schema: Top-level fields
             await updateDoc(userRef, {
-                plan: 'trial',
+                plan: 'pro',
+                trial: true,
                 trialEndsAt: Timestamp.fromDate(endDate),
                 trialLengthDays: 14,
                 trialConsumed: true,

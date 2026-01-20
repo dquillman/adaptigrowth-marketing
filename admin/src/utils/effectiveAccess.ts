@@ -1,13 +1,20 @@
 
-interface UserData {
+export interface UserData {
+    uid: string;
+    email: string;
+    displayName?: string;
+    photoURL?: string;
+    creationTime: string;
+    lastSignInTime: string;
     plan?: string;  // "starter" | "pro"
     isPro?: boolean;
     testerOverride?: boolean;
     testerExpiresAt?: { _seconds: number, _nanoseconds: number };
-    trial?: {
+    trial?: boolean | {
         status: "active" | "expired" | "converted";
         endDate: { _seconds: number, _nanoseconds: number };
     };
+    trialEndsAt?: { _seconds: number, _nanoseconds: number };
 }
 
 export type AccessType = 'tester' | 'trial' | 'pro' | 'tester_invalid' | 'expired_trial' | 'none';
@@ -16,7 +23,7 @@ export interface AccessStatus {
     type: AccessType;
     label: string;
     subtext?: string;
-    badgeColor: string; // Tailwind class partial, e.g. "purple" for bg-purple-500
+    badgeColor: string; // Tailwind class partial
 }
 
 export function getEffectiveAccess(user: UserData): AccessStatus {
@@ -33,26 +40,49 @@ export function getEffectiveAccess(user: UserData): AccessStatus {
                     subtext: `Ends ${expiresAt.toLocaleDateString()}`,
                     badgeColor: 'purple'
                 };
-            } else {
-                return {
-                    type: 'tester_invalid', // Expired = Invalid
-                    label: 'Tester (Invalid)',
-                    badgeColor: 'slate' // or red, per requirement "Tester (Invalid) badge"
-                };
             }
-        } else {
-            // Edge case: Tester Override true but no expiry
             return {
                 type: 'tester_invalid',
                 label: 'Tester (Invalid)',
-                badgeColor: 'slate' // Keep distinct but visible
+                badgeColor: 'slate'
             };
+        }
+        return {
+            type: 'tester_invalid',
+            label: 'Tester (Invalid)',
+            badgeColor: 'slate'
+        };
+    }
+
+    // 2. Authoritative Trial Definition
+    // Rule: user.trial === true AND user.trialEndsAt > now
+    if (user.trial === true && user.trialEndsAt) {
+        // Handle serialization from callable function (usually {_seconds, _nanoseconds})
+        // Safe check for seconds presence
+        const seconds = user.trialEndsAt._seconds;
+        if (typeof seconds === 'number') {
+            const expiresAt = new Date(seconds * 1000);
+            if (expiresAt > now) {
+                return {
+                    type: 'trial',
+                    label: 'Active (Trial)',
+                    subtext: `Ends ${expiresAt.toLocaleDateString()}`,
+                    badgeColor: 'yellow'
+                };
+            } else {
+                return {
+                    type: 'expired_trial',
+                    label: 'Expired',
+                    badgeColor: 'red'
+                };
+            }
         }
     }
 
-    // 2. Trial
-    if (user.trial?.status === 'active' && user.trial.endDate) {
-        const expiresAt = new Date(user.trial.endDate._seconds * 1000);
+    // Legacy Trial Object Fallback (Migration support)
+    if (typeof user.trial === 'object' && user.trial && 'endDate' in user.trial) {
+        const legacyTrial = user.trial as { endDate: { _seconds: number, _nanoseconds: number } };
+        const expiresAt = new Date(legacyTrial.endDate._seconds * 1000);
         if (expiresAt > now) {
             return {
                 type: 'trial',
@@ -63,10 +93,8 @@ export function getEffectiveAccess(user: UserData): AccessStatus {
         }
     }
 
-    // 3. Paid Pro relative to Plan
-    if (user.plan === 'pro' || (user.isPro && !user.testerOverride && !user.trial)) {
-        // Fallback: If isPro is true but not tester/trial, assume paid.
-        // We explicitly check !testerOverride to avoid double counting if logic failed elsewhere.
+    // 3. Paid Pro
+    if (user.plan === 'pro' || (user.isPro && !user.trial)) {
         return {
             type: 'pro',
             label: 'Paid / Pro',
@@ -74,19 +102,10 @@ export function getEffectiveAccess(user: UserData): AccessStatus {
         };
     }
 
-    // 4. Expired Trial (Visual feedback)
-    if (user.trial?.status === 'expired') {
-        return {
-            type: 'expired_trial',
-            label: 'Expired',
-            badgeColor: 'red'
-        };
-    }
-
-    // 5. Default
+    // 4. Default
     return {
         type: 'none',
-        label: '-',
+        label: 'Starter', // Changed from "-" to "Starter" for clarity
         badgeColor: 'slate'
     };
 }

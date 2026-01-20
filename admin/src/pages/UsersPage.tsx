@@ -6,26 +6,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { getEffectiveAccess } from '../utils/effectiveAccess';
-
-interface UserData {
-    uid: string;
-    email: string;
-    displayName: string;
-    photoURL: string;
-    creationTime: string;
-    lastSignInTime: string;
-    isPro: boolean;
-    plan?: string;
-    testerOverride?: boolean;
-    testerExpiresAt?: { _seconds: number, _nanoseconds: number };
-    subscriptionStatus?: string;
-    trial?: {
-        status: "active" | "expired" | "converted";
-        startDate: { _seconds: number, _nanoseconds: number };
-        endDate: { _seconds: number, _nanoseconds: number };
-    };
-}
+import { getEffectiveAccess, type UserData } from '../utils/effectiveAccess';
 
 interface ActivityPoint {
     date: string;
@@ -80,7 +61,8 @@ export default function UsersPage() {
                     const now = new Date();
                     // 14 days from now
                     const expiresAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-                    return {
+                    // Use a cast to satisfy typescript partial updates
+                    const updated: UserData = {
                         ...u,
                         isPro: true,
                         plan: 'pro',
@@ -88,6 +70,7 @@ export default function UsersPage() {
                         testerExpiresAt: { _seconds: Math.floor(expiresAt.getTime() / 1000), _nanoseconds: 0 },
                         trial: undefined // Clear trial state locally
                     };
+                    return updated;
                 }
                 return u;
             }));
@@ -110,13 +93,14 @@ export default function UsersPage() {
             // Optimistic Update
             setUsers(users.map(u => {
                 if (u.uid === uid) {
-                    return {
+                    const updated: UserData = {
                         ...u,
                         isPro: false,
                         plan: 'starter',
                         testerOverride: false,
                         testerExpiresAt: undefined
                     };
+                    return updated;
                 }
                 return u;
             }));
@@ -383,12 +367,20 @@ export default function UsersPage() {
                                         {new Date(user.lastSignInTime).toLocaleDateString()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <span className={`inline-block w-2 h-2 rounded-full ${user.isPro
-                                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'
-                                            : user.trial?.status === 'active'
-                                                ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]'
-                                                : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
-                                            }`}></span>
+                                        {(() => {
+                                            const status = getEffectiveAccess(user);
+                                            const dotColor = {
+                                                'emerald': 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]',
+                                                'yellow': 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.4)]',
+                                                'red': 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]',
+                                                'purple': 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]',
+                                                'slate': 'bg-slate-500'
+                                            }[status.badgeColor] || 'bg-slate-500';
+
+                                            return (
+                                                <span className={`inline-block w-2 h-2 rounded-full ${dotColor}`}></span>
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         {(() => {

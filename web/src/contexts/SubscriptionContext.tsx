@@ -29,7 +29,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth();
 
     // Default safe state
-    const [entitlement, setEntitlement] = useState<UserEntitlement>(getUserEntitlement(undefined));
+    const [entitlement, setEntitlement] = useState<UserEntitlement>(getUserEntitlement(undefined, user));
     const [loading, setLoading] = useState(true);
     const [questionsAnsweredToday, setQuestionsAnsweredToday] = useState(0);
 
@@ -38,24 +38,37 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     // 1. Listen for User Profile & Entitlement
     useEffect(() => {
         if (!user) {
-            setEntitlement(getUserEntitlement(undefined));
+            setEntitlement(getUserEntitlement(undefined, null));
             setLoading(false);
             return;
+        }
+
+        // OPTIMISTIC UPDATE: Check for new user immediately (before Firestore loads)
+        const optimisticState = getUserEntitlement(undefined, user);
+        if (optimisticState.isTrialActive) {
+            setEntitlement(optimisticState);
+            // If we have an optimistic trial, we are technically "loaded" enough to show the banner.
+            // However, keeping loading=true prevents flashing if layout depends on it.
+            // But requirement is "Trial banner visible IMMEDIATELY".
+            // If the banner uses `entitlement.daysRemaining`, we have it.
+            // We can set loading false to unblock UI.
+            setLoading(false);
         }
 
         const unsubscribeProfile = onSnapshot(doc(db, 'users', user.uid), async (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
-                const newEntitlement = getUserEntitlement(data);
+                const newEntitlement = getUserEntitlement(data, user);
 
                 // Check for EXPIRATION enforcement (Write operation)
                 // If the local helper says it's expired (based on time) but the DB still says 'trial'
                 // We must downgrade them in the DB to 'free'.
-                if (newEntitlement.isTrialExpired && data.plan === 'trial') {
+                if (newEntitlement.isTrialExpired && data.trial === true) {
                     console.log("SubscriptionProvider: Trial expired, downgrading user...");
                     try {
                         await updateDoc(doc(db, 'users', user.uid), {
-                            plan: 'free',
+                            plan: 'starter',
+                            trial: false,
                             accessLevel: 'free',
                             trialConsumed: true // Ensure this stays true
                         });

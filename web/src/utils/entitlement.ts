@@ -1,6 +1,7 @@
 import { Timestamp, type DocumentData } from 'firebase/firestore';
+import { type User } from 'firebase/auth';
 
-export type UserPlan = 'free' | 'trial' | 'pro';
+export type UserPlan = 'free' | 'trial' | 'pro' | 'starter';
 export type AccessLevel = 'free' | 'pro';
 
 export interface UserEntitlement {
@@ -22,7 +23,16 @@ export interface UserEntitlement {
  * Calculates the user's current entitlement state based on their Firestore document.
  * This is the SINGLE SOURCE OF TRUTH for access control.
  */
-export function getUserEntitlement(userData: DocumentData | undefined): UserEntitlement {
+
+
+/**
+ * Calculates the user's current entitlement state based on their Firestore document.
+ * This is the SINGLE SOURCE OF TRUTH for access control.
+ *
+ * @param userData - The raw Firestore document data
+ * @param authUser - Optional Firebase Auth user for optimistic "New User" detection
+ */
+export function getUserEntitlement(userData: DocumentData | undefined, authUser?: User | null): UserEntitlement {
     // Default safe state (Free)
     const defaultState: UserEntitlement = {
         isFree: true,
@@ -37,66 +47,105 @@ export function getUserEntitlement(userData: DocumentData | undefined): UserEnti
         trialEndsAt: null
     };
 
-    if (!userData) {
-        return defaultState;
-    }
-
     const now = new Date();
-    const plan = (userData.plan as UserPlan) || 'free';
-    const trialConsumed = userData.trialConsumed || false;
 
-    // Handle explicit legacy "isPro" override if present (migration safety)
-    if (userData.isPro === true) {
-        return {
-            ...defaultState,
-            isFree: false,
-            isPro: true,
-            plan: 'pro',
-            accessLevel: 'pro',
-            trialConsumed: true // Assume consumed if they bought it
-        };
-    }
+    // 0. DETECT BRAND NEW USER
+    const isBrandNewUser = authUser && authUser.metadata.creationTime === authUser.metadata.lastSignInTime;
 
-    // Pro Plan (Paid)
-    if (plan === 'pro') {
-        return {
-            ...defaultState,
-            isFree: false,
-            isPro: true,
-            plan: 'pro',
-            accessLevel: 'pro',
-            trialConsumed: true
-        };
-    }
+    // 1. ANALYZE FIRESTORE DATA (If present)
+    let firestoreEntitlement: UserEntitlement | null = null;
 
-    // Trial Plan
-    if (plan === 'trial') {
-        const trialEndsAt = userData.trialEndsAt instanceof Timestamp
-            ? userData.trialEndsAt.toDate()
-            : null;
+    if (userData) {
+        const plan = (userData.plan as UserPlan) || 'free';
 
-        if (trialEndsAt) {
-            const diffMs = trialEndsAt.getTime() - now.getTime();
-            const isExpired = diffMs <= 0;
 
-            if (isExpired) {
-                // Expired: Technically 'free' access, but we flag isTrialExpired for UI.
+        // Handle explicit legacy "isPro" override
+        if (userData.isPro === true) {
+            return {
+                ...defaultState,
+                isFree: false,
+                isPro: true,
+                plan: 'pro',
+                accessLevel: 'pro',
+                trialConsumed: true
+            };
+        }
+
+        // Pro Plan (Paid or Persistent Trial)
+        if (plan === 'pro') {
+            if (userData.trial === true) {
+                const trialEndsAt = userData.trialEndsAt instanceof Timestamp
+                    ? userData.trialEndsAt.toDate()
+                    : null;
+
+                if (trialEndsAt) {
+                    const diffMs = trialEndsAt.getTime() - now.getTime();
+                    const isExpired = diffMs <= 0;
+
+                    if (!isExpired) {
+                        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        return {
+                            isFree: false,
+                            isTrialActive: true,
+                            isTrialExpired: false,
+                            isPro: true,
+                            daysRemaining: days,
+                            hoursRemaining: hours,
+                            plan: 'trial',
+                            accessLevel: 'pro',
+                            trialConsumed: true,
+                            trialEndsAt
+                        };
+                    } else {
+                        // EXPLICITLY EXPIRED
+                        firestoreEntitlement = {
+                            ...defaultState,
+                            isFree: true,
+                            isTrialActive: false,
+                            isTrialExpired: true,
+                            isPro: false,
+                            plan: 'free',
+                            accessLevel: 'free',
+                            trialConsumed: true,
+                            trialEndsAt
+                        };
+                    }
+                }
+            } else {
                 return {
                     ...defaultState,
-                    isFree: true, // Access is free
+                    isFree: false,
+                    isPro: true,
+                    plan: 'pro',
+                    accessLevel: 'pro',
+                    trialConsumed: true
+                };
+            }
+        }
+
+        // Handle explicit "Trial" plan 
+        else if (plan === 'trial') {
+            const trialEndsAt = userData.trialEndsAt instanceof Timestamp
+                ? userData.trialEndsAt.toDate()
+                : null;
+            if (trialEndsAt && trialEndsAt <= now) {
+                // EXPLICITLY EXPIRED
+                firestoreEntitlement = {
+                    ...defaultState,
+                    isFree: true,
                     isTrialActive: false,
                     isTrialExpired: true,
                     isPro: false,
-                    plan: 'trial', // DB still says trial until update
+                    plan: 'trial',
                     accessLevel: 'free',
                     trialConsumed: true,
                     trialEndsAt
                 };
-            } else {
-                // Active Trial
+            } else if (trialEndsAt) {
+                const diffMs = trialEndsAt.getTime() - now.getTime();
                 const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
                 return {
                     isFree: false,
                     isTrialActive: true,
@@ -113,12 +162,46 @@ export function getUserEntitlement(userData: DocumentData | undefined): UserEnti
         }
     }
 
-    // Default: Free
-    return {
-        ...defaultState,
-        plan: 'free',
-        accessLevel: 'free',
-        trialConsumed: trialConsumed,
-        isTrialExpired: trialConsumed // If consumed and not pro/active, it's effectively expired/used
-    };
+    // 2. PRECEDENCE RULE: 
+    // If Firestore explicitly says "Expired" -> Respect it (User is not brand new in this case anyway, or logic overrides).
+    if (firestoreEntitlement?.isTrialExpired) {
+        return firestoreEntitlement;
+    }
+
+    // 3. OPTIMISTIC TRIAL OVERRIDE
+    // If we are here, Firestore didn't return a valid active trial OR an explicitly expired trial.
+    // It is either "Free", "Missing", or "Undefined".
+    // If the user is BRAND NEW, we FORCE the trial state.
+    if (isBrandNewUser) {
+        const trialDays = 14;
+        const trialEndsAt = new Date(now.getTime() + (trialDays * 24 * 60 * 60 * 1000));
+        return {
+            isFree: false,
+            isTrialActive: true,
+            isTrialExpired: false,
+            isPro: true,
+            daysRemaining: 14,
+            hoursRemaining: 0,
+            plan: 'trial', // Force trial
+            accessLevel: 'pro',
+            trialConsumed: true,
+            trialEndsAt
+        };
+    }
+
+    // 4. Default Fallback
+    // If Firestore returned something (e.g. valid free plan), return it.
+    // Otherwise default state.
+    if (userData) {
+        const plan = (userData.plan as UserPlan) || 'free';
+        const trialConsumed = userData.trialConsumed || false;
+        return {
+            ...defaultState,
+            plan,
+            trialConsumed,
+            isTrialExpired: trialConsumed
+        };
+    }
+
+    return defaultState;
 }
