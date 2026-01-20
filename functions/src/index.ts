@@ -12,15 +12,30 @@ const db = admin.firestore();
 // Auto-create user profile on signup with default 'user' role
 export const createUserProfile = functions.auth.user().onCreate(async (user) => {
     try {
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setDate(now.getDate() + 14);
+
+        // Use Set with Merge to prevent overwriting client-side writes (like trial data)
+        // AND enforce trial defaults server-side to guarantee consistency
         await db.collection('users').doc(user.uid).set({
             email: user.email,
             displayName: user.displayName || null,
             photoURL: user.photoURL || null,
             role: 'user', // Default role
+
+            // Enforce Trial Persistence (Server-Side Authority)
+            plan: 'pro',
+            trial: true,
+            trialStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+            trialEndsAt: admin.firestore.Timestamp.fromDate(endDate),
+            access: 'trial',
+
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-        console.log(`Created profile for user ${user.uid} with role: user`);
+        }, { merge: true }); // CRITICAL: Do not overwrite existing fields
+
+        console.log(`Created/Merged profile for user ${user.uid} with guaranteed 14-day trial`);
     } catch (error) {
         console.error(`Failed to create profile for user ${user.uid}:`, error);
     }
@@ -793,9 +808,13 @@ export const getAdminUserList = functions.https.onCall(async (data, context) => 
                 creationTime: user.metadata.creationTime,
                 lastSignInTime: user.metadata.lastSignInTime,
                 isPro: profile?.isPro || false,
+                plan: profile?.plan,
                 stripeCustomerId: profile?.stripeCustomerId,
                 subscriptionStatus: profile?.subscriptionStatus,
                 trial: profile?.trial,
+                trialEndsAt: profile?.trialEndsAt,
+                trialStartedAt: profile?.trialStartedAt,
+                access: profile?.access,
                 testerOverride: profile?.testerOverride,
                 testerExpiresAt: profile?.testerExpiresAt,
                 role: profile?.role || 'user'

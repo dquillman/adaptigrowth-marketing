@@ -7,12 +7,15 @@ const openai_1 = require("openai");
 // Lazy init OpenAI
 let openai;
 const getOpenAI = () => {
+    var _a;
     if (!openai) {
-        if (!process.env.OPENAI_API_KEY) {
-            console.warn("OPENAI_API_KEY is not set.");
+        // Support both functions.config() (Production) and process.env (Local/CI)
+        const apiKey = ((_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key) || process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            console.warn("OPENAI_API_KEY is not set in functions.config().openai.key or env vars.");
         }
         openai = new openai_1.default({
-            apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-build',
+            apiKey: apiKey || 'dummy-key-for-build',
         });
     }
     return openai;
@@ -81,23 +84,38 @@ const processPatternInteraction = async (userId, pattern, isCorrect) => {
     console.log(`Pattern processed: ${patternId} for user ${userId}`);
 };
 exports.generateTutorBreakdown = functions.https.onCall(async (data, context) => {
+    var _a, _b;
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
     }
+    // 0. Force Debug / Entry Logging
+    console.log("generateTutorBreakdown invoked", {
+        uid: context.auth.uid,
+        data: data ? Object.assign(Object.assign({}, data), { questionStem: ((_a = data.questionStem) === null || _a === void 0 ? void 0 : _a.substring(0, 50)) + "..." }) : "MISSING"
+    });
     const { questionStem, options, correctAnswerIndex, userSelectedOptionIndex, correctRationale, examDomain } = data;
     const userId = context.auth.uid;
     const isCorrect = userSelectedOptionIndex === correctAnswerIndex;
-    // Validation
-    if (!questionStem || !options || correctAnswerIndex === undefined || userSelectedOptionIndex === undefined) {
-        throw new functions.https.HttpsError('invalid-argument', 'Missing required fields');
+    // 1. Validation
+    if (!questionStem || !options || !Array.isArray(options) || correctAnswerIndex === undefined || userSelectedOptionIndex === undefined) {
+        console.error("Invalid Tutor Payload:", { questionStem: !!questionStem, optionsLen: options === null || options === void 0 ? void 0 : options.length });
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required fields or invalid options format.');
     }
-    const client = getOpenAI();
-    // Explicitly check for valid key (since getOpenAI might return client with dummy key)
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-deploy') {
-        console.error("Missing OPENAI_API_KEY in environment variables.");
-        // We throw a handled error so the client receives it nicely instead of a 500 crash
+    // 2. Security / Config Check & Logging
+    // Determine explicitly where the key is coming from
+    const configKey = (_b = functions.config().openai) === null || _b === void 0 ? void 0 : _b.key;
+    const envKey = process.env.OPENAI_API_KEY;
+    const apiKey = configKey || envKey;
+    console.log("OpenAI Key Status:", {
+        present: !!apiKey,
+        source: configKey ? "functions.config" : (envKey ? "process.env" : "MISSING")
+    });
+    if (!apiKey || apiKey === 'dummy-key-for-build' || apiKey === 'dummy-key-for-deploy') {
+        console.error("Missing OPENAI configuration.");
         throw new functions.https.HttpsError('failed-precondition', 'Tutor Service is not configured (Missing API Key).');
     }
+    const client = new openai_1.default({ apiKey });
+    // DEBUG: Force Log Everything - REMOVED for Production
     try {
         const response = await client.chat.completions.create({
             model: "gpt-4o",
@@ -137,6 +155,8 @@ OUTPUT FORMAT:
 }
 
 Use ONLY the provided rationale as the source of truth.
+
+IMPORTANT: Return valid JSON.
 `
                 },
                 {
@@ -168,8 +188,19 @@ Use ONLY the provided rationale as the source of truth.
         return result;
     }
     catch (error) {
-        console.error("Error generating tutor breakdown:", error);
-        throw new functions.https.HttpsError('internal', 'Failed to generate tutor breakdown');
+        console.error("CRITICAL: Error generating tutor breakdown:", error);
+        // FAIL SAFE FALLBACK - RETURN VALID STRUCTURE TO PREVENT 500 IN UI
+        console.warn("Returning FALLBACK response to prevent UI crash.");
+        return {
+            verdict: "The Tutor Service is momentarily unreachable, but here is the core logic: " + (correctRationale || "Review the correct answer details."),
+            comparison: options.map((opt, i) => ({
+                optionIndex: i,
+                text: opt,
+                explanation: i === correctAnswerIndex ? "Correct Answer" : "Incorrect"
+            })),
+            examLens: "Focus on the key concepts in the rationale.",
+            pattern: undefined
+        };
     }
 });
 exports.generateTutorDeepDive = functions.https.onCall(async (data, context) => {

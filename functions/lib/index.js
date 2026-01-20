@@ -26,15 +26,26 @@ const db = admin.firestore();
 // Auto-create user profile on signup with default 'user' role
 exports.createUserProfile = functions.auth.user().onCreate(async (user) => {
     try {
+        const now = new Date();
+        const endDate = new Date();
+        endDate.setDate(now.getDate() + 14);
+        // Use Set with Merge to prevent overwriting client-side writes (like trial data)
+        // AND enforce trial defaults server-side to guarantee consistency
         await db.collection('users').doc(user.uid).set({
             email: user.email,
             displayName: user.displayName || null,
             photoURL: user.photoURL || null,
             role: 'user',
+            // Enforce Trial Persistence (Server-Side Authority)
+            plan: 'pro',
+            trial: true,
+            trialStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+            trialEndsAt: admin.firestore.Timestamp.fromDate(endDate),
+            access: 'trial',
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-        console.log(`Created profile for user ${user.uid} with role: user`);
+        }, { merge: true }); // CRITICAL: Do not overwrite existing fields
+        console.log(`Created/Merged profile for user ${user.uid} with guaranteed 14-day trial`);
     }
     catch (error) {
         console.error(`Failed to create profile for user ${user.uid}:`, error);
@@ -693,9 +704,13 @@ exports.getAdminUserList = functions.https.onCall(async (data, context) => {
                 creationTime: user.metadata.creationTime,
                 lastSignInTime: user.metadata.lastSignInTime,
                 isPro: (profile === null || profile === void 0 ? void 0 : profile.isPro) || false,
+                plan: profile === null || profile === void 0 ? void 0 : profile.plan,
                 stripeCustomerId: profile === null || profile === void 0 ? void 0 : profile.stripeCustomerId,
                 subscriptionStatus: profile === null || profile === void 0 ? void 0 : profile.subscriptionStatus,
                 trial: profile === null || profile === void 0 ? void 0 : profile.trial,
+                trialEndsAt: profile === null || profile === void 0 ? void 0 : profile.trialEndsAt,
+                trialStartedAt: profile === null || profile === void 0 ? void 0 : profile.trialStartedAt,
+                access: profile === null || profile === void 0 ? void 0 : profile.access,
                 testerOverride: profile === null || profile === void 0 ? void 0 : profile.testerOverride,
                 testerExpiresAt: profile === null || profile === void 0 ? void 0 : profile.testerExpiresAt,
                 role: (profile === null || profile === void 0 ? void 0 : profile.role) || 'user'

@@ -20,25 +20,27 @@ export default function Login() {
             const result = await signInWithPopup(auth, googleProvider);
 
             // Check if this is a new user and auto-start trial
-            const { doc, getDoc, setDoc, Timestamp } = await import('firebase/firestore');
+            const { doc, getDoc, setDoc, Timestamp, serverTimestamp } = await import('firebase/firestore');
             const { db } = await import('../firebase');
 
             const userRef = doc(db, 'users', result.user.uid);
             const userDoc = await getDoc(userRef);
 
             if (!userDoc.exists()) {
-                // New user - automatically start 7-day trial
+                // New user - automatically start 14-day trial (Persistent)
                 const now = new Date();
                 const endDate = new Date();
-                endDate.setDate(now.getDate() + 7);
+                endDate.setDate(now.getDate() + 14);
 
-                const trialPayload = {
-                    status: 'active',
-                    startDate: Timestamp.fromDate(now),
-                    endDate: Timestamp.fromDate(endDate)
-                };
-
-                await setDoc(userRef, { trial: trialPayload }, { merge: true });
+                await setDoc(userRef, {
+                    plan: 'pro',
+                    trial: true,
+                    trialStartedAt: serverTimestamp(),
+                    trialEndsAt: Timestamp.fromDate(endDate),
+                    access: 'trial',
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
             }
 
             window.location.href = '/app';
@@ -58,22 +60,25 @@ export default function Login() {
                 // Sign up - create new account
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-                // Automatically start 7-day trial for new signups
-                const { doc, setDoc, Timestamp } = await import('firebase/firestore');
+                // Automatically start 14-day trial for new signups
+                const { doc, setDoc, Timestamp, serverTimestamp } = await import('firebase/firestore');
                 const { db } = await import('../firebase');
 
                 const now = new Date();
                 const endDate = new Date();
-                endDate.setDate(now.getDate() + 7);
-
-                const trialPayload = {
-                    status: 'active',
-                    startDate: Timestamp.fromDate(now),
-                    endDate: Timestamp.fromDate(endDate)
-                };
+                endDate.setDate(now.getDate() + 14);
 
                 const userRef = doc(db, 'users', userCredential.user.uid);
-                await setDoc(userRef, { trial: trialPayload }, { merge: true });
+
+                await setDoc(userRef, {
+                    plan: 'pro',
+                    trial: true,
+                    trialStartedAt: serverTimestamp(),
+                    trialEndsAt: Timestamp.fromDate(endDate),
+                    access: 'trial',
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
 
                 window.location.href = '/app';
             }
