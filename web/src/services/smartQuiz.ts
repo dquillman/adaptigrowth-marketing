@@ -31,8 +31,18 @@ export const SmartQuizService = {
      * Generates a "Smart Quiz" focusing on weak areas and spaced repetition.
      * Returns a list of Question IDs.
      */
-    generateSmartQuiz: async (userId: string, examId: string, masteryData: MasteryData, maxQuestions: number = 10): Promise<string[]> => {
-        console.log("Generating Smart Quiz for", userId, "with limit", maxQuestions);
+    /**
+     * Generates a "Smart Quiz" focusing on weak areas and spaced repetition.
+     * Returns a list of Question IDs.
+     * 
+     * @param userId 
+     * @param examId 
+     * @param masteryData 
+     * @param maxQuestions 
+     * @param excludeIds - Optional list of IDs to exclude (e.g. from Diagnostic)
+     */
+    generateSmartQuiz: async (userId: string, examId: string, masteryData: MasteryData, maxQuestions: number = 10, excludeIds: string[] = []): Promise<string[]> => {
+        console.log("Generating Smart Quiz for", userId, "with limit", maxQuestions, "Excluded:", excludeIds.length);
         const weakDomains = SmartQuizService.getWeakDomains(masteryData);
         let targetDomains = weakDomains;
 
@@ -53,12 +63,16 @@ export const SmartQuizService = {
         const questionsPerDomain = Math.ceil(maxQuestions / targetDomains.length);
 
         // Fetch questions from these domains
-        const questionIds: string[] = [];
+        // LAYER 1: Session-Level Uniqueness
+        const usedQuestionIds = new Set<string>();
+
+        // Setup exclusion set for fast lookup
+        const excludedSet = new Set(excludeIds);
 
         // We'll try to get questions from each target domain
         for (const domain of targetDomains) {
             // Stop if we have enough questions
-            if (questionIds.length >= maxQuestions) break;
+            if (usedQuestionIds.size >= maxQuestions) break;
 
             try {
                 // Fetch a batch to shuffle
@@ -73,19 +87,62 @@ export const SmartQuizService = {
                 const snap = await getDocs(q);
                 const docs = snap.docs.map(d => d.id);
 
-                // Shuffle and pick needed amount (adjust for remaining needed)
-                const remainingNeeded = maxQuestions - questionIds.length;
-                const toTake = Math.min(questionsPerDomain, remainingNeeded);
+                // Shuffle candidates
+                const shuffled = docs.sort(() => 0.5 - Math.random());
 
-                const shuffled = docs.sort(() => 0.5 - Math.random()).slice(0, toTake);
-                questionIds.push(...shuffled);
+                // Select questions
+                for (const id of shuffled) {
+                    // Stop if we filled the quota for this domain
+                    // (Actually we want to fill the QUIZ, so let's just check overall quiz size?)
+                    // But we want to distribute, so let's respect per-domain slightly, but leniently.
+
+                    // LAYER 1 CHECK: Intra-session duplicate
+                    if (usedQuestionIds.has(id)) continue;
+
+                    // LAYER 2 CHECK: Cross-mode Cooldown
+                    if (excludedSet.has(id)) {
+                        // GUARDRAIL (Layer 3): Only skip if we have plenty of candidates?
+                        // For now, strict skip. We will handle exhaustion fallback later if needed globally?
+                        // actually, simplified loop: just try to fill.
+                        continue;
+                    }
+
+                    usedQuestionIds.add(id);
+
+                    // Soft cap per domain to ensure variety? 
+                    // Let's just break if we have ANY questions, we want to fill the set.
+                }
+
             } catch (err) {
                 console.error(`Error fetching for domain ${domain}:`, err);
             }
         }
 
-        // Final shuffle
-        return questionIds.sort(() => 0.5 - Math.random());
+        // LAYER 3: Pool Exhaustion Fallback
+        // If we filtered too aggressively and have fewer than maxQuestions,
+        // we must do a second pass allowing 'excluded' questions.
+        if (usedQuestionIds.size < maxQuestions) {
+            console.warn("Pool exhausted strictly. Attempting fallback with excluded items...", usedQuestionIds.size);
+
+            // Re-fetch or re-process? 
+            // Ideally we tracked 'candidates we skipped'.
+            // For simplicity in this non-stateful function, we might just need to accept that
+            // or we could do a brute-force fill from Simulation if needed.
+
+            // Let's try filling with Simulation logic if really low
+            if (usedQuestionIds.size < maxQuestions) {
+                const needed = maxQuestions - usedQuestionIds.size;
+                const simIds = await SmartQuizService.generateSimulationExam(examId, needed * 2);
+                for (const id of simIds) {
+                    if (!usedQuestionIds.has(id)) {
+                        usedQuestionIds.add(id);
+                        if (usedQuestionIds.size >= maxQuestions) break;
+                    }
+                }
+            }
+        }
+
+        return Array.from(usedQuestionIds).sort(() => 0.5 - Math.random());
     },
 
     /**

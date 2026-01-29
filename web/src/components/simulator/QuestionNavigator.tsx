@@ -86,10 +86,14 @@ export function QuestionNavigator({
                     Finish Exam
                 </button>
                 <button
-                    onClick={onQuit}
-                    className="w-full text-slate-500 hover:text-white text-xs text-center p-2 hover:underline"
+                    onClick={() => {
+                        if (window.confirm("Exit exam? Progress will NOT be saved.")) {
+                            onQuit();
+                        }
+                    }}
+                    className="w-full text-slate-500 hover:text-red-400 text-xs text-center p-2 hover:underline transition-colors"
                 >
-                    Quit Simulation
+                    Exit Exam (Progress Lost)
                 </button>
             </div>
         </aside>

@@ -1,4 +1,4 @@
-import { signOut } from 'firebase/auth';
+﻿import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import Sidebar from '../components/Sidebar';
 import { Link } from 'react-router-dom';
@@ -45,6 +45,7 @@ export default function Dashboard() {
     const [showStreakModal, setShowStreakModal] = useState(false);
 
     const [recentActivity, setRecentActivity] = useState<QuizAttempt[]>([]);
+    const [activeRuns, setActiveRuns] = useState<any[]>([]);
     const [dailyProgress, setDailyProgress] = useState(0);
     const [dailyGoal, setDailyGoal] = useState(10);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -76,6 +77,7 @@ export default function Dashboard() {
         let unsubscribeActivity: () => void;
         let unsubscribeGoal: () => void;
         let unsubscribeProgress: () => void;
+        let unsubscribeActiveRuns: () => void;
 
         const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -171,6 +173,20 @@ export default function Dashboard() {
                 });
 
                 XPService.checkStreak();
+
+                // --- Active Runs (resumable, no examId filter) ---
+                const activeRunsQuery = query(
+                    collection(db, 'quizRuns', userId, 'runs'),
+                    where('status', '==', 'in_progress')
+                );
+
+                unsubscribeActiveRuns = onSnapshot(activeRunsQuery, (snapshot) => {
+                    const runs = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    setActiveRuns(runs);
+                });
             }
             setLoading(false);
         });
@@ -180,6 +196,7 @@ export default function Dashboard() {
             if (unsubscribeActivity) unsubscribeActivity();
             if (unsubscribeGoal) unsubscribeGoal();
             if (unsubscribeProgress) unsubscribeProgress();
+            if (unsubscribeActiveRuns) unsubscribeActiveRuns();
         };
     }, [selectedExamId]); // Re-subscribe when exam changes
 
@@ -265,6 +282,9 @@ export default function Dashboard() {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
 
+    const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
+    const hasActiveRun = resumableRuns.length > 0;
+
     return (
         <div className="min-h-screen flex bg-transparent relative">
             <Sidebar />
@@ -334,7 +354,7 @@ export default function Dashboard() {
                                 </div>
                                 <div>
                                     <h3 className="text-white font-bold text-base">
-                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : 'You’re on a 14-day Pro Trial'}
+                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : "You're on a 14-day Pro Trial"}
                                     </h3>
                                     <p className={`${trial.daysRemaining <= 2 ? 'text-amber-100' : 'text-indigo-200'} text-sm`}>
                                         {trial.daysRemaining === 0 ? (
@@ -412,12 +432,14 @@ export default function Dashboard() {
                                 </div>
 
                                 <div className="flex gap-4">
-                                    <button
-                                        onClick={handleSmartStart}
-                                        className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
-                                    >
-                                        Start Daily Practice
-                                    </button>
+                                    {!hasActiveRun && (
+                                        <button
+                                            onClick={handleSmartStart}
+                                            className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                        >
+                                            Start Daily Practice
+                                        </button>
+                                    )}
                                     <button
                                         onClick={handleWeakestStart}
                                         className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
@@ -445,11 +467,27 @@ export default function Dashboard() {
                                         I will remove it to be compliant with "Never show trial pending or eligible" rule strictly.
                                         Wait, if they hit "Not now", they might want to start it later.
                                         I'll comment it out or leave it but update it to use `startTrial` action.
-                                        Actually the prompt says: "Never show “trial pending” or “eligible”" under "Dashboard Trial Messaging (UX Upgrade)".
+                                        Actually the prompt says: "Never show 'trial pending' or 'eligible'" under "Dashboard Trial Messaging (UX Upgrade)".
                                         This strongly suggests hiding the "Start Trial" button.
                                         I will remove it.
                                     */}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Resume Active Run */}
+                        {hasActiveRun && (
+                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mt-6 flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress</h3>
+                                    <p className="text-slate-400 text-sm mt-1">Pick up where you left off.</p>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/app/quiz', { state: { runId: resumableRuns[0].id, resume: true } })}
+                                    className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
+                                >
+                                    Resume
+                                </button>
                             </div>
                         )}
 
@@ -500,32 +538,51 @@ export default function Dashboard() {
                                         {recentActivity.length === 0 ? (
                                             <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
                                         ) : (
-                                            recentActivity.map((attempt) => (
-                                                <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
-                                                            Q
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="font-medium text-slate-200">Practice Quiz</p>
-                                                                <span className="text-xs text-slate-500">
-                                                                    {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
-                                                                        month: 'short',
-                                                                        day: 'numeric',
-                                                                        hour: 'numeric',
-                                                                        minute: '2-digit'
-                                                                    }) : 'Just now'}
-                                                                </span>
+                                            recentActivity.map((attempt) => {
+                                                const isActive = (attempt as any).mode === 'smart' && (attempt as any).completed !== true;
+                                                const MODE_LABEL: Record<string, string> = {
+                                                    diagnostic: "Diagnostic Quiz",
+                                                    smart: "Smart Practice",
+                                                    daily: "Daily Practice",
+                                                    mock: "Mock Exam",
+                                                };
+                                                const label = MODE_LABEL[(attempt as any).mode] ?? "Practice Quiz";
+                                                return (
+                                                    <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
+                                                                Q
                                                             </div>
-                                                            <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="font-medium text-slate-200">{label}</p>
+                                                                    <span className="text-xs text-slate-500">
+                                                                        {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
+                                                                            month: 'short',
+                                                                            day: 'numeric',
+                                                                            hour: 'numeric',
+                                                                            minute: '2-digit'
+                                                                        }) : 'Just now'}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                            </div>
                                                         </div>
+                                                        {isActive ? (
+                                                            <button
+                                                                onClick={() => navigate('/app/quiz', { state: { runId: attempt.id } })}
+                                                                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg text-sm shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
+                                                            >
+                                                                Resume
+                                                            </button>
+                                                        ) : (
+                                                            <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
+                                                                {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
-                                                        {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
-                                                    </span>
-                                                </div>
-                                            ))
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
@@ -682,3 +739,6 @@ export default function Dashboard() {
         </div>
     );
 }
+
+
+

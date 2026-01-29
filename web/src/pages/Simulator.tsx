@@ -1,11 +1,11 @@
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { useSimulator } from '../hooks/useSimulator';
 import { QuestionNavigator } from '../components/simulator/QuestionNavigator';
 import { QuestionCard } from '../components/simulator/QuestionCard';
 import { useExam } from '../contexts/ExamContext';
 
 export default function Simulator() {
-    const navigate = useNavigate();
+    // const navigate = useNavigate();
     const { examName } = useExam();
     const {
         loading,
@@ -39,7 +39,7 @@ export default function Simulator() {
         <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col md:flex-row h-screen overflow-hidden">
             {/* Left Sidebar - Navigator */}
             <div className="hidden md:block">
-                <QuestionNavigator
+                <QuestionNavigator onQuit={() => {}}
                     questions={questions}
                     currentIndex={currentIndex}
                     answers={answers}
@@ -48,7 +48,6 @@ export default function Simulator() {
                     examName={examName}
                     onNavigate={setCurrentIndex}
                     onSubmit={() => submitExam()}
-                    onQuit={() => navigate('/app/simulator')}
                 />
             </div>
 
@@ -72,3 +71,4 @@ export default function Simulator() {
         </div>
     );
 }
+

@@ -83,6 +83,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
                 setEntitlement(getUserEntitlement(undefined));
             }
             setLoading(false);
+        }, (error) => {
+            console.warn("SubscriptionProvider: Failed to subscribe to user profile (likely permission error or missing doc). Defaulting to free/stateless.", error);
+            setEntitlement(getUserEntitlement(undefined));
+            setLoading(false);
         });
 
         return () => unsubscribeProfile();

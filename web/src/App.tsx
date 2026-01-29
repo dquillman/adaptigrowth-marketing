@@ -203,7 +203,7 @@ function App() {
               </Route>
 
               {/* Protected Routes (Accessible only when logged in) */}
-              <Route path="/app" element={<RequireAuth />}>
+              <Route path="/app/*" element={<RequireAuth />}>
                 {/* Dashboard at /app root, no sidebar */}
                 <Route index element={<Dashboard />} />
 
@@ -237,3 +237,4 @@ function App() {
 }
 
 export default App;
+

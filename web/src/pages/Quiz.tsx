@@ -12,6 +12,7 @@ import SubscriptionUpsellModal from '../components/SubscriptionUpsellModal';
 import { useExam } from '../contexts/ExamContext';
 import { SmartQuizService } from '../services/smartQuiz';
 import { useMarketingCopy } from '../hooks/useMarketingCopy';
+import { QuizRunService } from '../services/QuizRunService';
 
 interface Question {
     id: string;
@@ -42,6 +43,9 @@ export default function Quiz() {
     // Thinking Trap Suggestion State
     const [sessionTraps, setSessionTraps] = useState<Map<string, { count: number, pattern: PatternData }>>(new Map());
 
+    // Diagnostic Persistence State -> MOVED to below line 77 to access 'location'
+
+
     const { isPro, canTakeQuiz, incrementDailyCount } = useSubscription();
     const [showUpsell, setShowUpsell] = useState(false);
     const copy = useMarketingCopy();
@@ -66,6 +70,17 @@ export default function Quiz() {
     const location = useLocation();
     const navigate = useNavigate();
 
+    // Unified Quiz Run State
+    const [activeRunId, setActiveRunId] = useState<string | null>(null);
+    const [quizType, setQuizType] = useState<string>('standard');
+
+    // Initialize activeRunId from location state on mount if resuming
+    useEffect(() => {
+        if (location.state?.runId) {
+            setActiveRunId(location.state.runId);
+        }
+    }, [location.state]);
+
     // Global context fallback
     const { selectedExamId } = useExam();
 
@@ -79,7 +94,6 @@ export default function Quiz() {
         setActiveExamId(effectiveId);
 
         // Pre-Quiz Reinforcement Check
-        // Only run on mount (when ActiveExamId is set roughly) or just once.
         const checkReinforcement = () => {
             const MEMORY_KEY = 'exam_coach_reinforcement';
             const FREQUENCY_KEY = 'exam_coach_last_reinforcement_shown';
@@ -93,36 +107,26 @@ export default function Quiz() {
                 const memory = JSON.parse(memoryStr);
                 const now = Date.now();
 
-                // Check Age (< 7 days)
                 if ((now - memory.timestamp) > SEVEN_DAYS) return;
 
-                // Check Frequency (< 1 per day)
                 const lastShownStr = localStorage.getItem(FREQUENCY_KEY);
                 if (lastShownStr) {
                     const lastShown = parseInt(lastShownStr, 10);
                     if ((now - lastShown) < ONE_DAY) return;
                 }
 
-                // VALID: Set message and update check timestamp
-                // "Quick reminder: You’re getting better at spotting [Trap Name]."
                 setReinforcementMessage(`Quick reminder: You’re getting better at spotting ${memory.patternName}.`);
                 localStorage.setItem(FREQUENCY_KEY, now.toString());
-
             } catch (e) {
                 console.error("Reinforcement check failed", e);
             }
         };
-
-        // Run once
         checkReinforcement();
-
     }, [paramExamId, selectedExamId]);
-
-    // ...
 
     useEffect(() => {
         const fetchSmartQuestions = async () => {
-            if (!activeExamId) return; // Wait for ID determination
+            if (!activeExamId) return;
 
             try {
                 const user = auth.currentUser;
@@ -138,37 +142,103 @@ export default function Quiz() {
                         location.state.patternId,
                         location.state.domainTags,
                         activeExamId,
-                        isPro ? 7 : 5, // Limit as per requirements (5-7)
-                        location.state.masteryScore || 0 // Pass mastery score if available for adaptation
+                        isPro ? 7 : 5,
+                        location.state.masteryScore || 0
                     );
+
+                    try {
+                        const newRunId = await QuizRunService.createRun(
+                            user.uid,
+                            activeExamId,
+                            'trap',
+                            'trap',
+                            trapIds,
+                            {
+                                patternId: location.state.patternId,
+                                patternName: location.state.patternName || 'Thinking Trap'
+                            }
+                        );
+                        setActiveRunId(newRunId);
+                        setQuizType('trap');
+                    } catch (e) {
+                        console.error("Failed to persist trap run", e);
+                    }
 
                     const fetchedQs: Question[] = [];
                     for (const id of trapIds) {
                         const docRef = doc(db, 'questions', id);
                         const d = await getDoc(docRef);
                         if (d.exists()) {
-                            // difficulty is optional now, no mock random assignment.
                             const data = d.data();
                             fetchedQs.push({
                                 id: d.id,
                                 ...data,
-                                difficulty: data.difficulty // Only set if exists
+                                difficulty: data.difficulty
                             } as Question);
                         }
                     }
                     setQuestions(fetchedQs);
                     setLoading(false);
                     return;
-                    setLoading(false);
-                    return;
                 }
 
-                // DIAGNOSTIC MODE (First Session)
-                if (location.state?.mode === 'diagnostic') {
+                // DIAGNOSTIC CHECK (Legacy/Specific Logic) OR UNIFIED RESUME
+                // If we have a runId, we resume regardless of mode
+                if (location.state?.runId) {
+                    console.log("Resuming Quiz Run:", location.state.runId);
+                    const run = await QuizRunService.getRunById(user.uid, location.state.runId);
+
+                    if (run) {
+                        // Re-fetch questions from snapshot IDs
+                        setQuizType(run.quizType || run.type || 'standard'); // Derived from DATA
+                        const fetchedQs: Question[] = [];
+                        for (const id of run.snapshot.questionIds) {
+                            const docRef = doc(db, 'questions', id);
+                            const d = await getDoc(docRef);
+                            if (d.exists()) {
+                                fetchedQs.push({ id: d.id, ...d.data() } as Question);
+                            }
+                        }
+                        setQuestions(fetchedQs);
+                        if (run.snapshot.currentQuestionIndex !== undefined) {
+                            setCurrentQuestionIndex(run.snapshot.currentQuestionIndex);
+                        }
+                        setLoading(false);
+                        return;
+                    }
+                }
+
+                // If Diagnostic Mode AND NO runId -> Create Logic
+                if (location.state?.mode === 'diagnostic' && !location.state?.runId) {
                     console.log("Initializing Diagnostic Mode...");
+
                     const DIAG_LIMIT = 5;
-                    // Use Simulation Generator for random broad mix
                     const diagIds = await SmartQuizService.generateSimulationExam(activeExamId, DIAG_LIMIT);
+
+                    // PERSISTENCE: Create Run
+                    try {
+                        const runId = await QuizRunService.createRun(
+                            auth.currentUser!.uid,
+                            selectedExamId!,
+                            'diagnostic',
+                            'diagnostic',
+                            diagIds
+                        );
+
+                        await addDoc(collection(db, 'quizAttempts'), {
+                            userId: auth.currentUser!.uid,
+                            examId: selectedExamId,
+                            mode: 'diagnostic',
+                            completed: false,
+                            runId,
+                            totalQuestions: diagIds.length,
+                            timestamp: new Date()
+                        });
+                        setActiveRunId(runId);
+                        setQuizType('diagnostic');
+                    } catch (e) {
+                        console.error("Failed to persist diagnostic start", e);
+                    }
 
                     const fetchedQs: Question[] = [];
                     for (const id of diagIds) {
@@ -264,34 +334,73 @@ export default function Quiz() {
                 // Limit questions based on plan
                 const TARGET_SIZE = isPro ? 10 : 5;
                 let selected: Question[] = [];
+                const selectedIds = new Set<string>(); // LAYER 1: Session Uniqueness
 
                 const shuffle = (arr: any[]) => arr.sort(() => 0.5 - Math.random());
 
+                const addUnique = (candidates: Question[]) => {
+                    for (const c of candidates) {
+                        if (selected.length >= TARGET_SIZE) break;
+                        if (!selectedIds.has(c.id)) {
+                            selected.push(c);
+                            selectedIds.add(c.id);
+                        }
+                    }
+                };
+
                 // A. Add all 'Learning' questions
-                selected = [...selected, ...shuffle(learning)];
+                addUnique(shuffle(learning));
 
                 // B. Fill with 'New' questions
                 if (selected.length < TARGET_SIZE) {
-                    const needed = TARGET_SIZE - selected.length;
-                    selected = [...selected, ...shuffle(newQs).slice(0, needed)];
+                    // We can just add unique from the shuffled "new" bucket
+                    addUnique(shuffle(newQs));
                 }
 
                 // C. Fill with 'Mastered' questions
                 // If filtering by specific domain, we ALLOW mastered questions to fill the quiz
                 // to ensure the user gets a full 10-question set if available.
                 if (selected.length < TARGET_SIZE && mastered.length > 0) {
-                    const needed = TARGET_SIZE - selected.length;
-
                     // If filterDomain is active, we are more aggressive about reusing mastered content
-                    // to ensure the user can practice the specific domain they clicked.
-                    const toTake = filterDomain ? needed : Math.min(needed, Math.ceil(TARGET_SIZE * 0.3));
+                    const remaining = TARGET_SIZE - selected.length;
+                    const toTake = filterDomain ? remaining : Math.min(remaining, Math.ceil(TARGET_SIZE * 0.3));
 
-                    selected = [...selected, ...shuffle(mastered).slice(0, toTake)]; // Just take what is needed
+                    // Shuffle mastered and add strictly unique
+                    const shuffledMastered = shuffle(mastered);
+                    let taken = 0;
+                    for (const m of shuffledMastered) {
+                        if (taken >= toTake) break;
+                        if (selected.length >= TARGET_SIZE) break;
+                        if (!selectedIds.has(m.id)) {
+                            selected.push(m);
+                            selectedIds.add(m.id);
+                            taken++;
+                        }
+                    }
                 }
 
-                selected = selected.slice(0, TARGET_SIZE);
+                // selected = selected.slice(0, TARGET_SIZE); // Already handled by logic loops but safe to keep if simple array concat was used.
+                // Re-shuffle final selection so order isn't purely Learning -> New -> Mastered
+                selected = selected.sort(() => 0.5 - Math.random());
+
+                console.log("Selected Smart Questions:", selected);
                 console.log("Selected Smart Questions:", selected);
                 setQuestions(selected);
+
+                // UNIFIED PERSISTENCE: Create Run for Smart/Weakest Modes if not resuming
+                if (!location.state?.runId) {
+                    const mode = location.state?.mode || 'smart';
+                    const type = mode === 'diagnostic' ? 'diagnostic' : 'daily'; // map simple types
+                    const qIds = selected.map(q => q.id);
+
+                    try {
+                        const newRunId = await QuizRunService.createRun(user.uid, activeExamId, type, mode, qIds);
+                        setActiveRunId(newRunId);
+                        setQuizType(type);
+                    } catch (e) {
+                        console.error("Failed to create start run persistence", e);
+                    }
+                }
 
             } catch (error) {
                 console.error("Error fetching smart questions:", error);
@@ -380,6 +489,22 @@ export default function Quiz() {
     const updateQuestionProgress = async (questionId: string, isCorrect: boolean) => {
         const user = auth.currentUser;
         if (!user) return;
+
+        // PERSISTENCE: Save diagnostic progress if applicable
+        // Unified Persistence: Save progress
+        if (activeRunId) {
+            try {
+                if (selectedOption !== null) {
+                    await QuizRunService.saveProgress(user.uid, activeRunId, {
+                        questionId,
+                        selectedOption: selectedOption,
+                        isCorrect
+                    }, questions.length > currentQuestionIndex + 1 ? currentQuestionIndex + 1 : currentQuestionIndex);
+                }
+            } catch (e) {
+                console.error("Failed to save quiz progress", e);
+            }
+        }
 
         const progressRef = doc(db, 'users', user.uid, 'questionProgress', questionId);
 
@@ -578,6 +703,16 @@ export default function Quiz() {
 
         // Update Subscription Context optimistically
         incrementDailyCount(quizDetails.length);
+
+        // PERSISTENCE: Complete Diagnostic
+        // PERSISTENCE: Complete Run
+        if (activeRunId) {
+            await QuizRunService.completeRun(userId, activeRunId, {
+                score,
+                totalQuestions: questions.length,
+                domainResults
+            });
+        }
     };
 
     const handleNext = async () => {
@@ -594,6 +729,24 @@ export default function Quiz() {
             explanationViewed: explanationExpanded,
             actionLatency: explanationRenderTime ? (Date.now() - explanationRenderTime) / 1000 : null, // Metric: Time to Next
         }]);
+
+        // PERSISTENCE: Save Progress
+        if (activeRunId && auth.currentUser) {
+            try {
+                await QuizRunService.saveProgress(
+                    auth.currentUser.uid,
+                    activeRunId,
+                    {
+                        questionId: currentQuestion.id,
+                        selectedOption: selectedOption !== null ? selectedOption : -1, // -1 for skip if allowed? Assuming selectedOption is required by UI
+                        isCorrect: isCorrect
+                    },
+                    currentQuestionIndex + 1 // Next Index to resume from
+                );
+            } catch (e) {
+                console.error("Failed to save progress", e);
+            }
+        }
 
         if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(currentQuestionIndex + 1);
@@ -890,20 +1043,50 @@ export default function Quiz() {
             <header className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 px-4 py-4 sticky top-0 z-50">
                 <div className="mx-auto max-w-4xl flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={async () => {
-                                if (window.confirm("Quit and save your progress so far?")) {
-                                    await saveQuizResults();
-                                    setQuizCompleted(true);
-                                }
-                            }}
-                            className="text-slate-400 hover:text-white transition-colors flex items-center gap-2"
-                        >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                            </svg>
-                            <span className="hidden sm:inline text-sm font-medium">Quit & Save</span>
-                        </button>
+                        {quizType === 'diagnostic' ? (
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm("Exit Diagnostic? Your progress will not be saved.")) {
+                                        if (activeRunId) {
+                                            const { QuizRunService } = await import('../services/QuizRunService');
+                                            await QuizRunService.completeRun(auth.currentUser!.uid, activeRunId, {
+                                                abort: true,
+                                                score: score,
+                                                totalQuestions: questions.length
+                                            });
+                                        }
+                                        navigate('/app');
+                                    }
+                                }}
+                                className="text-slate-400 hover:text-red-400 transition-colors flex items-center gap-2 group"
+                            >
+                                <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                                <span className="hidden sm:inline text-sm font-medium">Exit Diagnostic</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm("Quit and save your progress so far?")) {
+                                        if (activeRunId) {
+                                            // Unified Mode: Pause (navigate away)
+                                            navigate('/app');
+                                        } else {
+                                            // Legacy Mode: Submit immediately
+                                            await saveQuizResults();
+                                            setQuizCompleted(true);
+                                        }
+                                    }
+                                }}
+                                className="text-slate-400 hover:text-white transition-colors flex items-center gap-2"
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                                <span className="hidden sm:inline text-sm font-medium">Quit & Save</span>
+                            </button>
+                        )}
                         <div className="h-6 w-px bg-slate-700"></div>
                         <span className="text-sm font-medium text-slate-400 font-display">{currentQuestion.domain}</span>
                     </div>
@@ -966,7 +1149,7 @@ export default function Quiz() {
                                 </p>
                             </div>
                         </div>
-                    ) : location.state?.mode === 'diagnostic' ? (
+                    ) : quizType === 'diagnostic' ? (
                         <div className="bg-gradient-to-r from-brand-900/30 to-brand-800/30 border border-brand-500/30 rounded-xl p-4 flex items-start gap-3">
                             <span className="text-2xl">🔎</span>
                             <div>
@@ -1140,3 +1323,4 @@ export default function Quiz() {
         </div>
     );
 }
+

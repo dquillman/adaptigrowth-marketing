@@ -10,6 +10,9 @@ import { type PatternData } from './PatternInsightCard';
 // Reuse PatternData from PatternInsightCard or define locally if strictly isolated.
 // Since PatternData is exported, we import it.
 
+// Interface removed
+
+
 export default function ThinkingTrapsCard() {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -22,11 +25,11 @@ export default function ThinkingTrapsCard() {
     useEffect(() => {
         if (!user) return;
         const fetchPatterns = async () => {
+            // ... logic remains same ...
             try {
                 const functions = getFunctions();
                 const getWeakest = httpsCallable(functions, 'getWeakestPatterns');
                 const result = await getWeakest();
-                // Take top 3 as requested
                 const data = result.data as PatternData[];
                 setPatterns(data.slice(0, 3));
             } catch (err) {
@@ -39,7 +42,7 @@ export default function ThinkingTrapsCard() {
     }, [user]);
 
     const handleReviewClick = () => {
-        if (checkPermission('analytics')) { // 'analytics' as proxy for Pro, or check plan directly
+        if (checkPermission('analytics')) {
             setShowProModal(true);
         } else {
             setShowModal(true);
@@ -47,6 +50,7 @@ export default function ThinkingTrapsCard() {
     };
 
     if (loading) {
+        // ...
         return (
             <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 animate-pulse h-64">
                 <div className="h-6 bg-slate-700 rounded w-1/2 mb-4"></div>
@@ -58,11 +62,14 @@ export default function ThinkingTrapsCard() {
         );
     }
 
+    // ...
+
     return (
         <>
             <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl relative overflow-hidden flex flex-col h-full">
                 {/* Header */}
                 <div className="mb-4">
+                    {/* ... */}
                     <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
                         🧠 Your Thinking Traps
                     </h3>
@@ -73,6 +80,7 @@ export default function ThinkingTrapsCard() {
 
                 {/* Body */}
                 <div className="flex-1">
+                    {/* ... */}
                     <p className="text-slate-300 text-sm mb-4 font-medium">
                         You’ve missed questions tied to these patterns more than once:
                     </p>
@@ -84,7 +92,6 @@ export default function ThinkingTrapsCard() {
                                     <span className="text-white font-medium text-sm truncate pr-2">
                                         {p.pattern_name}
                                     </span>
-                                    {/* Indicators: Red for low mastery (<50), Orange for medium (50-80) */}
                                     {p.mastery_score < 50 ? (
                                         <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" title="High Risk" />
                                     ) : (
