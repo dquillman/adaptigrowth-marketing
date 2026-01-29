@@ -836,8 +836,8 @@ export default function Quiz() {
             }];
 
             await saveQuizResults(finalDetails);
-            setQuizCompleted(true);
             triggerSmartQuizReview(false);
+	setQuizCompleted(true);
         }
     };
 
@@ -1142,8 +1142,8 @@ export default function Quiz() {
                                         } else {
                                             // Legacy Mode: Submit immediately
                                             await saveQuizResults();
-                                            setQuizCompleted(true);
                                             triggerSmartQuizReview(true);
+						setQuizCompleted(true);
                                         }
                                     }
                                 }}
