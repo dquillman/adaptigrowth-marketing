@@ -527,7 +527,7 @@ export default function Dashboard() {
                                                     daily: "Daily Practice",
                                                     mock: "Mock Exam",
                                                 };
-                                                const label = MODE_LABEL[(attempt as any).mode] ?? "Practice Quiz";
+                                                const label = MODE_LABEL[(attempt as any).mode] ?? "Smart Practice Quiz";
                                                 return (
                                                     <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
                                                         <div className="flex items-center gap-4">
