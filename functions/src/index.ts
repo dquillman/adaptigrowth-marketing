@@ -1455,3 +1455,4 @@ export const cleanupTimedOutSessions = functions.pubsub.schedule('every 5 minute
 export * from './tester_management';
 export * from './tutor';
 export * from './diagnostics';
+export * from './generateSmartQuizReview';
