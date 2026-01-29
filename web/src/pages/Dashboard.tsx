@@ -523,7 +523,7 @@ export default function Dashboard() {
                                                 const isActive = (attempt as any).mode === 'smart' && (attempt as any).completed !== true;
                                                 const MODE_LABEL: Record<string, string> = {
                                                     diagnostic: "Diagnostic Quiz",
-                                                    smart: "Smart Practice",
+                                                    smart: "Smart Practice Quiz",
                                                     daily: "Daily Practice",
                                                     mock: "Mock Exam",
                                                 };
