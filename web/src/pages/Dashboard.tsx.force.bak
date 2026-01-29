@@ -5,8 +5,9 @@ import { Link } from 'react-router-dom';
 import { APP_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, getDocs, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { SmartQuizService } from '../services/smartQuiz';
 import { XPService } from '../services/xpService';
 import LevelBadge from '../components/LevelBadge';
 import ExamSelector from '../components/ExamSelector';
@@ -34,6 +35,7 @@ export default function Dashboard() {
     // Use UseExam globally
     const { selectedExamId, examName, examDomains, loading: examLoading } = useExam();
 
+    const [masteryData] = useState<Record<string, { correct: number; total: number }>>({});
     const [domainMasteryCounts, setDomainMasteryCounts] = useState<Record<string, number>>({});
     const [domainTotalCounts, setDomainTotalCounts] = useState<Record<string, number>>({});
 
@@ -43,7 +45,6 @@ export default function Dashboard() {
     const [showStreakModal, setShowStreakModal] = useState(false);
 
     const [recentActivity, setRecentActivity] = useState<QuizAttempt[]>([]);
-    const [activeRuns, setActiveRuns] = useState<any[]>([]);
     const [dailyProgress, setDailyProgress] = useState(0);
     const [dailyGoal, setDailyGoal] = useState(10);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -75,7 +76,6 @@ export default function Dashboard() {
         let unsubscribeActivity: () => void;
         let unsubscribeGoal: () => void;
         let unsubscribeProgress: () => void;
-        let unsubscribeActiveRuns: () => void;
 
         const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -171,20 +171,6 @@ export default function Dashboard() {
                 });
 
                 XPService.checkStreak();
-
-                // --- Active Runs (resumable, no examId filter) ---
-                const activeRunsQuery = query(
-                    collection(db, 'quizRuns', userId, 'runs'),
-                    where('status', '==', 'in_progress')
-                );
-
-                unsubscribeActiveRuns = onSnapshot(activeRunsQuery, (snapshot) => {
-                    const runs = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    setActiveRuns(runs);
-                });
             }
             setLoading(false);
         });
@@ -194,7 +180,6 @@ export default function Dashboard() {
             if (unsubscribeActivity) unsubscribeActivity();
             if (unsubscribeGoal) unsubscribeGoal();
             if (unsubscribeProgress) unsubscribeProgress();
-            if (unsubscribeActiveRuns) unsubscribeActiveRuns();
         };
     }, [selectedExamId]); // Re-subscribe when exam changes
 
@@ -237,6 +222,24 @@ export default function Dashboard() {
         return Math.min(100, Math.round((mastered / total) * 100));
     };
 
+    const handleSmartStart = async () => {
+        if (!auth.currentUser) return;
+
+        try {
+            const goal = dailyGoal || 5;
+            const questionIds = await SmartQuizService.generateSmartQuiz(
+                auth.currentUser.uid,
+                selectedExamId || 'default-exam',
+                masteryData,
+                goal
+            );
+            navigate('/app/quiz', { state: { questionIds, mode: 'smart' } });
+        } catch (error) {
+            console.error("Failed to generate smart quiz:", error);
+            navigate('/app/quiz');
+        }
+    };
+
     const handleWeakestStart = () => {
         if (!examDomains || examDomains.length === 0) {
             navigate('/app/quiz');
@@ -261,9 +264,6 @@ export default function Dashboard() {
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
-
-    const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
-    const hasActiveRun = resumableRuns.length > 0;
 
     return (
         <div className="min-h-screen flex bg-transparent relative">
@@ -307,7 +307,7 @@ export default function Dashboard() {
                                     onClick={() => setShowStreakModal(true)}
                                     className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-700/50 text-brand-300 rounded-full text-sm font-medium border border-slate-600 hover:bg-slate-700 hover:border-brand-500/50 transition-all cursor-pointer"
                                 >
-                                    <span>🔥 {userStreak} Day Streak</span>
+                                    <span>ðŸ”¥ {userStreak} Day Streak</span>
                                 </button>
                                 <button
                                     onClick={() => signOut(auth)}
@@ -330,11 +330,11 @@ export default function Dashboard() {
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-lg backdrop-blur-sm ${trial.daysRemaining <= 2 ? 'bg-amber-500/20' : 'bg-indigo-500/20'
                                     }`}>
-                                    <span className="text-xl">{trial.daysRemaining <= 2 ? '⏰' : '🎉'}</span>
+                                    <span className="text-xl">{trial.daysRemaining <= 2 ? 'â°' : 'ðŸŽ‰'}</span>
                                 </div>
                                 <div>
                                     <h3 className="text-white font-bold text-base">
-                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : "You're on a 14-day Pro Trial"}
+                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : 'Youâ€™re on a 14-day Pro Trial'}
                                     </h3>
                                     <p className={`${trial.daysRemaining <= 2 ? 'text-amber-100' : 'text-indigo-200'} text-sm`}>
                                         {trial.daysRemaining === 0 ? (
@@ -343,7 +343,7 @@ export default function Dashboard() {
                                             <>
                                                 {trial.daysRemaining <= 2
                                                     ? <>Time remaining: <strong className="text-white">{trial.daysRemaining} days, {trial.hoursRemaining} hours</strong></>
-                                                    : <>Full access enabled. ⏳ <strong className="text-white">{trial.daysRemaining} days</strong> remaining</>
+                                                    : <>Full access enabled. â³ <strong className="text-white">{trial.daysRemaining} days</strong> remaining</>
                                                 }
                                             </>
                                         )}
@@ -360,7 +360,7 @@ export default function Dashboard() {
                     {trial.status === 'expired' && (
                         <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
                             <div className="relative z-10">
-                                <h3 className="text-2xl font-bold text-white mb-2 font-display">🔒 Your 14-day Pro trial has ended</h3>
+                                <h3 className="text-2xl font-bold text-white mb-2 font-display">ðŸ”’ Your 14-day Pro trial has ended</h3>
                                 <p className="text-slate-400 mb-6 max-w-lg mx-auto">
                                     We hope you enjoyed your practice sessions! To continue studying and access your detailed analytics, please upgrade your plan.
                                 </p>
@@ -413,18 +413,24 @@ export default function Dashboard() {
 
                                 <div className="flex gap-4">
                                     <button
+                                        onClick={handleSmartStart}
+                                        className="inline-flex items-center justify-center rounded-xl bg-brand-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                    >
+                                        Start Daily Practice
+                                    </button>
+                                    <button
                                         onClick={handleWeakestStart}
                                         className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
                                         title="Targets your weakest domains"
                                     >
-                                        <span className="mr-2">⚡</span> Smart Practice
+                                        <span className="mr-2">âš¡</span> Smart Practice
                                     </button>
                                     <button
                                         onClick={() => navigate('/app/simulator')}
                                         className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
                                         title="Full length timed exam simulation"
                                     >
-                                        <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
+                                        <span className="mr-2 group-hover:scale-110 transition-transform">â±ï¸</span> Mock Exam
                                     </button>
                                     {/* 'Start Trial' button on dashboard is handled by TrialModal now, 
                                         or do we also keep a button if they closed the modal?
@@ -439,27 +445,11 @@ export default function Dashboard() {
                                         I will remove it to be compliant with "Never show trial pending or eligible" rule strictly.
                                         Wait, if they hit "Not now", they might want to start it later.
                                         I'll comment it out or leave it but update it to use `startTrial` action.
-                                        Actually the prompt says: "Never show 'trial pending' or 'eligible'" under "Dashboard Trial Messaging (UX Upgrade)".
+                                        Actually the prompt says: "Never show â€œtrial pendingâ€ or â€œeligibleâ€" under "Dashboard Trial Messaging (UX Upgrade)".
                                         This strongly suggests hiding the "Start Trial" button.
                                         I will remove it.
                                     */}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Resume Active Run */}
-                        {hasActiveRun && (
-                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mt-6 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress</h3>
-                                    <p className="text-slate-400 text-sm mt-1">Pick up where you left off.</p>
-                                </div>
-                                <button
-                                    onClick={() => navigate('/app/quiz', { state: { runId: resumableRuns[0].id, resume: true } })}
-                                    className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
-                                >
-                                    Resume
-                                </button>
                             </div>
                         )}
 
@@ -537,7 +527,7 @@ export default function Dashboard() {
                                                                         }) : 'Just now'}
                                                                     </span>
                                                                 </div>
-                                                                <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                                <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions â€¢ {attempt.domain}</p>
                                                             </div>
                                                         </div>
                                                         {isActive ? (
@@ -547,10 +537,6 @@ export default function Dashboard() {
                                                             >
                                                                 Resume
                                                             </button>
-                                                        ) : ((attempt as any).mode === 'diagnostic' || (attempt as any).quizType === 'diagnostic') ? (
-                                                            <span className="px-3 py-1 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 text-sm font-medium">
-                                                                Baseline captured
-                                                            </span>
                                                         ) : (
                                                             <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
                                                                 {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
@@ -616,7 +602,7 @@ export default function Dashboard() {
                                     }
                                     <p className="text-sm text-brand-100/80 relative z-10">
                                         {dailyProgress >= dailyGoal
-                                            ? "Goal reached! You're crushing it! 🚀"
+                                            ? "Goal reached! You're crushing it! ðŸš€"
                                             : "Keep it up! Consistency is key to passing your exam."}
                                     </p>
                                 </div>
@@ -643,19 +629,6 @@ export default function Dashboard() {
                                 if (window.confirm('Are you SURE? This will delete all your mastery rings and quiz history for this exam.')) {
                                     try {
                                         setLoading(true);
-
-                                        // Abandon any in_progress runs for this exam
-                                        const userId = auth.currentUser!.uid;
-                                        const runsQuery = query(
-                                            collection(db, 'quizRuns', userId, 'runs'),
-                                            where('status', '==', 'in_progress'),
-                                            where('examId', '==', selectedExamId)
-                                        );
-                                        const runsSnap = await getDocs(runsQuery);
-                                        await Promise.all(runsSnap.docs.map(d =>
-                                            updateDoc(d.ref, { status: 'abandoned', endedAt: serverTimestamp() })
-                                        ));
-
                                         const { httpsCallable, getFunctions } = await import('firebase/functions');
                                         const functions = getFunctions();
                                         const resetFn = httpsCallable(functions, 'resetExamProgress');
@@ -690,7 +663,7 @@ export default function Dashboard() {
                             </button>
                             <div className="text-center">
                                 <div className="w-20 h-20 bg-brand-500/10 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 border border-brand-500/20">
-                                    🔥
+                                    ðŸ”¥
                                 </div>
                                 <h3 className="text-2xl font-bold text-white font-display mb-2">{userStreak} Day Streak!</h3>
                                 <p className="text-slate-400 mb-6">

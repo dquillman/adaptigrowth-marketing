@@ -93,8 +93,11 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
                     ...doc.data()
                 })) as QuizAttempt[];
 
+                // Exclude diagnostics (no meaningful score data)
+                const scored = attempts.filter(a => (a as any).mode !== 'diagnostic' && (a as any).quizType !== 'diagnostic');
+
                 // Process data for chart (reverse to show chronological order)
-                const processedData = attempts.reverse().map(attempt => {
+                const processedData = scored.reverse().map(attempt => {
                     const accuracy = Math.round((attempt.score / attempt.totalQuestions) * 100);
 
                     // Default to 0 if no time tracking data (legacy records)

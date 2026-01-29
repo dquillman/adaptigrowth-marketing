@@ -1,0 +1,326 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { doc, getDoc, addDoc, collection, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../firebase';
+import { SmartQuizService } from '../services/smartQuiz';
+import { XPService } from '../services/xpService';
+import { QuizRunService } from '../services/QuizRunService';
+
+export interface Question {
+    id: string;
+    stem: string;
+    options: string[];
+    correctAnswer: number;
+    explanation: string;
+    domain: string;
+    examId?: string;
+    imageUrl?: string;
+}
+
+export const useSimulator = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [loading, setLoading] = useState(true);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [answers, setAnswers] = useState<Record<number, number>>({});
+    const [flagged, setFlagged] = useState<Record<number, boolean>>({});
+    const [timeLeft, setTimeLeft] = useState(3600); // Default 60 mins
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentExamId, setCurrentExamId] = useState<string>('default-exam');
+    const [runId, setRunId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const loadExam = async () => {
+            const user = auth.currentUser;
+            const examId = localStorage.getItem('selectedExamId') || 'default-exam';
+            setCurrentExamId(examId);
+
+            if (!user) {
+                navigate('/login');
+                return;
+            }
+
+            try {
+                // UNIFIED PERSISTENCE: Resume Check
+                const state = location.state as { runId?: string; mode?: string; count?: number; durationMinutes?: number } | null;
+
+                if (state?.runId) {
+                    // RESUME EXISTING RUN
+                    const run = await QuizRunService.getRunById(user.uid, state.runId);
+                    if (run && run.status === 'in_progress') {
+                        setRunId(run.id);
+
+                        // Hydrate Questions
+                        // Note: Current logic fetches via ID one by one or batch.
+                        // We need to fetch questions from IDs in run snapshot.
+                        const qs: Question[] = [];
+                        for (const qId of run.snapshot.questionIds) {
+                            const snap = await getDoc(doc(db, 'questions', qId));
+                            if (snap.exists()) {
+                                qs.push({ id: snap.id, ...snap.data() } as Question);
+                            }
+                        }
+                        setQuestions(qs);
+                        setCurrentIndex(run.snapshot.currentQuestionIndex || 0);
+
+                        // Hydrate Answers
+                        const ansMap: Record<number, number> = {};
+                        run.answers.forEach(a => {
+                            // Find index of question in our loaded list
+                            const idx = run.snapshot.questionIds.indexOf(a.questionId);
+                            if (idx !== -1) {
+                                ansMap[idx] = a.selectedOption;
+                            }
+                        });
+                        setAnswers(ansMap);
+
+                        // Calculate Time Left? 
+                        // For Phase 1, we might just reset time or accept imperfect time tracking if not stored in run.
+                        // Ideally we should store `timeLeft` in run, but it's not in the interface yet.
+                        // We'll leave time default for now or recalculate?
+                        // "Phase 1... Do NOT change timers". 
+                        // But resuming with full time is a "change" (loophole). 
+                        // Let's assume default recalc for now as MVP.
+                        // Actually, leaving default recalc logic below is fine, BUT we need to skip the *generation* part.
+
+                        // Recalculate duration based on full length (not just remaining)
+                        let questionCount = qs.length;
+                        let durationSeconds = questionCount * 72; // Standard
+                        // If existing run has meta mode?
+                        if (run.mode === 'full-mock') durationSeconds = 230 * 60;
+
+                        setTimeLeft(durationSeconds); // Resets to full time. Known limitation for Phase 1.
+                        setLoading(false);
+                        return;
+                    }
+                }
+
+                // NEW RUN LOGIC
+                // Check if directed from Planner with specific settings
+
+                // Default to 50 questions (Standard Drill)
+                let questionCount = 50;
+                let durationSeconds = questionCount * 72; // ~1.2 mins per question
+
+                if (state?.mode === 'full-mock') {
+                    // PMP Standard: 180 questions, 230 minutes (3h 50m)
+                    questionCount = 180;
+                    durationSeconds = 230 * 60;
+                } else if (state?.count) {
+                    // Custom overrides
+                    questionCount = state.count;
+                    if (state.durationMinutes) {
+                        durationSeconds = state.durationMinutes * 60;
+                    } else {
+                        durationSeconds = questionCount * 72;
+                    }
+                }
+
+                setTimeLeft(durationSeconds);
+
+                // Note: The SmartQuizService might need to handle fetching 180 unique questions.
+                // If the DB is small, this might return duplicates or fewer questions.
+                const ids = await SmartQuizService.generateSimulationExam(examId, questionCount);
+
+                if (ids.length === 0) {
+                    alert("No questions found for this exam.");
+                    navigate('/app/simulator');
+                    return;
+                }
+
+                const questionsData: Question[] = [];
+                // In a real app, we'd batch this or use a where 'in' query if ID limit permits
+                for (const id of ids) {
+                    const docRef = doc(db, 'questions', id);
+                    const snap = await getDoc(docRef);
+                    if (snap.exists()) {
+                        questionsData.push({ id: snap.id, ...snap.data() } as Question);
+                    }
+                }
+                setQuestions(questionsData);
+
+                // UNIFIED PERSISTENCE: Create Run
+                try {
+                    const newRunId = await QuizRunService.createRun(
+                        user.uid,
+                        examId,
+                        'eval', // Explicitly 'eval' as requested
+                        state?.mode || 'simulation',
+                        ids
+                    );
+                    setRunId(newRunId);
+                } catch (e) {
+                    console.error("Failed to create unified run", e);
+                }
+
+            } catch (error) {
+                console.error("Error loading exam:", error);
+                alert("Failed to load exam. Please try again.");
+                navigate('/app/simulator');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        const timer = setTimeout(loadExam, 100); // Small delay to unblock render
+        return () => clearTimeout(timer);
+    }, [navigate, location.state]);
+
+    useEffect(() => {
+        if (loading || isSubmitting) return;
+
+        const timer = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    submitExam(true);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading, isSubmitting]);
+
+    const handleAnswer = useCallback((optionIndex: number) => {
+        setAnswers(prev => ({ ...prev, [currentIndex]: optionIndex }));
+
+        // UNIFIED PERSISTENCE: Save Progress
+        if (runId && auth.currentUser) {
+            const q = questions[currentIndex];
+            const isCorrect = optionIndex === q.correctAnswer;
+
+            QuizRunService.saveProgress(
+                auth.currentUser.uid,
+                runId,
+                {
+                    questionId: q.id,
+                    selectedOption: optionIndex,
+                    isCorrect
+                },
+                currentIndex + 1 // Next Index
+            ).catch(err => console.error("Auto-save failed", err));
+        }
+    }, [currentIndex, questions, runId]);
+
+    const handleFlag = useCallback(() => {
+        setFlagged(prev => ({ ...prev, [currentIndex]: !prev[currentIndex] }));
+    }, [currentIndex]);
+
+    const quitExam = async () => {
+        // Safe Persistence Flush before Navigation
+        if (runId && auth.currentUser) {
+            try {
+                // Manually touch the document timestamp to ensure persistence is acknowledged
+                // This acts as a barrier to ensure recent writes (like handleAnswer) are likely flushed
+                // or at least that the run exists and is recent.
+                const runRef = doc(db, 'quizRuns', auth.currentUser.uid, 'runs', runId);
+                await updateDoc(runRef, {
+                    updatedAt: serverTimestamp()
+                });
+            } catch (e) {
+                console.error("Quit flush failed", e);
+            }
+        }
+        navigate('/app');
+    };
+
+    const submitExam = async (autoSubmit = false) => {
+        if (!autoSubmit && !window.confirm("Are you sure you want to finish the exam?")) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        const user = auth.currentUser;
+        if (!user) return;
+
+        let score = 0;
+        const details: { questionId: string; selectedOption: number; correctOption: number; isCorrect: boolean; domain: string; }[] = [];
+
+        questions.forEach((q, index) => {
+            const selected = answers[index];
+            const isCorrect = selected === q.correctAnswer;
+            if (isCorrect) score++;
+
+            details.push({
+                questionId: q.id,
+                selectedOption: selected,
+                correctOption: q.correctAnswer,
+                isCorrect,
+                domain: q.domain
+            });
+        });
+
+        const timeSpent = (questions.length * 72) - timeLeft; // Crude calc based on initial time
+
+        try {
+            await addDoc(collection(db, 'quizAttempts'), {
+                userId: user.uid,
+                examId: currentExamId,
+                score,
+                totalQuestions: questions.length,
+                timestamp: new Date(),
+                mode: 'simulation',
+                timeSpent,
+                details
+            });
+
+            // UNIFIED PERSISTENCE: Complete Run
+            // Marks it as completed so it no longer shows up in "Resume"
+            if (runId) {
+                if (quizMode !== 'smart') {
+  if (run.quizType !== "smart") {
+  await QuizRunService.completeRun(user.uid, runId, {
+                    score,
+                    totalQuestions: questions.length,
+                    timeSpent
+                });
+} else {
+  console.log("SMART QUIZ: completeRun blocked to preserve resumability", runId);
+}
+} else {
+  console.log('SMART QUIZ: completeRun blocked to preserve resumability', runId);
+}
+            }
+
+            await XPService.awardXP(questions.length * 5 + score * 10, "Completed Exam Simulator");
+
+            navigate('/app/simulator/results', {
+                state: {
+                    score,
+                    total: questions.length,
+                    timeSpent,
+                    questions,
+                    answers_map: answers,
+                    flagged
+                }
+            });
+
+        } catch (error) {
+            console.error("Error saving exam:", error);
+            // Fallback navigation
+            navigate('/app/simulator/results', {
+                state: { score, total: questions.length, timeSpent, questions, answers_map: answers, flagged }
+            });
+        }
+    };
+
+    return {
+        loading,
+        questions,
+        currentIndex,
+        setCurrentIndex,
+        answers,
+        flagged,
+        timeLeft,
+        handleAnswer,
+        handleFlag,
+        quitExam,
+        submitExam
+    };
+};
+
+

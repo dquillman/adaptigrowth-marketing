@@ -1,11 +1,11 @@
-﻿import { signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import Sidebar from '../components/Sidebar';
 import { Link } from 'react-router-dom';
 import { APP_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, getDocs, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { XPService } from '../services/xpService';
 import LevelBadge from '../components/LevelBadge';
@@ -24,15 +24,35 @@ interface QuizAttempt {
     totalQuestions: number;
     domain: string;
     timestamp: any; // Firestore Timestamp
+    quizType?: string;
+    mode?: string;
+    type?: string;
     timeSpent?: number;
     averageTimePerQuestion?: number;
+    isActive?: boolean;
 }
 
+// Helper removed
+
+
+// ResumeHero component removed
+const RUN_LABEL: Record<string, string> = {
+    diagnostic: "Diagnostic Quiz",
+    smart: "Smart Practice",
+    daily: "Daily Practice",
+    mock: "Mock Exam",
+    eval: "Mock Exam",
+    simulation: "Mock Exam"
+};
+
+
 export default function Dashboard() {
+    console.log("ACTIVE /app ROUTE OWNER");
     const { isCollapsed } = useSidebar();
 
     // Use UseExam globally
     const { selectedExamId, examName, examDomains, loading: examLoading } = useExam();
+
 
     const [domainMasteryCounts, setDomainMasteryCounts] = useState<Record<string, number>>({});
     const [domainTotalCounts, setDomainTotalCounts] = useState<Record<string, number>>({});
@@ -43,7 +63,6 @@ export default function Dashboard() {
     const [showStreakModal, setShowStreakModal] = useState(false);
 
     const [recentActivity, setRecentActivity] = useState<QuizAttempt[]>([]);
-    const [activeRuns, setActiveRuns] = useState<any[]>([]);
     const [dailyProgress, setDailyProgress] = useState(0);
     const [dailyGoal, setDailyGoal] = useState(10);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -56,6 +75,9 @@ export default function Dashboard() {
 
     const [showLevelModal, setShowLevelModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+
+    // State for Unified Quiz Runs
+    const [activeQuizRun, setActiveQuizRun] = useState<any | null>(null);
 
     const { trial } = useTrial();
 
@@ -70,12 +92,38 @@ export default function Dashboard() {
         }
     }, [selectedExamId, examDomains, examLoading]);
 
+    // Check for active quiz run on load
+    // Check for active quiz run on load AND on window focus
+    useEffect(() => {
+        const checkActiveRun = async () => {
+            if (!auth.currentUser || !selectedExamId) return;
+            const { QuizRunService } = await import('../services/QuizRunService');
+
+            // Query for ANY active run (unified)
+            const run = await QuizRunService.getLatestActiveRun(auth.currentUser.uid, selectedExamId);
+
+            // DIAGNOSTIC RULE: Never resume diagnostic runs. They are single-session.
+            if (run && run.quizType !== 'diagnostic') {
+                console.log("Found active query run to resume:", run.id, run.quizType);
+                setActiveQuizRun(run);
+            } else {
+                setActiveQuizRun(null);
+            }
+        };
+
+        // Initial check
+        checkActiveRun();
+
+        // Re-check on window focus (e.g. returning from another tab or completing a run)
+        window.addEventListener('focus', checkActiveRun);
+        return () => window.removeEventListener('focus', checkActiveRun);
+    }, [selectedExamId, auth.currentUser]);
+
     // 2. Fetch User Data (Progress, Activity, Goals)
     useEffect(() => {
         let unsubscribeActivity: () => void;
         let unsubscribeGoal: () => void;
         let unsubscribeProgress: () => void;
-        let unsubscribeActiveRuns: () => void;
 
         const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
             if (user) {
@@ -171,20 +219,6 @@ export default function Dashboard() {
                 });
 
                 XPService.checkStreak();
-
-                // --- Active Runs (resumable, no examId filter) ---
-                const activeRunsQuery = query(
-                    collection(db, 'quizRuns', userId, 'runs'),
-                    where('status', '==', 'in_progress')
-                );
-
-                unsubscribeActiveRuns = onSnapshot(activeRunsQuery, (snapshot) => {
-                    const runs = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    setActiveRuns(runs);
-                });
             }
             setLoading(false);
         });
@@ -194,7 +228,6 @@ export default function Dashboard() {
             if (unsubscribeActivity) unsubscribeActivity();
             if (unsubscribeGoal) unsubscribeGoal();
             if (unsubscribeProgress) unsubscribeProgress();
-            if (unsubscribeActiveRuns) unsubscribeActiveRuns();
         };
     }, [selectedExamId]); // Re-subscribe when exam changes
 
@@ -237,6 +270,8 @@ export default function Dashboard() {
         return Math.min(100, Math.round((mastered / total) * 100));
     };
 
+
+
     const handleWeakestStart = () => {
         if (!examDomains || examDomains.length === 0) {
             navigate('/app/quiz');
@@ -262,8 +297,24 @@ export default function Dashboard() {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
 
-    const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
-    const hasActiveRun = resumableRuns.length > 0;
+    // Calculate display activity list (Active + Recent)
+    const displayActivity = [...recentActivity];
+    if (activeQuizRun && activeQuizRun.quizType !== 'diagnostic') {
+        const activeItem: QuizAttempt = {
+            id: activeQuizRun.id,
+            score: activeQuizRun.answers ? activeQuizRun.answers.filter((a: any) => a.isCorrect).length : 0,
+            totalQuestions: activeQuizRun.snapshot?.questionIds?.length || 0,
+            domain: activeQuizRun.meta?.filterDomain || 'General',
+            timestamp: activeQuizRun.updatedAt,
+            quizType: activeQuizRun.quizType,
+            mode: activeQuizRun.mode,
+            isActive: true
+        };
+        // Avoid duplicates
+        if (!displayActivity.find(a => a.id === activeItem.id)) {
+            displayActivity.unshift(activeItem);
+        }
+    }
 
     return (
         <div className="min-h-screen flex bg-transparent relative">
@@ -321,6 +372,9 @@ export default function Dashboard() {
                 </nav >
 
                 <main className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+                    {/* RESUME SECTION REMOVED (Moved to Recent Activity) */}
+
+
                     {/* Trial Banner */}
                     {trial.status === 'active' && (
                         <div className={`rounded-xl p-4 flex items-center justify-between border shadow-lg ${trial.daysRemaining <= 2
@@ -334,7 +388,7 @@ export default function Dashboard() {
                                 </div>
                                 <div>
                                     <h3 className="text-white font-bold text-base">
-                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : "You're on a 14-day Pro Trial"}
+                                        {trial.daysRemaining <= 2 ? 'Your Pro trial ends soon' : 'You’re on a 14-day Pro Trial'}
                                     </h3>
                                     <p className={`${trial.daysRemaining <= 2 ? 'text-amber-100' : 'text-indigo-200'} text-sm`}>
                                         {trial.daysRemaining === 0 ? (
@@ -377,9 +431,10 @@ export default function Dashboard() {
                     )}
 
                     {/* Main Content - Blurred if Expired */}
+                    {/* GATING RULE: If activeQuizRun exists, resume takes priority. Hide Onboarding. */}
                     <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
                         {/* Onboarding / Welcome Section */}
-                        {recentActivity.length === 0 && !loading ? (
+                        {recentActivity.length === 0 && !loading && !activeQuizRun ? (
                             <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                                 <div className="relative z-10 max-w-2xl">
@@ -412,6 +467,8 @@ export default function Dashboard() {
                                 </div>
 
                                 <div className="flex gap-4">
+                                    {/* Daily Practice Button - Hidden if active run is Daily/Smart */}
+                                    {/* Daily Practice Button removed */}
                                     <button
                                         onClick={handleWeakestStart}
                                         className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
@@ -421,10 +478,13 @@ export default function Dashboard() {
                                     </button>
                                     <button
                                         onClick={() => navigate('/app/simulator')}
-                                        className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
+                                        className="inline-flex flex-col items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-2 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group min-w-[140px]"
                                         title="Full length timed exam simulation"
                                     >
-                                        <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
+                                        <span className="flex items-center gap-2">
+                                            <span className="group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-normal">Single session • progress not saved</span>
                                     </button>
                                     {/* 'Start Trial' button on dashboard is handled by TrialModal now, 
                                         or do we also keep a button if they closed the modal?
@@ -439,27 +499,11 @@ export default function Dashboard() {
                                         I will remove it to be compliant with "Never show trial pending or eligible" rule strictly.
                                         Wait, if they hit "Not now", they might want to start it later.
                                         I'll comment it out or leave it but update it to use `startTrial` action.
-                                        Actually the prompt says: "Never show 'trial pending' or 'eligible'" under "Dashboard Trial Messaging (UX Upgrade)".
+                                        Actually the prompt says: "Never show “trial pending” or “eligible”" under "Dashboard Trial Messaging (UX Upgrade)".
                                         This strongly suggests hiding the "Start Trial" button.
                                         I will remove it.
                                     */}
                                 </div>
-                            </div>
-                        )}
-
-                        {/* Resume Active Run */}
-                        {hasActiveRun && (
-                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mt-6 flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress</h3>
-                                    <p className="text-slate-400 text-sm mt-1">Pick up where you left off.</p>
-                                </div>
-                                <button
-                                    onClick={() => navigate('/app/quiz', { state: { runId: resumableRuns[0].id, resume: true } })}
-                                    className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
-                                >
-                                    Resume
-                                </button>
                             </div>
                         )}
 
@@ -503,57 +547,65 @@ export default function Dashboard() {
                         {/* Stats & Activity */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
                             {/* Recent Activity */}
+				{/* RECENT_ACTIVITY_MARKER */}
+
                             <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
                                 <h3 className="text-lg font-bold text-white mb-4 font-display">Recent Activity</h3>
                                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
                                     <div className="space-y-3">
-                                        {recentActivity.length === 0 ? (
+                                        {displayActivity.length === 0 ? (
                                             <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
                                         ) : (
-                                            recentActivity.map((attempt) => {
-                                                const isActive = (attempt as any).mode === 'smart' && (attempt as any).completed !== true;
-                                                const MODE_LABEL: Record<string, string> = {
-                                                    diagnostic: "Diagnostic Quiz",
-                                                    smart: "Smart Practice",
-                                                    daily: "Daily Practice",
-                                                    mock: "Mock Exam",
-                                                };
-                                                const label = MODE_LABEL[(attempt as any).mode] ?? "Practice Quiz";
+                                            displayActivity.map((attempt) => {
+                                                const rawKey = (attempt.mode || attempt.quizType || attempt.type || '').toLowerCase();
+                                                const label = RUN_LABEL[rawKey];
+
+                                                if (!label) return null;
+
                                                 return (
-                                                    <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
+                                                    <div key={attempt.id} className={`flex items-center justify-between p-4 rounded-xl ${attempt.isActive ? 'bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20' : 'bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50'} transition-colors`}>
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-10 h-10 rounded-lg bg-brand-500/10 flex items-center justify-center text-brand-400 font-bold border border-brand-500/20">
-                                                                Q
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold border ${attempt.isActive ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse' : 'bg-brand-500/10 text-brand-400 border-brand-500/20'}`}>
+                                                                {attempt.isActive ? '▶' : 'Q'}
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <p className="font-medium text-slate-200">{label}</p>
+                                                                    <p className={`font-medium ${attempt.isActive ? 'text-amber-100' : 'text-slate-200'}`}>
+                                                                        {label}
+                                                                    </p>
+                                                                    {attempt.isActive && (
+                                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 uppercase tracking-wide animate-pulse">
+                                                                            Active
+                                                                        </span>
+                                                                    )}
                                                                     <span className="text-xs text-slate-500">
-                                                                        {attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
+                                                                        {!attempt.isActive ? (attempt.timestamp?.toDate ? attempt.timestamp.toDate().toLocaleString(undefined, {
                                                                             month: 'short',
                                                                             day: 'numeric',
                                                                             hour: 'numeric',
                                                                             minute: '2-digit'
-                                                                        }) : 'Just now'}
+                                                                        }) : 'Just now') : 'In Progress'}
                                                                     </span>
                                                                 </div>
-                                                                <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                                <p className="text-sm text-slate-500">{attempt.totalQuestions > 0 ? `${attempt.totalQuestions} Questions` : 'Assessment'} • {attempt.domain}</p>
                                                             </div>
                                                         </div>
-                                                        {isActive ? (
+                                                        {attempt.isActive ? (
                                                             <button
-                                                                onClick={() => navigate('/app/quiz', { state: { runId: attempt.id } })}
+                                                                onClick={() => {
+                                                                    if (attempt.quizType === 'eval' || attempt.quizType === 'simulation' || attempt.quizType === 'mock') {
+                                                                        navigate('/app/simulator', { state: { runId: attempt.id } });
+                                                                    } else {
+                                                                        navigate('/app/quiz', { state: { runId: attempt.id } });
+                                                                    }
+                                                                }}
                                                                 className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg text-sm shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
                                                             >
                                                                 Resume
                                                             </button>
-                                                        ) : ((attempt as any).mode === 'diagnostic' || (attempt as any).quizType === 'diagnostic') ? (
-                                                            <span className="px-3 py-1 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 text-sm font-medium">
-                                                                Baseline captured
-                                                            </span>
                                                         ) : (
                                                             <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
-                                                                {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                                                                {attempt.totalQuestions > 0 ? Math.round((attempt.score / attempt.totalQuestions) * 100) : 0}%
                                                             </span>
                                                         )}
                                                     </div>
@@ -561,71 +613,173 @@ export default function Dashboard() {
                                             })
                                         )}
                                     </div>
-                                </div>
-                            </div>
+                                    <div className="flex items-center justify-between p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-colors animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 font-bold border border-amber-500/30 animate-pulse">
+                                                ▶
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium text-amber-100">
+                                                        {activeQuizRun.quizType === 'diagnostic' ? 'Diagnostic (in progress)' :
+                                                            {(() => {
+                                                                const combinedActivity = [...recentActivity];
+                                                                if (activeQuizRun && activeQuizRun.quizType !== 'diagnostic') {
+                                                                    const activeItem: QuizAttempt = {
+                                                                        id: activeQuizRun.id,
+                                                                        score: activeQuizRun.answers ? activeQuizRun.answers.filter((a: any) => a.isCorrect).length : 0,
+                                                                        totalQuestions: activeQuizRun.snapshot?.questionIds?.length || 0,
+                                                                        domain: activeQuizRun.meta?.filterDomain || 'General', // Use filterDomain if available
+                                                                        timestamp: activeQuizRun.updatedAt,
+                                                                        quizType: activeQuizRun.quizType,
+                                                                        mode: activeQuizRun.mode,
+                                                                        isActive: true
+                                                                    };
+                                                                    // Avoid duplicates if weird sync issues
+                                                                    if (!combinedActivity.find(a => a.id === activeItem.id)) {
+                                                                        combinedActivity.unshift(activeItem);
+                                                                    }
+                                                                }
 
-                            {/* Right Column: Goal + Traps */}
-                            <div className="space-y-6">
-                                {/* Daily Goal */}
-                                <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
-                                    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
-                                    <div className="flex justify-between items-start mb-2 relative z-10">
-                                        <h3 className="text-lg font-bold font-display">Daily Goal</h3>
-                                        <button
-                                            onClick={() => setIsEditingGoal(!isEditingGoal)}
-                                            className="text-brand-200 hover:text-white transition-colors"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
+                                                                if (combinedActivity.length === 0) {
+                                                                    return <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>;
+                                                                }
+
+                                                                return combinedActivity.map((attempt) => {
+                                                                    const rawKey = (attempt.mode || attempt.quizType || attempt.type || '').toLowerCase();
+                                                                    const label = RUN_LABEL[rawKey];
+
+                                                                    if (!label) return null; // Strict: Do not render if not mapped
+
+                                                                    return (
+                                                    <div key={attempt.id} className={`flex items-center justify-between p-4 rounded-xl ${attempt.isActive ? 'bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 animate-in fade-in slide-in-from-top-2' : 'bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50'} transition-colors`}>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold border ${attempt.isActive ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse' : 'bg-brand-500/10 text-brand-400 border-brand-500/20'}`}>
+                                                                {attempt.isActive ? '▶' : 'Q'}
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className={`font-medium ${attempt.isActive ? 'text-amber-100' : 'text-slate-200'}`}>
+                                                                        {label}
+                                                                    </p>
+                                                                            minute: '2-digit'
+                                                                        }) : 'Just now'}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
+                                                            {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                                                        </span>
+                                                                    )
+                                                                }
+                                                </div>
+                                                );
+                                            })
+                                        })()}
+                                            </div>
+                                            );
+                                            })
+                                        )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Goal + Traps */}
+                                <div className="space-y-6">
+                                    {/* Daily Goal */}
+                                    <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
+                                        <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
+                                        <div className="flex justify-between items-start mb-2 relative z-10">
+                                            <h3 className="text-lg font-bold font-display">Daily Goal</h3>
+                                            <button
+                                                onClick={() => setIsEditingGoal(!isEditingGoal)}
+                                                className="text-brand-200 hover:text-white transition-colors"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        {
+                                            isEditingGoal ? (
+                                                <div className="mb-4 relative z-10">
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="number"
+                                                            value={newGoal}
+                                                            onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
+                                                            className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
+                                                        />
+                                                        <button
+                                                            onClick={saveGoal}
+                                                            className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="flex items-end gap-2 mb-4 relative z-10">
+                                                        <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
+                                                        <span className="text-brand-200 mb-1 font-medium">questions</span>
+                                                    </div>
+                                                    <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
+                                                        <div
+                                                            className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
+                                                            style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </>
+                                            )
+                                        }
+                                        <p className="text-sm text-brand-100/80 relative z-10">
+                                            {dailyProgress >= dailyGoal
+                                                ? "Goal reached! You're crushing it! 🚀"
+                                                : "Keep it up! Consistency is key to passing your exam."}
+                                        </p>
                                     </div>
 
-                                    {
-                                        isEditingGoal ? (
-                                            <div className="mb-4 relative z-10">
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="number"
-                                                        value={newGoal}
-                                                        onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
-                                                        className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
-                                                    />
-                                                    <button
-                                                        onClick={saveGoal}
-                                                        className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
-                                                    >
-                                                        Save
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="flex items-end gap-2 mb-4 relative z-10">
-                                                    <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
-                                                    <span className="text-brand-200 mb-1 font-medium">questions</span>
-                                                </div>
-                                                <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
-                                                    <div
-                                                        className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
-                                                        style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
-                                                    ></div>
-                                                </div>
-                                            </>
-                                        )
-                                    }
-                                    <p className="text-sm text-brand-100/80 relative z-10">
-                                        {dailyProgress >= dailyGoal
-                                            ? "Goal reached! You're crushing it! 🚀"
-                                            : "Keep it up! Consistency is key to passing your exam."}
-                                    </p>
-                                </div>
+                                    {/* Daily Smart Practice Card */}
+                                    <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:border-brand-500/30 transition-all duration-500">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-brand-500/20 transition-all duration-500"></div>
 
-                                {/* Thinking Traps Card */}
-                                <ThinkingTrapsCard />
+                                        <div className="relative z-10 mb-4">
+                                            <span className="text-4xl mb-4 block">🧠</span>
+                                            <h3 className="text-xl font-bold text-white mb-2 font-display">Daily Smart Practice</h3>
+                                            <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                                                Our AI selects questions to optimize your learning: introducing new topics while reviewing past material.
+                                            </p>
+                                        </div>
+
+                                        <div className="relative z-10 mt-auto">
+                                            <div className="flex items-center justify-between mb-4 text-sm">
+                                                <span className="text-slate-400">Daily Progress</span>
+                                                <span className="text-brand-400 font-bold">{dailyProgress} / {dailyGoal}</span>
+                                            </div>
+                                            <div className="w-full bg-slate-700/50 rounded-full h-2 mb-6">
+                                                <div
+                                                    className="bg-brand-500 h-2 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                                                    style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
+                                                ></div>
+                                            </div>
+
+                                            {/* Resume Button Logic moved to Top of Page. Here we show Start unless active run hides it? 
+                                            Actually, if active run is 'daily'/'smart', we hide this card's main action? 
+                                            The prompt says "Hide or visually de-emphasize". 
+                                            We already hid the top-level button. 
+                                            For this CARD specific button:
+                                        */}
+                                            {/* "Start Daily Session" CTA removed in favor of "Smart Practice" as primary action */}
+                                        </div>
+                                    </div>          {/* Thinking Traps Card */}
+                                    <ThinkingTrapsCard />
+                                </div>
                             </div>
                         </div>
-                    </div>
                 </main>
 
 
@@ -643,19 +797,6 @@ export default function Dashboard() {
                                 if (window.confirm('Are you SURE? This will delete all your mastery rings and quiz history for this exam.')) {
                                     try {
                                         setLoading(true);
-
-                                        // Abandon any in_progress runs for this exam
-                                        const userId = auth.currentUser!.uid;
-                                        const runsQuery = query(
-                                            collection(db, 'quizRuns', userId, 'runs'),
-                                            where('status', '==', 'in_progress'),
-                                            where('examId', '==', selectedExamId)
-                                        );
-                                        const runsSnap = await getDocs(runsQuery);
-                                        await Promise.all(runsSnap.docs.map(d =>
-                                            updateDoc(d.ref, { status: 'abandoned', endedAt: serverTimestamp() })
-                                        ));
-
                                         const { httpsCallable, getFunctions } = await import('firebase/functions');
                                         const functions = getFunctions();
                                         const resetFn = httpsCallable(functions, 'resetExamProgress');
@@ -728,6 +869,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-
-
