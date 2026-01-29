@@ -153,6 +153,8 @@ function AppLayout() {
 }
 
 import { ExamProvider } from "./contexts/ExamContext";
+import { SmartQuizReviewProvider, useSmartQuizReview } from "./contexts/SmartQuizReviewContext";
+import SmartQuizReviewModal from "./components/SmartQuizReviewModal";
 
 // --- Analytics Hook ---
 import { httpsCallable } from 'firebase/functions';
@@ -184,6 +186,20 @@ function useAnalytics() {
   }, []);
 }
 
+function GlobalSmartQuizReviewModal() {
+  const { state, closeReview } = useSmartQuizReview();
+  return (
+    <SmartQuizReviewModal
+      open={state.open}
+      onClose={closeReview}
+      reviewText={state.reviewText}
+      loading={state.loading}
+      isPartial={state.isPartial}
+      isPro={state.isPro}
+    />
+  );
+}
+
 function App() {
   useAnalytics(); // Initialize Analytics
 
@@ -192,6 +208,7 @@ function App() {
       <SidebarProvider>
         <ExamProvider>
           <SubscriptionProvider>
+            <SmartQuizReviewProvider>
             <Routes>
               {/* Public Routes (Accessible to everyone) */}
               <Route path="/" element={<Landing />} />
@@ -229,6 +246,8 @@ function App() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <GlobalSmartQuizReviewModal />
+            </SmartQuizReviewProvider>
           </SubscriptionProvider>
         </ExamProvider>
       </SidebarProvider>

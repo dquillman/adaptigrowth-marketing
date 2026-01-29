@@ -13,7 +13,7 @@ import { useExam } from '../contexts/ExamContext';
 import { SmartQuizService } from '../services/smartQuiz';
 import { useMarketingCopy } from '../hooks/useMarketingCopy';
 import { QuizRunService } from '../services/QuizRunService';
-import SmartQuizReviewModal from '../components/SmartQuizReviewModal';
+import { useSmartQuizReview } from '../contexts/SmartQuizReviewContext';
 
 interface Question {
     id: string;
@@ -44,11 +44,8 @@ export default function Quiz() {
     // Thinking Trap Suggestion State
     const [sessionTraps, setSessionTraps] = useState<Map<string, { count: number, pattern: PatternData }>>(new Map());
 
-    // Smart Quiz Review Modal State
-    const [showReviewModal, setShowReviewModal] = useState(false);
-    const [reviewText, setReviewText] = useState<string | undefined>(undefined);
-    const [reviewLoading, setReviewLoading] = useState(false);
-    const [reviewIsPartial, setReviewIsPartial] = useState(false);
+    // Smart Quiz Review (app-level context)
+    const smartReview = useSmartQuizReview();
 
     // Diagnostic Persistence State -> MOVED to below line 77 to access 'location'
 
@@ -727,17 +724,11 @@ export default function Quiz() {
         // Only trigger for smart-family modes (smart, weakest, standard/undefined)
         if (mode === 'diagnostic' || mode === 'trap') return;
 
-        setReviewIsPartial(isPartial);
-        setReviewText(undefined);
-        setShowReviewModal(true);
+        // Open modal via app-level context (survives route changes)
+        smartReview.openReview({ isPartial, isPro });
 
-        // Free users: show locked modal, no OpenAI call
-        if (!isPro) {
-            setReviewLoading(false);
-            return;
-        }
-
-        setReviewLoading(true);
+        // Free users: locked modal, no OpenAI call
+        if (!isPro) return;
 
         try {
             const answeredCount = quizDetails.length;
@@ -772,12 +763,10 @@ export default function Quiz() {
             });
 
             const data = result.data as { reviewText: string };
-            setReviewText(data.reviewText);
+            smartReview.setReviewText(data.reviewText);
         } catch (error) {
             console.error('Failed to generate smart quiz review:', error);
-            // Fail silently — modal stays open with fallback text
-        } finally {
-            setReviewLoading(false);
+            smartReview.setLoading(false);
         }
     };
 
@@ -1136,13 +1125,13 @@ export default function Quiz() {
                             <button
                                 onClick={async () => {
                                     if (window.confirm("Quit and save your progress so far?")) {
+                                        triggerSmartQuizReview(true);
                                         if (activeRunId) {
-                                            // Unified Mode: Pause — show review then navigate
-                                            triggerSmartQuizReview(true);
+                                            // Unified Mode: Pause — navigate (modal survives in App.tsx)
+                                            navigate('/app');
                                         } else {
                                             // Legacy Mode: Submit immediately
                                             await saveQuizResults();
-                                            triggerSmartQuizReview(true);
                                             setQuizCompleted(true);
                                         }
                                     }
@@ -1387,21 +1376,6 @@ export default function Quiz() {
                 isOpen={showUpsell}
                 onClose={() => window.location.href = '/app'}
                 reason="daily_limit"
-            />
-
-            <SmartQuizReviewModal
-                open={showReviewModal}
-                onClose={() => {
-                    setShowReviewModal(false);
-                    // If quit & save with activeRunId, navigate after closing
-                    if (reviewIsPartial && activeRunId) {
-                        navigate('/app');
-                    }
-                }}
-                reviewText={reviewText}
-                loading={reviewLoading}
-                isPartial={reviewIsPartial}
-                isPro={isPro}
             />
         </div>
     );
