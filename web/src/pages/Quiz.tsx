@@ -837,7 +837,7 @@ export default function Quiz() {
 
             await saveQuizResults(finalDetails);
             triggerSmartQuizReview(false);
-	setQuizCompleted(true);
+            setQuizCompleted(true);
         }
     };
 
@@ -1143,7 +1143,7 @@ export default function Quiz() {
                                             // Legacy Mode: Submit immediately
                                             await saveQuizResults();
                                             triggerSmartQuizReview(true);
-						setQuizCompleted(true);
+                                            setQuizCompleted(true);
                                         }
                                     }
                                 }}
