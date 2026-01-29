@@ -1,4 +1,4 @@
-interface SmartQuizReviewModalProps {
+﻿interface SmartQuizReviewModalProps {
     open: boolean;
     onClose: () => void;
     reviewText?: string;
@@ -14,7 +14,7 @@ export default function SmartQuizReviewModal({ open, onClose, reviewText, loadin
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/40 max-w-lg w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/40 max-w-lg w-full mx-4 overflow-hidden animate-in fade-in zoom-in duration-300">
                 {/* Header */}
                 <div className="px-6 pt-6 pb-4 border-b border-slate-800">
                     <div className="flex items-center gap-3 mb-1">
@@ -38,7 +38,7 @@ export default function SmartQuizReviewModal({ open, onClose, reviewText, loadin
                                 <p className="text-slate-400 italic">Reviewing your progress...</p>
                             ) : paragraphs.length > 0 ? (
                                 paragraphs.map((p, i) => (
-                                    <p key={i}>{p.trim()}</p>
+                                    <p key={i} className={i === paragraphs.length - 1 ? 'italic text-slate-300' : ''}>{p.trim()}</p>
                                 ))
                             ) : (
                                 <p className="text-slate-400">Your results are saved. Coaching review will be available soon.</p>
@@ -80,3 +80,4 @@ export default function SmartQuizReviewModal({ open, onClose, reviewText, loadin
         </div>
     );
 }
+
