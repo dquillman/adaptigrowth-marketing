@@ -510,7 +510,16 @@ export default function Dashboard() {
                                         {recentActivity.length === 0 ? (
                                             <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>
                                         ) : (
-                                            recentActivity.map((attempt) => {
+                                            (() => {
+                                                let diagShown = false;
+                                                return recentActivity.filter((a: any) => {
+                                                    if (a.mode === 'diagnostic' || a.quizType === 'diagnostic') {
+                                                        if (diagShown) return false;
+                                                        diagShown = true;
+                                                    }
+                                                    return true;
+                                                });
+                                            })().map((attempt) => {
                                                 const isActive = (attempt as any).mode === 'smart' && (attempt as any).completed !== true;
                                                 const MODE_LABEL: Record<string, string> = {
                                                     diagnostic: "Diagnostic Quiz",
