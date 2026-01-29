@@ -728,9 +728,16 @@ export default function Quiz() {
         if (mode === 'diagnostic' || mode === 'trap') return;
 
         setReviewIsPartial(isPartial);
-        setReviewLoading(true);
         setReviewText(undefined);
         setShowReviewModal(true);
+
+        // Free users: show locked modal, no OpenAI call
+        if (!isPro) {
+            setReviewLoading(false);
+            return;
+        }
+
+        setReviewLoading(true);
 
         try {
             const answeredCount = quizDetails.length;
@@ -1394,6 +1401,7 @@ export default function Quiz() {
                 reviewText={reviewText}
                 loading={reviewLoading}
                 isPartial={reviewIsPartial}
+                isPro={isPro}
             />
         </div>
     );
