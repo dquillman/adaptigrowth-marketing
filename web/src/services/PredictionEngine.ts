@@ -10,13 +10,13 @@ export interface DomainReadiness {
 }
 
 export interface ReadinessReport {
-    overallScore: number; // 0-100
+    overallScore: number | null; // 0-100, or null when preliminary
     trend: 'improving' | 'declining' | 'stable';
     domainBreakdown: DomainReadiness[];
     totalQuestionsAnswered: number;
     mockExamsTaken: number;
     examId: string;
-    isPreliminary?: boolean;
+    isPreliminary: boolean;
 }
 
 export const PredictionEngine = {
@@ -43,12 +43,13 @@ export const PredictionEngine = {
 
             if (attempts.length === 0) {
                 return {
-                    overallScore: 0,
+                    overallScore: null,
                     trend: 'stable',
                     domainBreakdown: [],
                     totalQuestionsAnswered: 0,
                     mockExamsTaken: 0,
-                    examId
+                    examId,
+                    isPreliminary: true
                 };
             }
 
@@ -67,8 +68,14 @@ export const PredictionEngine = {
             });
 
             attempts.forEach(attempt => {
-                totalCorrect += attempt.score;
-                totalQuestions += attempt.totalQuestions;
+                const score = Number(attempt.score) || 0;
+                const total = Number(attempt.totalQuestions) || 0;
+
+                // Skip attempts with no valid question data
+                if (total === 0) return;
+
+                totalCorrect += score;
+                totalQuestions += total;
 
                 if (attempt.mode === 'simulation') mockCount++;
 
@@ -84,8 +91,8 @@ export const PredictionEngine = {
                     // Fallback for attempts without details but with specific domain
                     const d = attempt.domain;
                     if (!domainStats[d]) domainStats[d] = { correct: 0, total: 0 };
-                    domainStats[d].total += attempt.totalQuestions;
-                    domainStats[d].correct += attempt.score;
+                    domainStats[d].total += total;
+                    domainStats[d].correct += score;
                 }
             });
 
@@ -96,8 +103,11 @@ export const PredictionEngine = {
             let recentCorrect = 0;
             let recentTotal = 0;
             recentAttempts.forEach(a => {
-                recentCorrect += a.score;
-                recentTotal += a.totalQuestions;
+                const score = Number(a.score) || 0;
+                const total = Number(a.totalQuestions) || 0;
+                if (total === 0) return;
+                recentCorrect += score;
+                recentTotal += total;
             });
             const recentAccuracy = recentTotal > 0 ? (recentCorrect / recentTotal) * 100 : 0;
 
@@ -142,15 +152,17 @@ export const PredictionEngine = {
                 return priority[a.status] - priority[b.status];
             });
 
+            const isPreliminary = totalQuestions < 50;
+
             return {
-                overallScore: adjustedScore,
+                overallScore: isPreliminary ? null : adjustedScore,
                 trend,
                 domainBreakdown: breakdown,
                 totalQuestionsAnswered: totalQuestions,
                 mockExamsTaken: mockCount,
                 examId,
-                isPreliminary: totalQuestions < 50 // Flag to UI
-            } as ReadinessReport;
+                isPreliminary
+            };
 
         } catch (error) {
             console.error("Prediction Engine Error:", error);

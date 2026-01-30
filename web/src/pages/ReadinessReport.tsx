@@ -84,7 +84,7 @@ export default function ReadinessReportPage() {
     // Radial Progress Math
     const radius = 80;
     const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (report.overallScore / 100) * circumference;
+    const offset = circumference - ((report.overallScore ?? 0) / 100) * circumference;
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 p-8 pb-24">
@@ -131,7 +131,7 @@ export default function ReadinessReportPage() {
                                     />
                                     <circle
                                         cx="96" cy="96" r={radius}
-                                        className={`${getScoreColor(report.overallScore)} transition-all duration-1000 ease-out`}
+                                        className={`${report.overallScore !== null ? getScoreColor(report.overallScore) : 'stroke-slate-600'} transition-all duration-1000 ease-out`}
                                         strokeWidth="12"
                                         strokeDasharray={circumference}
                                         strokeDashoffset={offset}
@@ -140,10 +140,12 @@ export default function ReadinessReportPage() {
                                     />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className={`text-4xl font-black ${getScoreColor(report.overallScore).split(' ')[0]}`}>
-                                        {report.overallScore}%
+                                    <span className={`text-4xl font-black ${report.overallScore !== null ? getScoreColor(report.overallScore).split(' ')[0] : 'text-slate-500'}`}>
+                                        {report.overallScore !== null ? `${report.overallScore}%` : '\u2014'}
                                     </span>
-                                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">Probability</span>
+                                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
+                                        {report.overallScore !== null ? 'Probability' : 'Pending'}
+                                    </span>
                                 </div>
                             </div>
 
@@ -173,7 +175,7 @@ export default function ReadinessReportPage() {
                                                 <span>Preliminary Assessment</span>
                                             </div>
                                         ) : (
-                                            report.overallScore >= 75 ? (
+                                            (report.overallScore ?? 0) >= 75 ? (
                                                 <div className="flex items-center gap-2 text-emerald-400">
                                                     <CheckCircle className="w-5 h-5" />
                                                     <span>Assessment</span>
@@ -188,10 +190,10 @@ export default function ReadinessReportPage() {
                                     </h3>
                                     <p className="text-slate-400 text-sm leading-relaxed">
                                         {report.isPreliminary
-                                            ? `We need more data to provide a confident prediction. Your score is currently dampened by ${(50 - report.totalQuestionsAnswered) * 0.5}% until you reach 50 questions.`
-                                            : report.overallScore >= 80
+                                            ? `Complete at least 50 questions for a reliable readiness score. You have answered ${report.totalQuestionsAnswered} so far.`
+                                            : (report.overallScore ?? 0) >= 80
                                                 ? "You are showing strong readiness! Maintain this consistency and focus on time management."
-                                                : report.overallScore >= 65
+                                                : (report.overallScore ?? 0) >= 65
                                                     ? "You're getting close, but consistency is key. Focus on your weak domains below to boost your score."
                                                     : "We recommend more targeted practice before scheduling your exam. Focus on fundamental concepts."}
                                     </p>
