@@ -6,3 +6,12 @@ dist/
 
 functions/.env
 *.log
+# --- Local tooling & debug artifacts ---
+*.bak
+*.bak.*
+*.ps1
+.claude/
+admin/_force_admin_backup/
+admin/_gate_backup/
+web/src/components/*.bak*
+temp_*
