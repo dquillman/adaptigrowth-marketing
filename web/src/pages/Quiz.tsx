@@ -13,7 +13,9 @@ import { useExam } from '../contexts/ExamContext';
 import { SmartQuizService } from '../services/smartQuiz';
 import { useMarketingCopy } from '../hooks/useMarketingCopy';
 import { QuizRunService } from '../services/QuizRunService';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useSmartQuizReview } from '../contexts/SmartQuizReviewContext';
+import QuestionProvenanceBadge from '../components/QuestionProvenanceBadge';
 
 interface Question {
     id: string;
@@ -43,6 +45,10 @@ export default function Quiz() {
 
     // Thinking Trap Suggestion State
     const [sessionTraps, setSessionTraps] = useState<Map<string, { count: number, pattern: PatternData }>>(new Map());
+
+    // Mastery Transparency State
+    const [showMasteryInfo, setShowMasteryInfo] = useState(false);
+    const [questionProgressMap, setQuestionProgressMap] = useState<Map<string, any>>(new Map());
 
     // Smart Quiz Review (app-level context)
     const smartReview = useSmartQuizReview();
@@ -311,6 +317,7 @@ export default function Quiz() {
                 progressSnap.forEach(doc => {
                     progressMap.set(doc.id, doc.data());
                 });
+                setQuestionProgressMap(progressMap);
 
                 // 3. Categorize Questions
                 const learning: Question[] = [];
@@ -680,6 +687,10 @@ export default function Quiz() {
             const answeredCount = finalDetails.length;
             if (answeredCount === 0) return; // Don't save empty attempts
 
+            // EQV Telemetry: Effective Question Variety (uniqueQuestionsSeen / totalQuestionsPresented)
+            const newQuestionCount = questions.filter(q => !questionProgressMap.has(q.id)).length;
+            const eqv = questions.length > 0 ? newQuestionCount / questions.length : 0;
+
             await addDoc(attemptRef, {
                 userId,
                 examId: activeExamId,
@@ -691,7 +702,8 @@ export default function Quiz() {
                 averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
                 details: finalDetails,
                 mode: location.state?.mode || 'standard', // Track mode for Drift Analysis
-                isPro: isPro // Track tier for Drift Analysis
+                isPro: isPro, // Track tier for Drift Analysis
+                eqv: parseFloat(eqv.toFixed(4)) // Effective Question Variety (internal telemetry)
             });
             console.log('Quiz attempt saved successfully');
 
@@ -877,6 +889,29 @@ export default function Quiz() {
                             </div>
                         )}
 
+                        {/* Mastery Explanation Disclosure */}
+                        <div className="mb-6 text-left">
+                            <button
+                                onClick={() => setShowMasteryInfo(!showMasteryInfo)}
+                                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors mx-auto"
+                            >
+                                <span>Why you may see repeated questions</span>
+                                {showMasteryInfo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                            {showMasteryInfo && (
+                                <div className="mt-3 bg-slate-700/30 border border-slate-600 rounded-xl p-5 text-sm text-slate-400 space-y-4">
+                                    <div>
+                                        <h4 className="font-semibold text-slate-300 mb-1">How mastery works</h4>
+                                        <p>ExamCoach confirms understanding by requiring correct answers more than once. This prevents progress through guessing and mirrors how the PMP exam tests consistency across scenarios.</p>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-slate-300 mb-1">About the questions</h4>
+                                        <p>All questions are original and written to PMP standards. They are modeled on real exam patterns and domains — not copied from actual PMP exam questions.</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="space-y-3">
                             {topTrap ? (
                                 <button
@@ -984,6 +1019,29 @@ export default function Quiz() {
                             </p>
                         </div>
 
+                        {/* Mastery Explanation Disclosure */}
+                        <div className="mb-6 text-left">
+                            <button
+                                onClick={() => setShowMasteryInfo(!showMasteryInfo)}
+                                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors mx-auto"
+                            >
+                                <span>Why you may see repeated questions</span>
+                                {showMasteryInfo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                            {showMasteryInfo && (
+                                <div className="mt-3 bg-slate-700/30 border border-slate-600 rounded-xl p-5 text-sm text-slate-400 space-y-4">
+                                    <div>
+                                        <h4 className="font-semibold text-slate-300 mb-1">How mastery works</h4>
+                                        <p>ExamCoach confirms understanding by requiring correct answers more than once. This prevents progress through guessing and mirrors how the PMP exam tests consistency across scenarios.</p>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-slate-300 mb-1">About the questions</h4>
+                                        <p>All questions are original and written to PMP standards. They are modeled on real exam patterns and domains — not copied from actual PMP exam questions.</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <Link to="/app" className="block w-full bg-brand-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">
                             Return to Dashboard
                         </Link>
@@ -997,6 +1055,29 @@ export default function Quiz() {
                 <div className="bg-slate-800/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
                     <h2 className="text-3xl font-bold text-white mb-4 font-display">Quiz Completed!</h2>
                     <p className="text-xl text-slate-300 mb-6">You scored <span className="font-bold text-brand-400">{score} / {questions.length}</span></p>
+
+                    {/* Mastery Explanation Disclosure */}
+                    <div className="mb-6 text-left">
+                        <button
+                            onClick={() => setShowMasteryInfo(!showMasteryInfo)}
+                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors mx-auto"
+                        >
+                            <span>Why you may see repeated questions</span>
+                            {showMasteryInfo ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                        {showMasteryInfo && (
+                            <div className="mt-3 bg-slate-700/30 border border-slate-600 rounded-xl p-5 text-sm text-slate-400 space-y-4">
+                                <div>
+                                    <h4 className="font-semibold text-slate-300 mb-1">How mastery works</h4>
+                                    <p>ExamCoach confirms understanding by requiring correct answers more than once. This prevents progress through guessing and mirrors how the PMP exam tests consistency across scenarios.</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-slate-300 mb-1">About the questions</h4>
+                                    <p>All questions are original and written to PMP standards. They are modeled on real exam patterns and domains — not copied from actual PMP exam questions.</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Thinking Trap Suggestion Logic */}
                     {(() => {
@@ -1229,6 +1310,10 @@ export default function Quiz() {
                     )}
                 </div>
 
+                <div className="w-full max-w-3xl mb-4">
+                    <QuestionProvenanceBadge />
+                </div>
+
                 <div className="w-full max-w-3xl">
                     <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-black/20 border border-slate-700 overflow-hidden">
 
@@ -1259,6 +1344,9 @@ export default function Quiz() {
                         )}
 
                         <div className="p-8 md:p-10">
+                            {questionProgressMap.has(currentQuestion.id) && (
+                                <p className="text-xs text-slate-500 mb-2 tracking-wide uppercase">Mastery check</p>
+                            )}
                             <h2 className="text-xl md:text-2xl font-medium text-white leading-relaxed mb-8 font-display">
                                 {currentQuestion.stem}
                             </h2>
