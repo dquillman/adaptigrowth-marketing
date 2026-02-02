@@ -238,6 +238,38 @@ export default function ReadinessReportPage() {
                     </div>
                 </div>
 
+                {/* What This Means — Interpretive summary */}
+                {!report.isPreliminary && report.overallScore !== null && (
+                    <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6">
+                        <h3 className="font-bold text-white mb-3">What this means</h3>
+                        <div className="text-sm text-slate-300 space-y-3 leading-relaxed">
+                            <p>
+                                {report.overallScore >= 80
+                                    ? "You are making strong progress. Your accuracy is consistently high, which means your study approach is working. Stay the course and keep your practice sessions regular."
+                                    : report.overallScore >= 65
+                                        ? "You are on the right track but not yet consistent. Some domains are solid while others need more reps. That gap is normal at this stage — targeted practice will close it."
+                                        : "You are still building your foundation. This is early in the process, and lower scores here are expected. Focus on understanding why the correct answer is correct, not just memorizing answers."}
+                            </p>
+                            <p>
+                                {report.trend === 'improving'
+                                    ? "Your recent sessions show improvement over your earlier attempts. That upward trend matters more than any single score."
+                                    : report.trend === 'declining'
+                                        ? "Your recent scores have dipped compared to earlier sessions. This can happen when you hit harder material or practice while fatigued. A short break or switching domains can help."
+                                        : "Your performance is steady. Consistency is a good sign — it means your knowledge is holding. To push higher, focus on your weakest domain below."}
+                            </p>
+                            <p className="text-slate-400">
+                                <span className="font-semibold text-slate-300">Speed note:</span>{' '}
+                                Don't worry about how fast you answer right now. Accuracy comes first — speed follows naturally as concepts become familiar.
+                            </p>
+                            <p className="font-medium text-slate-200">
+                                {report.domainBreakdown.length > 0 && report.domainBreakdown[0].score < 70
+                                    ? `Next step: Run a focused session on "${report.domainBreakdown[0].domain}" — it's your biggest opportunity for improvement.`
+                                    : "Next step: Keep your daily practice streak going. Consistency beats intensity for long-term retention."}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Mindset Gaps (Weakest Patterns) */}
                 {minedPatterns.length > 0 && (
                     <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">

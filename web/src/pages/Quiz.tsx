@@ -889,6 +889,16 @@ export default function Quiz() {
                             </div>
                         )}
 
+                        <div className="text-left mb-6">
+                            <h4 className="text-slate-300 font-semibold text-sm mb-2">What this analysis means</h4>
+                            <p className="text-slate-400 text-sm leading-relaxed mb-2">
+                                This was not a pass/fail test. It was a short diagnostic designed to help us understand how you think and where you'll benefit most from practice.
+                            </p>
+                            <p className="text-slate-400 text-sm leading-relaxed">
+                                Based on your responses, we'll guide you toward your weakest domain so you can focus your time where it matters most.
+                            </p>
+                        </div>
+
                         {/* Mastery Explanation Disclosure */}
                         <div className="mb-6 text-left">
                             <button
