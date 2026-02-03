@@ -385,30 +385,84 @@ export default function Dashboard() {
                     <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
                         {/* Onboarding / Welcome Section */}
                         {!hasCompletedDiagnostic && !loading ? (
-                            <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                                <div className="relative z-10 max-w-2xl">
-                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
-                                        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                                        First Step
+                            <>
+                                {/* Step 1: Diagnostic Banner */}
+                                <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                    <div className="relative z-10">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
+                                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                                            Step 1 of 1
+                                        </div>
+                                        <h2 className="text-3xl font-bold text-white font-display mb-3 tracking-tight">Start with a short diagnostic</h2>
+                                        <p className="text-indigo-100 text-lg leading-relaxed mb-4">
+                                            Before we begin, I need to understand how you think. This quick assessment helps me personalize your entire study plan.
+                                        </p>
+                                        <ul className="text-indigo-200 text-sm space-y-2 mb-6">
+                                            <li className="flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                                <span><strong>~10 minutes</strong> — just a few questions per domain</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                                <span><strong>Not pass/fail</strong> — this is about finding your strengths</span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                                <span><strong>Unlocks everything</strong> — practice and mock exams become personalized</span>
+                                            </li>
+                                        </ul>
+                                        <button
+                                            onClick={() => navigate('/app/quiz', { state: { mode: 'diagnostic' } })}
+                                            className="inline-flex items-center justify-center rounded-xl bg-white text-brand-700 px-8 py-4 text-lg font-bold shadow-xl hover:bg-indigo-50 hover:scale-105 transition-all gap-2 group/btn"
+                                        >
+                                            Start Diagnostic
+                                            <svg className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <h2 className="text-3xl font-bold text-white font-display mb-3 tracking-tight">Let me learn how you think.</h2>
-                                    <p className="text-indigo-100 text-lg leading-relaxed">
-                                        A quick 10-minute session to help me understand your logic and tailor your study plan.
-                                    </p>
                                 </div>
-                                <div className="relative z-10 mt-6 md:mt-0">
-                                    <button
-                                        onClick={() => navigate('/app/quiz', { state: { mode: 'diagnostic' } })}
-                                        className="inline-flex items-center justify-center rounded-xl bg-white text-brand-700 px-8 py-4 text-lg font-bold shadow-xl hover:bg-indigo-50 hover:scale-105 transition-all w-full md:w-auto gap-2 group/btn"
-                                    >
-                                        Start Diagnostic
-                                        <svg className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                        </svg>
-                                    </button>
+
+                                {/* Gated Actions Preview */}
+                                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Gated: Targeted Practice */}
+                                    <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/50 opacity-60">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 flex-shrink-0">
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-300 flex items-center gap-2">
+                                                    Targeted Practice
+                                                    <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">After Diagnostic</span>
+                                                </h4>
+                                                <p className="text-slate-500 text-sm mt-1">
+                                                    Focuses on your weakest areas. Requires diagnostic data to personalize.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Gated: Mock Exam */}
+                                    <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/50 opacity-60">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-slate-600/20 flex items-center justify-center text-slate-400 flex-shrink-0">
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-300 flex items-center gap-2">
+                                                    Mock Exam
+                                                    <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">After Diagnostic</span>
+                                                </h4>
+                                                <p className="text-slate-500 text-sm mt-1">
+                                                    Full-length timed simulation. Most effective after you complete the diagnostic.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
+                            </>
                         ) : (
                             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                 <div>
