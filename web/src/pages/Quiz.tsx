@@ -972,15 +972,31 @@ export default function Quiz() {
                                     {isPro ? `[ Practice This Trap ]` : `[ ${copy.pro_value_primary} ]`}
                                 </button>
                             ) : (
-                                <Link to="/app" className="block w-full bg-brand-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all">
-                                    Continue to Dashboard
-                                </Link>
+                                <button
+                                    onClick={() => navigate('/app/planner', {
+                                        state: {
+                                            source: 'diagnostic',
+                                            recommendedDomain: weakestDomain
+                                        }
+                                    })}
+                                    className="w-full bg-brand-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all"
+                                >
+                                    Continue to Your Study Plan
+                                </button>
                             )}
 
                             {topTrap && (
-                                <Link to="/app" className="block text-slate-500 hover:text-white text-sm font-medium py-2">
-                                    Return to Dashboard
-                                </Link>
+                                <button
+                                    onClick={() => navigate('/app/planner', {
+                                        state: {
+                                            source: 'diagnostic',
+                                            recommendedDomain: weakestDomain
+                                        }
+                                    })}
+                                    className="block text-slate-500 hover:text-white text-sm font-medium py-2 w-full"
+                                >
+                                    Continue to Your Study Plan
+                                </button>
                             )}
                         </div>
                     </div>
