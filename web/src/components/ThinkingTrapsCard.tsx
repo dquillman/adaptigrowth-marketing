@@ -24,8 +24,16 @@ export default function ThinkingTrapsCard() {
 
     useEffect(() => {
         if (!user) return;
+
+        // Skip fetch if traps are suppressed (post-reset state)
+        const isSuppressed = localStorage.getItem('exam_coach_traps_suppressed') === 'true';
+        if (isSuppressed) {
+            setPatterns([]);
+            setLoading(false);
+            return;
+        }
+
         const fetchPatterns = async () => {
-            // ... logic remains same ...
             try {
                 const functions = getFunctions();
                 const getWeakest = httpsCallable(functions, 'getWeakestPatterns');

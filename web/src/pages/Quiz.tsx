@@ -838,6 +838,10 @@ export default function Quiz() {
 
             await saveQuizResults(finalDetails);
             triggerSmartQuizReview(false);
+
+            // Re-enable Thinking Traps display after quiz completion
+            localStorage.removeItem('exam_coach_traps_suppressed');
+
             setQuizCompleted(true);
         }
     };
@@ -1246,6 +1250,8 @@ export default function Quiz() {
                                         } else {
                                             // Legacy Mode: Submit immediately
                                             await saveQuizResults();
+                                            // Re-enable Thinking Traps display after quiz completion
+                                            localStorage.removeItem('exam_coach_traps_suppressed');
                                             setQuizCompleted(true);
                                         }
                                     }

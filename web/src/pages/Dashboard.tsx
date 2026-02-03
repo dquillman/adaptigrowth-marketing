@@ -680,6 +680,9 @@ export default function Dashboard() {
                                         localStorage.removeItem('exam_coach_last_reinforcement_shown');
                                         localStorage.removeItem('exam_coach_suggestion_history');
 
+                                        // Suppress Thinking Traps until a new run completes
+                                        localStorage.setItem('exam_coach_traps_suppressed', 'true');
+
                                         // Simple refresh
                                         window.location.reload();
                                     } catch (e) {
