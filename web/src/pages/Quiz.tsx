@@ -92,7 +92,7 @@ export default function Quiz() {
     }, [location.state]);
 
     // Global context fallback
-    const { selectedExamId } = useExam();
+    const { selectedExamId, examDomains } = useExam();
 
     const [activeExamId, setActiveExamId] = useState<string>('');
     const [reinforcementMessage, setReinforcementMessage] = useState<string | null>(null);
@@ -222,8 +222,8 @@ export default function Quiz() {
                 if (location.state?.mode === 'diagnostic' && !location.state?.runId) {
                     console.log("Initializing Diagnostic Mode...");
 
-                    const DIAG_LIMIT = 5;
-                    const diagIds = await SmartQuizService.generateSimulationExam(activeExamId, DIAG_LIMIT);
+                    // Domain-balanced diagnostic: 3 questions per domain
+                    const diagIds = await SmartQuizService.generateDiagnosticExam(activeExamId, examDomains);
 
                     // PERSISTENCE: Create Run
                     try {

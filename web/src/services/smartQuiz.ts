@@ -146,6 +146,46 @@ export const SmartQuizService = {
     },
 
     /**
+     * Generates a domain-balanced diagnostic exam.
+     * Selects exactly 3 questions per domain (where available) for equal representation.
+     */
+    generateDiagnosticExam: async (examId: string, domains: string[]): Promise<string[]> => {
+        console.log("Generating Diagnostic Exam for", examId, "with domains:", domains);
+        const QUESTIONS_PER_DOMAIN = 3;
+        const selectedIds: string[] = [];
+
+        // Fallback if no domains provided
+        if (!domains || domains.length === 0) {
+            console.warn("No domains provided for diagnostic, falling back to random selection");
+            return SmartQuizService.generateSimulationExam(examId, 15);
+        }
+
+        for (const domain of domains) {
+            try {
+                const q = query(
+                    collection(db, 'questions'),
+                    where('examId', '==', examId),
+                    where('domain', '==', domain),
+                    limit(QUESTIONS_PER_DOMAIN * 3) // Fetch extra for randomness
+                );
+
+                const snap = await getDocs(q);
+                const domainIds = snap.docs.map(d => d.id);
+
+                // Shuffle and take up to 3
+                const shuffled = domainIds.sort(() => 0.5 - Math.random());
+                const selected = shuffled.slice(0, QUESTIONS_PER_DOMAIN);
+                selectedIds.push(...selected);
+            } catch (error) {
+                console.error(`Error fetching questions for domain ${domain}:`, error);
+            }
+        }
+
+        // Final shuffle to mix domains
+        return selectedIds.sort(() => 0.5 - Math.random());
+    },
+
+    /**
      * Generates a full 50-question simulation exam.
      * Fetches a broad set of questions and randomly selects 50.
      */
