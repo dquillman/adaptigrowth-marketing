@@ -856,6 +856,19 @@ export default function Quiz() {
             const traps = Array.from(sessionTraps.values());
             const topTrap = traps.length > 0 ? traps.sort((a, b) => b.count - a.count)[0] : null;
 
+            // Derive weakest domain for display
+            let weakestDomain: string | null = null;
+            let worstAcc = Infinity;
+            for (const [domain, stats] of Object.entries(domainResults)) {
+                if (stats.total > 0) {
+                    const acc = stats.correct / stats.total;
+                    if (acc < worstAcc) {
+                        worstAcc = acc;
+                        weakestDomain = domain;
+                    }
+                }
+            }
+
             return (
                 <div className="min-h-screen flex items-center justify-center bg-slate-950">
                     <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700 animate-in fade-in zoom-in duration-500">
@@ -897,6 +910,16 @@ export default function Quiz() {
                             <p className="text-slate-400 text-sm leading-relaxed">
                                 Based on your responses, we'll guide you toward your weakest domain so you can focus your time where it matters most.
                             </p>
+                            {weakestDomain && (
+                                <p className="text-slate-300 text-sm leading-relaxed mt-2">
+                                    Based on your responses so far, your weakest domain appears to be <strong className="text-white">{weakestDomain}</strong>. That's where focused practice is likely to give you the fastest improvement.
+                                </p>
+                            )}
+                            {topTrap && (
+                                <p className="text-slate-400 text-sm leading-relaxed mt-2">
+                                    We also noticed a recurring pattern related to <strong className="text-slate-300">{topTrap.pattern.pattern_name}</strong>. You may see questions designed to challenge this area as you continue — this helps strengthen real-world decision-making.
+                                </p>
+                            )}
                         </div>
 
                         {/* Mastery Explanation Disclosure */}
