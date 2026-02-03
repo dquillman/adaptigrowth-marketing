@@ -674,7 +674,13 @@ export default function Dashboard() {
                                         const functions = getFunctions();
                                         const resetFn = httpsCallable(functions, 'resetExamProgress');
                                         await resetFn({ examId: selectedExamId });
-                                        // Simple refresh 
+
+                                        // Clear Thinking Traps localStorage to prevent stale insights
+                                        localStorage.removeItem('exam_coach_reinforcement');
+                                        localStorage.removeItem('exam_coach_last_reinforcement_shown');
+                                        localStorage.removeItem('exam_coach_suggestion_history');
+
+                                        // Simple refresh
                                         window.location.reload();
                                     } catch (e) {
                                         console.error(e);
