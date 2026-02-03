@@ -2,7 +2,7 @@
 import { auth, db } from '../firebase';
 import Sidebar from '../components/Sidebar';
 import { Link } from 'react-router-dom';
-import { APP_VERSION } from '../version';
+import { DISPLAY_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, getDocs, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
@@ -265,11 +265,16 @@ export default function Dashboard() {
     const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
     const hasActiveRun = resumableRuns.length > 0;
 
+    // Check for completed diagnostic: must have mode='diagnostic' AND a score (completion indicator)
+    const hasCompletedDiagnostic = recentActivity.some(
+        (a: any) => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
+    );
+
     return (
         <div className="min-h-screen flex bg-transparent relative">
             <Sidebar />
             <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs font-mono text-white/50 pointer-events-none z-50">
-                Version: {APP_VERSION}
+                ExamCoach v{DISPLAY_VERSION}
             </div>
             <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col transition-all duration-300`}>
                 <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
@@ -379,7 +384,7 @@ export default function Dashboard() {
                     {/* Main Content - Blurred if Expired */}
                     <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
                         {/* Onboarding / Welcome Section */}
-                        {recentActivity.length === 0 && !loading ? (
+                        {!hasCompletedDiagnostic && !loading ? (
                             <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                                 <div className="relative z-10 max-w-2xl">

@@ -229,7 +229,7 @@ export default function Quiz() {
                     try {
                         const runId = await QuizRunService.createRun(
                             auth.currentUser!.uid,
-                            selectedExamId!,
+                            activeExamId,
                             'diagnostic',
                             'diagnostic',
                             diagIds
@@ -237,7 +237,7 @@ export default function Quiz() {
 
                         await addDoc(collection(db, 'quizAttempts'), {
                             userId: auth.currentUser!.uid,
-                            examId: selectedExamId,
+                            examId: activeExamId,
                             mode: 'diagnostic',
                             completed: false,
                             runId,
