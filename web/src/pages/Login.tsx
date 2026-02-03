@@ -1,8 +1,9 @@
 ﻿import { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { APP_VERSION } from '../version';
+import { DISPLAY_VERSION } from '../version';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
     const [searchParams] = useSearchParams();
@@ -13,6 +14,8 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [resetMessage, setResetMessage] = useState('');
     const navigate = useNavigate();
 
     const handleGoogleSignIn = async () => {
@@ -102,9 +105,23 @@ export default function Login() {
         }
     };
 
+    const handleForgotPassword = async () => {
+        setResetMessage('');
+        if (!email.trim()) {
+            setResetMessage('Please enter your email address above, then click "Forgot password?" again.');
+            return;
+        }
+        try {
+            await sendPasswordResetEmail(auth, email);
+            setResetMessage('Password reset email sent. Check your inbox.');
+        } catch {
+            setResetMessage('Could not send reset email. Please check your email address.');
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative" style={{ backgroundImage: "none", background: "#020617" }}>
-            <div className="absolute top-4 right-4 text-white text-xs font-mono">Version: {APP_VERSION}</div>
+            <div className="absolute top-4 right-4 text-white text-xs font-mono">ExamCoach v{DISPLAY_VERSION}</div>
             <div className="max-w-md w-full bg-slate-900 rounded-2xl border border-slate-800 p-8 shadow-2xl">
 
                 {/* Back to Home Link - Added for user safety */}
@@ -163,15 +180,42 @@ export default function Login() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
-                            <input
-                                type="password"
-                                required
-                                className="block w-full rounded-lg border border-slate-600 bg-slate-900/50 px-3 py-2 text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none focus:ring-brand-500 sm:text-sm"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                autoComplete="current-password"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    required
+                                    className="block w-full rounded-lg border border-slate-600 bg-slate-900/50 px-3 py-2 pr-10 text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none focus:ring-brand-500 sm:text-sm"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoComplete="current-password"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200 transition-colors"
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {isLogin && (
+                                <div className="mt-2 space-y-1">
+                                    <button
+                                        type="button"
+                                        onClick={handleForgotPassword}
+                                        className="text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                                    >
+                                        Forgot password?
+                                    </button>
+                                    {resetMessage && (
+                                        <p className="text-xs text-slate-400">{resetMessage}</p>
+                                    )}
+                                    <p className="text-xs text-slate-500">
+                                        For security reasons, passwords can't be viewed or retrieved. Use "Forgot password" to reset your password.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
