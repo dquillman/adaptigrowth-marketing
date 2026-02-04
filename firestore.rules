@@ -102,8 +102,15 @@ service cloud.firestore {
       allow read, update, delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
     }
 
-    // ===== SYSTEM CONFIG (Public Read) =====
-    // Version enforcement config — readable by all authenticated users, writable by admin only
+    // ===== APP CONFIG (Public Read) =====
+    // Version enforcement — readable without auth, not writable via client SDK
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ===== SYSTEM CONFIG =====
+    // Internal system config — readable by authenticated users, writable by admin only
     match /system_config/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();

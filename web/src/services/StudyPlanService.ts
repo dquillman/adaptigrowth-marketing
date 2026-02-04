@@ -68,15 +68,17 @@ export const StudyPlanService = {
                 durationMinutes: 30 // Default block
             });
 
-            // Add a Daily Quiz (Learn -> Apply loop)
+            // Add a Daily Quiz - Domain Quiz most days, Smart Quiz every 3rd day for reinforcement
+            const isSmartQuizDay = i % 3 === 2; // Every 3rd day (days 2, 5, 8, etc.)
+
             tasks.push({
                 id: `task-${i}-quiz`,
                 date: new Date(currentDate),
-                domain: selectedDomain.name as any,
-                topic: `Practice Quiz: ${topic}`,
+                domain: isSmartQuizDay ? 'Mixed' as any : selectedDomain.name as any,
+                topic: isSmartQuizDay ? 'Smart Quiz: Mixed Review' : `Domain Quiz: ${selectedDomain.name}`,
                 activityType: 'quiz',
                 completed: false,
-                durationMinutes: 15
+                durationMinutes: isSmartQuizDay ? 20 : 15
             });
 
             // Advance to next day

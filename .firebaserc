@@ -10,6 +10,9 @@
         ],
         "admin": [
           "exam-coach-ai-platform-admin"
+        ],
+        "staging": [
+          "exam-coach-ai-platform-staging"
         ]
       }
     }

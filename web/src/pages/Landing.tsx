@@ -1,7 +1,7 @@
 ﻿import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../App";
-import { APP_VERSION } from "../version";
+import { DISPLAY_VERSION } from "../version";
 
 export default function Landing() {
 
@@ -26,7 +26,7 @@ export default function Landing() {
     <div className="bg-slate-900 min-h-screen font-sans selection:bg-brand-500/30 text-slate-200">
       {/* Version Label */}
       <div className="absolute top-0 w-full bg-slate-950/50 text-center py-1 text-xs font-mono text-white z-[100]">
-        Version: {APP_VERSION}
+        ExamCoach v{DISPLAY_VERSION}
       </div>
 
       {/* Navigation */}

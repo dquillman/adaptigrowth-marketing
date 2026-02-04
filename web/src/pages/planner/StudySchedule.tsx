@@ -1,18 +1,47 @@
 import { useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X } from 'lucide-react';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
 import { useExam } from '../../contexts/ExamContext';
 import type { StudyPlan, DailyTask } from '../../types/StudyPlan';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import MockExamConfigModal from '../../components/planner/MockExamConfigModal';
 
 export default function StudySchedule() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [plan, setPlan] = useState<StudyPlan | null>(null);
     const [loading, setLoading] = useState(true);
     const [showExamConfig, setShowExamConfig] = useState(false);
+
+    // Diagnostic context from navigation
+    const fromDiagnostic = location.state?.source === 'diagnostic';
+    const recommendedDomain = location.state?.recommendedDomain;
+
+    // Exam date prompt state
+    const EXAM_DATE_KEY = 'exam_coach_pmp_exam_date';
+    const [showExamDatePrompt, setShowExamDatePrompt] = useState(false);
+    const [pendingExamDate, setPendingExamDate] = useState('');
+
+    // Check if exam date prompt should be shown (one-time, on mount)
+    useEffect(() => {
+        const storedDate = localStorage.getItem(EXAM_DATE_KEY);
+        if (!storedDate && fromDiagnostic) {
+            setShowExamDatePrompt(true);
+        }
+    }, [fromDiagnostic]);
+
+    const handleSaveExamDate = () => {
+        if (pendingExamDate) {
+            localStorage.setItem(EXAM_DATE_KEY, pendingExamDate);
+        }
+        setShowExamDatePrompt(false);
+    };
+
+    const handleSkipExamDate = () => {
+        setShowExamDatePrompt(false);
+    };
 
 
     // Use the global Exam context
@@ -126,6 +155,86 @@ export default function StudySchedule() {
                 </div>
             </header>
 
+            {/* Diagnostic Context Banner */}
+            {fromDiagnostic && (
+                <div className="mb-6 bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-4">
+                    <p className="text-indigo-200 text-sm">
+                        <span className="font-semibold">✓ This study plan is based on your diagnostic results.</span>
+                        {recommendedDomain && (
+                            <span className="block mt-1 text-indigo-300">
+                                We'll start by focusing on <strong className="text-white">{recommendedDomain}</strong>, your biggest opportunity for improvement.
+                            </span>
+                        )}
+                    </p>
+                </div>
+            )}
+
+            {/* Recommended Next Step */}
+            {fromDiagnostic && recommendedDomain && (
+                <div className="mb-6 bg-purple-900/20 border border-purple-500/30 rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-purple-300 text-sm font-semibold">
+                                Recommended: Domain Quiz ({recommendedDomain})
+                            </p>
+                            <p className="text-slate-400 text-xs mt-1">
+                                This domain showed the most opportunity in your diagnostic. Other quiz types are available in the sidebar.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/app/quiz', { state: { mode: 'weakest', filterDomain: recommendedDomain } })}
+                            className="shrink-0 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+                        >
+                            Start Domain Quiz
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Exam Date Prompt Modal */}
+            {showExamDatePrompt && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-white font-display">When is your PMP exam?</h3>
+                                <p className="text-slate-400 text-sm mt-1">This helps us pace your study plan.</p>
+                            </div>
+                            <button
+                                onClick={handleSkipExamDate}
+                                className="text-slate-500 hover:text-slate-300 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <input
+                            type="date"
+                            value={pendingExamDate}
+                            onChange={(e) => setPendingExamDate(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all mb-4"
+                        />
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleSkipExamDate}
+                                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-medium py-2.5 rounded-xl transition-all text-sm"
+                            >
+                                I'll add this later
+                            </button>
+                            <button
+                                onClick={handleSaveExamDate}
+                                disabled={!pendingExamDate}
+                                className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl transition-all text-sm"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Today's Mission */}
             <section className="mb-12">
                 <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -211,7 +320,12 @@ function TaskCard({ task, isUpcoming = false, onToggleComplete, onStartMock }: {
         if (task.activityType === 'mock-exam') {
             if (onStartMock) onStartMock();
         } else if (task.activityType === 'quiz') {
-            navigate('/app/quiz');
+            // Route based on quiz type
+            if (task.topic.startsWith('Smart Quiz')) {
+                navigate('/app/quiz', { state: { mode: 'smart' } });
+            } else {
+                navigate('/app/quiz', { state: { mode: 'domain', filterDomain: task.domain } });
+            }
         } else {
             // For reading/review, toggle complete
             if (onToggleComplete) {
@@ -245,8 +359,11 @@ function TaskCard({ task, isUpcoming = false, onToggleComplete, onStartMock }: {
                 <p className="text-xs text-slate-400 mt-1">
                     {task.activityType === 'reading'
                         ? "Read a chapter or watch a video lesson on this topic."
-                        : task.activityType === 'quiz' ? "Take a quick quiz to test your retention."
-                            : "Full length simulation to build endurance. Block out 4 hours."}
+                        : task.activityType === 'quiz'
+                            ? (task.topic.startsWith('Smart Quiz')
+                                ? "Smart Quiz — Mixed questions for reinforcement."
+                                : `Domain Quiz — Focus on ${task.domain} concepts.`)
+                            : "Mock Exam — Full length simulation to build endurance. Block out 4 hours."}
                 </p>
             </div>
 

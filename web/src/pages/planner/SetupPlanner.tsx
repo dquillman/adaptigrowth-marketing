@@ -15,6 +15,10 @@ export default function SetupPlanner() {
     const editMode = location.state?.editMode;
     const currentSettings = location.state?.currentSettings;
 
+    // Check if coming from diagnostic
+    const fromDiagnostic = location.state?.source === 'diagnostic';
+    const recommendedDomain = location.state?.recommendedDomain;
+
     const [step, setStep] = useState(1);
     const [examDate, setExamDate] = useState('');
     const [weeklyHours, setWeeklyHours] = useState(10);
@@ -77,8 +81,17 @@ export default function SetupPlanner() {
                         {editMode ? 'Update Your Study Plan' : 'Your Custom Plan is Ready.'}
                     </h1>
                     <p className="text-slate-400">
-                        {editMode ? 'Adjust your schedule and availability.' : "Based on your diagnostic results, I've designed a schedule to target your specific gaps."}
+                        {editMode
+                            ? 'Adjust your schedule and availability.'
+                            : fromDiagnostic
+                                ? "Based on your diagnostic results, I've designed a schedule to target your specific gaps."
+                                : "Let's create a personalized study plan for your exam."}
                     </p>
+                    {fromDiagnostic && recommendedDomain && (
+                        <p className="text-indigo-400 text-sm mt-2">
+                            We'll prioritize <strong>{recommendedDomain}</strong> to maximize your improvement.
+                        </p>
+                    )}
                 </div>
 
                 {/* Progress Steps */}

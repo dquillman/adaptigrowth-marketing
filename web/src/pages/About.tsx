@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { APP_VERSION } from '../version';
+import { DISPLAY_VERSION } from '../version';
 
 export default function About() {
     return (
@@ -13,7 +13,7 @@ export default function About() {
                                 <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </Link>
                             <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">
-                                {APP_VERSION}
+                                v{DISPLAY_VERSION}
                             </span>
                         </div>
                         <Link to="/app" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">

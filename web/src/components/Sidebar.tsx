@@ -1,8 +1,8 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../App';
-import { APP_VERSION } from '../version';
+import { DISPLAY_VERSION } from '../version';
 import { useSidebar } from '../contexts/SidebarContext';
-import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle } from 'lucide-react';
 
 export default function Sidebar() {
     const { logout, user } = useAuth();
@@ -27,6 +27,7 @@ export default function Sidebar() {
         { label: "Readiness", path: "/app/readiness", icon: <Target className="w-5 h-5" /> },
         { label: "Exams", path: "/app/exams", icon: <BookOpen className="w-5 h-5" /> },
         { label: "Stats", path: "/app/stats", icon: <BarChart2 className="w-5 h-5" /> },
+        { label: "FAQ", path: "/app/faq", icon: <HelpCircle className="w-5 h-5" /> },
     ];
 
     return (
@@ -37,7 +38,7 @@ export default function Sidebar() {
                 {!isCollapsed && (
                     <div className="flex flex-col overflow-hidden">
                         <span className="text-lg font-bold tracking-tight text-white truncate">Exam Coach Pro AI</span>
-                        <span className="text-[10px] text-white font-mono truncate">Version: {APP_VERSION}</span>
+                        <span className="text-[10px] text-white font-mono truncate">v{DISPLAY_VERSION}</span>
                     </div>
                 )}
                 {/* Toggle Button */}

@@ -1,13 +1,10 @@
 ﻿import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState, createContext, useContext, type ReactNode } from "react";
 import { onAuthStateChanged, type User, signOut } from "firebase/auth";
-import { auth, db, _debugProjectId } from "./firebase";
+import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { APP_VERSION, DISPLAY_VERSION } from "./version";
-
-// TEMP HARD DEBUG — REMOVE
-// Global console assert: fires at module load time, cannot be missed
-console.error("🔥🔥🔥 DEBUG ASSERT: ExamCoach bundle loaded at", new Date().toISOString());
+import { isValidVersion, evaluateVersion } from "./utils/versionCheck";
 
 // Pages
 import Landing from "./pages/Landing";
@@ -103,68 +100,56 @@ function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 // --- Version Enforcement ---
-// State machine: loading → (allowed | blocked)
-// 'loading'  — async Firestore check in progress; children NOT rendered
-// 'allowed'  — version matches OR fail-open (doc missing / network error)
-// 'blocked'  — version mismatch; app is fully blocked until refresh
-type GateStatus = 'loading' | 'allowed' | 'blocked';
+// State machine: loading → (ok | warn | block)
+// 'loading' — Firestore check in progress; children not rendered
+// 'ok'      — current or ahead of latest; normal rendering
+// 'warn'    — behind latest but at or above minimum; non-blocking banner
+// 'block'   — below minimum; full-screen block, children not rendered
+type VersionStatus = 'loading' | 'ok' | 'warn' | 'block';
 
 function VersionGate({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<GateStatus>('loading');
-  const isStaging = window.location.hostname.includes('staging');
-
-  // TEMP HARD DEBUG — REMOVE
-  if (isStaging) console.error('[VG TRACE] VersionGate function ENTERED. APP_VERSION=' + APP_VERSION);
+  const [status, setStatus] = useState<VersionStatus>('loading');
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     const check = async () => {
       try {
-        // TEMP HARD DEBUG — REMOVE
-        if (isStaging) console.error('[VG TRACE] Firestore fetch STARTING. APP_VERSION=' + APP_VERSION);
-        const snap = await getDoc(doc(db, 'system_config', 'app_versions'));
+        const snap = await getDoc(doc(db, 'app_config', 'version'));
 
         if (cancelled) return;
 
-        // TEMP HARD DEBUG — REMOVE
-        if (isStaging) console.error('[VG TRACE] Firestore fetch RESOLVED. exists=' + snap.exists());
-
         if (!snap.exists()) {
-          if (isStaging) console.error('[VG TRACE] doc missing → allowed (fail-open). APP_VERSION=' + APP_VERSION);
-          setStatus('allowed');
+          setStatus('ok');
           return;
         }
 
         const data = snap.data();
-        const remoteVersion: string | undefined = data?.examcoach?.currentVersion;
+        const remoteLatest: string | undefined = data?.latest;
+        const remoteMinimum: string | undefined = data?.minimum;
 
-        // TEMP HARD DEBUG — REMOVE
-        if (isStaging) console.error('[VG TRACE] Comparison EXECUTING. local="' + APP_VERSION + '" remote="' + remoteVersion + '" typeof_remote=' + typeof remoteVersion);
-
-        // TEMP HARD DEBUG — REMOVE: intentional crash to prove this code path runs
-        if (typeof remoteVersion === 'undefined') {
-          throw new Error("VG TRACE: remoteVersion is undefined — THIS CODE IS RUNNING");
-        }
-
-        if (!remoteVersion) {
-          if (isStaging) console.error('[VG TRACE] remoteVersion falsy → allowed (fail-open). APP_VERSION=' + APP_VERSION + ' remote="' + remoteVersion + '"');
-          setStatus('allowed');
+        if (!remoteLatest || !isValidVersion(remoteLatest)) {
+          console.warn(`VersionGate: invalid or missing latest version "${remoteLatest}" — failing open`);
+          setStatus('ok');
           return;
         }
 
-        // Strict string equality — no normalization or fallback
-        const result: GateStatus = (APP_VERSION === remoteVersion) ? 'allowed' : 'blocked';
+        let validMinimum: string | undefined;
+        if (remoteMinimum) {
+          if (isValidVersion(remoteMinimum)) {
+            validMinimum = remoteMinimum;
+          } else {
+            console.warn(`VersionGate: invalid minimum version "${remoteMinimum}" — defaulting to latest`);
+          }
+        }
 
-        // TEMP HARD DEBUG — REMOVE
-        if (isStaging) console.error('[VG TRACE] Status SET to "' + result + '". local="' + APP_VERSION + '" remote="' + remoteVersion + '"');
+        const result = evaluateVersion(APP_VERSION, remoteLatest, validMinimum);
         setStatus(result);
-      } catch (err) {
+      } catch {
         if (cancelled) return;
-        // TEMP HARD DEBUG — REMOVE
-        if (isStaging) console.error('[VG TRACE] CATCH block. Error:', err);
-        // Network or permission error — fail-open to avoid blocking on connectivity issues
-        setStatus('allowed');
+        // Network, permissions, or parse error — fail-open
+        setStatus('ok');
       }
     };
 
@@ -173,30 +158,15 @@ function VersionGate({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  // --- Render based on resolved status ---
-
-  // TEMP HARD DEBUG — REMOVE: red banner on staging to prove bundle identity
-  const debugBanner = isStaging ? (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 2147483647, background: '#dc2626', color: 'white', fontWeight: 'bold', fontSize: '18px', textAlign: 'center', padding: '12px 0' }}>
-      🔥 DEBUG BUNDLE ACTIVE — 2026-01-30 — VERSIONGATE TRACE 🔥
-    </div>
-  ) : null;
-
-  if (status === 'loading') {
-    return (
-      <>
-        {debugBanner}
+  switch (status) {
+    case 'loading':
+      return (
         <div className="flex h-screen items-center justify-center bg-slate-900 text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
         </div>
-      </>
-    );
-  }
-
-  if (status === 'blocked') {
-    return (
-      <>
-        {debugBanner}
+      );
+    case 'block':
+      return (
         <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white">
           <div className="text-center p-8 bg-slate-800 rounded-2xl border border-slate-700 max-w-md shadow-xl">
             <h1 className="text-2xl font-bold text-white mb-3">Update required</h1>
@@ -212,23 +182,34 @@ function VersionGate({ children }: { children: ReactNode }) {
             </button>
           </div>
         </div>
-      </>
-    );
+      );
+    case 'warn':
+      return (
+        <>
+          {!dismissed && (
+            <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-600/95 text-white text-sm text-center py-2.5 px-4 flex items-center justify-center gap-3 shadow-lg">
+              <span>A newer version of ExamCoach is available. Refresh for the latest features.</span>
+              <button
+                onClick={() => window.location.reload()}
+                className="underline font-medium hover:text-white/90"
+              >
+                Refresh
+              </button>
+              <button
+                onClick={() => setDismissed(true)}
+                className="text-white/70 hover:text-white ml-2"
+                aria-label="Dismiss"
+              >
+                &#x2715;
+              </button>
+            </div>
+          )}
+          {children}
+        </>
+      );
+    case 'ok':
+      return <>{children}</>;
   }
-
-  // status === 'allowed'
-  return (
-    <>
-      {debugBanner}
-      {children}
-      {/* TEMP: staging-only Firebase projectId debug — remove after verification */}
-      {isStaging && (
-        <div className="fixed bottom-0 left-0 right-0 z-[9999] bg-black/80 text-[10px] text-slate-500 font-mono text-center py-1 pointer-events-none">
-          [DEBUG] projectId={_debugProjectId} host={window.location.hostname} appVersion={APP_VERSION} gate={status}
-        </div>
-      )}
-    </>
-  );
 }
 
 // --- Route Guards ---

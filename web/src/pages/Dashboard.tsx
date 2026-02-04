@@ -133,8 +133,8 @@ export default function Dashboard() {
                     let count = 0;
                     snapshot.docs.forEach(doc => {
                         const data = doc.data();
-                        // Only count for CURRENT exam
-                        if (data.examId === selectedExamId) {
+                        // Only count for CURRENT exam, EXCLUDE diagnostic (it's a baseline, not practice)
+                        if (data.examId === selectedExamId && data.quizType !== 'diagnostic' && data.mode !== 'diagnostic') {
                             count += data.totalQuestions || 0;
                         }
                     });
@@ -400,15 +400,15 @@ export default function Dashboard() {
                                         </p>
                                         <ul className="text-indigo-200 text-sm space-y-2 mb-6">
                                             <li className="flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                                 <span><strong>~10 minutes</strong> — just a few questions per domain</span>
                                             </li>
                                             <li className="flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                                 <span><strong>Not pass/fail</strong> — this is about finding your strengths</span>
                                             </li>
                                             <li className="flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                                                <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                                                 <span><strong>Unlocks everything</strong> — practice and mock exams become personalized</span>
                                             </li>
                                         </ul>

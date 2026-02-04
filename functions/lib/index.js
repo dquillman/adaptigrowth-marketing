@@ -1285,4 +1285,5 @@ exports.cleanupTimedOutSessions = functions.pubsub.schedule('every 5 minutes').o
 __exportStar(require("./tester_management"), exports);
 __exportStar(require("./tutor"), exports);
 __exportStar(require("./diagnostics"), exports);
+__exportStar(require("./generateSmartQuizReview"), exports);
 //# sourceMappingURL=index.js.map

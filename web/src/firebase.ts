@@ -27,6 +27,7 @@ let storage: FirebaseStorage;
 try {
     app = initializeApp(firebaseConfig);
     console.log('Firebase App initialized');
+
     db = getFirestore(app);
     console.log('Firestore initialized');
     auth = getAuth(app);
@@ -49,4 +50,5 @@ try {
 }
 
 const googleProvider = new GoogleAuthProvider();
+
 export { db, auth, googleProvider, functions, analytics, perf, storage };
