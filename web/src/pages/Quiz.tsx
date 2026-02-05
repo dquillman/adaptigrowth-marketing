@@ -563,9 +563,24 @@ export default function Quiz() {
         }
     };
 
+    // PMP Doctrine Guard: PMP questions use stored doctrine explanations, not AI-generated Coach Breakdown
+    const isPMPExam = (examId?: string) => examId === '7qmPagj9A6RpkC0CwGkY' || examId?.toLowerCase().startsWith('pmp');
+
     const fetchTutorBreakdown = async (question: Question, selectedOptIdx: number) => {
         setLoadingBreakdown(true);
         try {
+            // PMP Guard: Use stored doctrine explanation directly, skip AI generation
+            if (isPMPExam(question.examId)) {
+                setTutorBreakdown({
+                    verdict: '', // No AI verdict for PMP - doctrine explanation is complete
+                    comparison: [], // No option analysis - doctrine covers this
+                    examLens: question.explanation, // The doctrine explanation IS the exam lens
+                    isPMPDoctrine: true // Flag for rendering
+                } as TutorResponse & { isPMPDoctrine?: boolean });
+                setLoadingBreakdown(false);
+                return;
+            }
+
             const generateFn = httpsCallable(functions, 'generateTutorBreakdown');
             const result = await generateFn({
                 questionStem: question.stem,
@@ -1460,14 +1475,62 @@ export default function Quiz() {
                                                 onClick={() => fetchTutorBreakdown(currentQuestion, selectedOption!)}
                                                 className="text-brand-400 hover:text-brand-300 underline"
                                             >
-                                                Load Coach Breakdown
+                                                {isPMPExam(currentQuestion.examId) ? 'View PMI Doctrine Explanation' : 'Load Coach Breakdown'}
                                             </button>
                                             <div className="mt-4 p-4 bg-slate-800/50 rounded text-slate-300 text-left">
                                                 <p className="font-bold text-slate-400 text-xs uppercase mb-2">Standard Explanation</p>
                                                 {currentQuestion.explanation}
                                             </div>
                                         </div>
+                                    ) : isPMPExam(currentQuestion.examId) && tutorBreakdown ? (
+                                        /* PMP Doctrine Explanation - Clean, pattern-based rendering */
+                                        <div className="mt-6 bg-indigo-900/30 backdrop-blur-sm rounded-xl border border-indigo-500/30 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                            <div className="bg-indigo-900/50 px-6 py-3 border-b border-indigo-500/20 flex items-center gap-2">
+                                                <span className="text-xl">📐</span>
+                                                <h3 className="text-indigo-200 font-bold font-display">PMI Decision Doctrine</h3>
+                                            </div>
+                                            <div className="p-6">
+                                                <div className="prose prose-invert prose-sm max-w-none">
+                                                    {tutorBreakdown.examLens.split('\n\n').map((paragraph, idx) => (
+                                                        <div key={idx} className="mb-4 last:mb-0">
+                                                            {paragraph.startsWith('PMI Decision Lens:') ? (
+                                                                <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-4 mb-4">
+                                                                    <p className="text-emerald-300 font-bold text-lg">
+                                                                        {paragraph}
+                                                                    </p>
+                                                                </div>
+                                                            ) : paragraph.startsWith('Why this conflicts:') ? (
+                                                                <div className="bg-amber-900/20 border border-amber-500/20 rounded-lg p-4 mb-4">
+                                                                    <h4 className="text-amber-400 font-bold text-sm mb-2">Why This Conflicts</h4>
+                                                                    <p className="text-slate-300 text-sm leading-relaxed">
+                                                                        {paragraph.replace('Why this conflicts:', '').trim()}
+                                                                    </p>
+                                                                </div>
+                                                            ) : paragraph.startsWith('Pattern:') ? (
+                                                                <div className="bg-blue-900/20 border border-blue-500/20 rounded-lg p-4 mb-4">
+                                                                    <h4 className="text-blue-400 font-bold text-sm mb-2">🎯 Pattern to Remember</h4>
+                                                                    <p className="text-blue-200 text-sm font-medium">
+                                                                        {paragraph.replace('Pattern:', '').trim()}
+                                                                    </p>
+                                                                </div>
+                                                            ) : paragraph.startsWith('Note:') ? (
+                                                                <div className="bg-slate-800/50 rounded-lg p-4">
+                                                                    <p className="text-slate-400 text-sm italic">
+                                                                        {paragraph.replace('Note:', '💡').trim()}
+                                                                    </p>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-slate-300 text-sm leading-relaxed">
+                                                                    {paragraph}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
                                     ) : (
+                                        /* Legacy Coach Breakdown for non-PMP exams */
                                         <TutorBreakdown
                                             breakdown={tutorBreakdown}
                                             loading={loadingBreakdown}
