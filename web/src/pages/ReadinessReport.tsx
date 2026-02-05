@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import { PredictionEngine, type ReadinessReport } from '../services/PredictionEngine';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2, Lock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2, Lock, Loader } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import PatternInsightCard, { type PatternData } from '../components/PatternInsightCard';
-
+import { StudyPlanService } from '../services/StudyPlanService';
 import { useExam } from '../contexts/ExamContext';
 
 export default function ReadinessReportPage() {
@@ -17,6 +17,11 @@ export default function ReadinessReportPage() {
     const [report, setReport] = useState<ReadinessReport | null>(null);
     const [minedPatterns, setMinedPatterns] = useState<PatternData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [daysUntilExam, setDaysUntilExam] = useState<number | null>(null);
+
+    // Evidence thresholds
+    const MIN_EVIDENCE_THRESHOLD = 50;
+    const EXAM_SOON_DAYS = 14;
 
     useEffect(() => {
         const fetchReport = async () => {
@@ -41,7 +46,27 @@ export default function ReadinessReportPage() {
                 setLoading(false);
             }
         };
+
+        const fetchExamDate = async () => {
+            if (!user || !selectedExamId) return;
+            try {
+                const plan = await StudyPlanService.getCurrentPlan(user.uid, selectedExamId);
+                if (plan?.examDate) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const examDate = new Date(plan.examDate);
+                    examDate.setHours(0, 0, 0, 0);
+                    const diffTime = examDate.getTime() - today.getTime();
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    setDaysUntilExam(diffDays);
+                }
+            } catch (error) {
+                console.error('Failed to fetch exam date for readiness', error);
+            }
+        };
+
         fetchReport();
+        fetchExamDate();
     }, [user, selectedExamId]);
 
     if (loading) {
@@ -120,33 +145,46 @@ export default function ReadinessReportPage() {
                         )}
 
                         <div className={`flex flex-col md:flex-row items-center gap-8 ${!checkPermission('analytics') ? 'blur-sm opacity-50 pointer-events-none' : ''}`}>
-                            {/* Radial Chart */}
+                            {/* Radial Chart OR Building State */}
                             <div className="relative w-48 h-48 flex-shrink-0">
-                                <svg className="w-full h-full -rotate-90">
-                                    <circle
-                                        cx="96" cy="96" r={radius}
-                                        className="stroke-slate-700"
-                                        strokeWidth="12"
-                                        fill="none"
-                                    />
-                                    <circle
-                                        cx="96" cy="96" r={radius}
-                                        className={`${report.overallScore !== null ? getScoreColor(report.overallScore) : 'stroke-slate-600'} transition-all duration-1000 ease-out`}
-                                        strokeWidth="12"
-                                        strokeDasharray={circumference}
-                                        strokeDashoffset={offset}
-                                        strokeLinecap="round"
-                                        fill="none"
-                                    />
-                                </svg>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className={`text-4xl font-black ${report.overallScore !== null ? getScoreColor(report.overallScore).split(' ')[0] : 'text-slate-500'}`}>
-                                        {report.overallScore !== null ? `${report.overallScore}%` : '\u2014'}
-                                    </span>
-                                    <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
-                                        {report.overallScore !== null ? 'Probability' : 'Pending'}
-                                    </span>
-                                </div>
+                                {report.isPreliminary ? (
+                                    /* Building State - Insufficient Evidence */
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-900/50 rounded-full border-2 border-dashed border-slate-600">
+                                        <Loader className="w-10 h-10 text-slate-500 mb-2 animate-pulse" />
+                                        <span className="text-sm text-slate-400 font-medium px-4">
+                                            Building Profile
+                                        </span>
+                                    </div>
+                                ) : (
+                                    /* Normal Score Display */
+                                    <>
+                                        <svg className="w-full h-full -rotate-90">
+                                            <circle
+                                                cx="96" cy="96" r={radius}
+                                                className="stroke-slate-700"
+                                                strokeWidth="12"
+                                                fill="none"
+                                            />
+                                            <circle
+                                                cx="96" cy="96" r={radius}
+                                                className={`${report.overallScore !== null ? getScoreColor(report.overallScore) : 'stroke-slate-600'} transition-all duration-1000 ease-out`}
+                                                strokeWidth="12"
+                                                strokeDasharray={circumference}
+                                                strokeDashoffset={offset}
+                                                strokeLinecap="round"
+                                                fill="none"
+                                            />
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className={`text-4xl font-black ${report.overallScore !== null ? getScoreColor(report.overallScore).split(' ')[0] : 'text-slate-500'}`}>
+                                                {report.overallScore !== null ? `${report.overallScore}%` : '—'}
+                                            </span>
+                                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
+                                                Probability
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             {/* Stats & Trend */}
@@ -170,9 +208,9 @@ export default function ReadinessReportPage() {
                                 <div>
                                     <h3 className="font-bold text-white mb-2 flex items-center gap-2">
                                         {report.isPreliminary ? (
-                                            <div className="flex items-center gap-2 text-amber-400">
-                                                <AlertTriangle className="w-5 h-5" />
-                                                <span>Preliminary Assessment</span>
+                                            <div className="flex items-center gap-2 text-indigo-400">
+                                                <Loader className="w-5 h-5 animate-spin" />
+                                                <span>Building Your Readiness Profile</span>
                                             </div>
                                         ) : (
                                             (report.overallScore ?? 0) >= 75 ? (
@@ -190,13 +228,20 @@ export default function ReadinessReportPage() {
                                     </h3>
                                     <p className="text-slate-400 text-sm leading-relaxed">
                                         {report.isPreliminary
-                                            ? `Complete at least 50 questions for a reliable readiness score. You have answered ${report.totalQuestionsAnswered} so far.`
+                                            ? `We need a bit more data to estimate your exam readiness accurately. Complete about ${MIN_EVIDENCE_THRESHOLD - report.totalQuestionsAnswered > 0 ? MIN_EVIDENCE_THRESHOLD - report.totalQuestionsAnswered : 'a few'} more questions for a reliable score.`
                                             : (report.overallScore ?? 0) >= 80
                                                 ? "You are showing strong readiness! Maintain this consistency and focus on time management."
                                                 : (report.overallScore ?? 0) >= 65
                                                     ? "You're getting close, but consistency is key. Focus on your weak domains below to boost your score."
                                                     : "We recommend more targeted practice before scheduling your exam. Focus on fundamental concepts."}
                                     </p>
+
+                                    {/* Time-aware reassurance when exam is soon and evidence is low */}
+                                    {report.isPreliminary && daysUntilExam !== null && daysUntilExam <= EXAM_SOON_DAYS && daysUntilExam > 0 && (
+                                        <p className="text-slate-500 text-xs leading-relaxed mt-2 italic">
+                                            Your exam is coming up soon. This reflects limited data, not your potential outcome.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -220,20 +265,57 @@ export default function ReadinessReportPage() {
 
                         <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700">
                             <h3 className="text-slate-400 text-sm font-bold uppercase mb-4">Top Focus Area</h3>
-                            {report.domainBreakdown.length > 0 && report.domainBreakdown[0].score < 70 ? (
-                                <div>
-                                    <p className="text-white font-bold mb-1">{report.domainBreakdown[0].domain}</p>
-                                    <Link
-                                        to="/app/quiz"
-                                        state={{ filterDomain: report.domainBreakdown[0].domain }}
-                                        className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2"
-                                    >
-                                        Practice this domain &rarr;
-                                    </Link>
-                                </div>
-                            ) : (
-                                <p className="text-emerald-400 text-sm">All domains looking good!</p>
-                            )}
+                            {(() => {
+                                // Find the recommended domain (first non-Insufficient with score < 70)
+                                const recommendedDomain = report.domainBreakdown.find(d => d.status !== 'Insufficient' && d.score < 70);
+                                // Find any Insufficient domain that might appear weaker
+                                const insufficientDomain = report.domainBreakdown.find(d => d.status === 'Insufficient');
+                                // Check if there's an Insufficient domain that would otherwise be prioritized
+                                const hasSkippedInsufficient = insufficientDomain && recommendedDomain &&
+                                    (insufficientDomain.score < recommendedDomain.score || insufficientDomain.totalQuestions === 0);
+
+                                if (recommendedDomain) {
+                                    return (
+                                        <div>
+                                            <p className="text-white font-bold mb-1">{recommendedDomain.domain}</p>
+                                            <Link
+                                                to="/app/quiz"
+                                                state={{ filterDomain: recommendedDomain.domain }}
+                                                className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2"
+                                            >
+                                                Practice this domain &rarr;
+                                            </Link>
+
+                                            {/* Explanation when Insufficient domain is skipped */}
+                                            {hasSkippedInsufficient && (
+                                                <div className="mt-4 pt-4 border-t border-slate-700">
+                                                    <p className="text-slate-500 text-xs leading-relaxed">
+                                                        <span className="text-slate-400 font-medium">Why {recommendedDomain.domain}?</span>{' '}
+                                                        We don't yet have enough {insufficientDomain.domain} questions to make a reliable recommendation.
+                                                        Answer a few {insufficientDomain.domain} questions to unlock targeted guidance for that domain.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                } else if (report.domainBreakdown.length > 0 && report.domainBreakdown[0].score < 70) {
+                                    // Fallback to original logic if no non-Insufficient domain found
+                                    return (
+                                        <div>
+                                            <p className="text-white font-bold mb-1">{report.domainBreakdown[0].domain}</p>
+                                            <Link
+                                                to="/app/quiz"
+                                                state={{ filterDomain: report.domainBreakdown[0].domain }}
+                                                className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-2"
+                                            >
+                                                Practice this domain &rarr;
+                                            </Link>
+                                        </div>
+                                    );
+                                } else {
+                                    return <p className="text-emerald-400 text-sm">All domains looking good!</p>;
+                                }
+                            })()}
                         </div>
                     </div>
                 </div>

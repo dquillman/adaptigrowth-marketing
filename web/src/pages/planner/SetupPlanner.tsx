@@ -58,7 +58,8 @@ export default function SetupPlanner() {
                 new Date(examDate),
                 weeklyHours,
                 examName || undefined,
-                examDomains || []
+                examDomains || [],
+                recommendedDomain || undefined  // Pass diagnostic's lowest domain as anchor
             );
 
             await StudyPlanService.savePlan(plan);
