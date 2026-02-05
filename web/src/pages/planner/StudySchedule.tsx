@@ -168,6 +168,11 @@ export default function StudySchedule() {
 
     return (
         <div className="p-6 md:p-10 max-w-6xl mx-auto text-slate-100">
+            {/* Guided Plan Microcopy */}
+            <p className="text-sm text-slate-500 mb-4">
+                You're on the <span className="text-slate-400">Guided Plan</span>. Complete today's Smart Practice — your plan adapts as you go.
+            </p>
+
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold font-display text-white mb-2">My {examName || ''} Plan</h1>

@@ -13,15 +13,6 @@ import {
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 
-interface QuizAttempt {
-    id: string;
-    score: number;
-    totalQuestions: number;
-    timestamp: any;
-    averageTimePerQuestion?: number;
-    timeSpent?: number;
-}
-
 interface ChartData {
     date: string;
     accuracy: number;
@@ -78,38 +69,49 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
             if (!auth.currentUser || !currentExamId) return;
 
             try {
-                // Fetch last 50 attempts for this specific exam
+                // Query from quizRuns/{userId}/runs - the actual data source
+                const userId = auth.currentUser.uid;
                 const q = query(
-                    collection(db, 'quizAttempts'),
-                    where('userId', '==', auth.currentUser.uid),
+                    collection(db, 'quizRuns', userId, 'runs'),
                     where('examId', '==', currentExamId),
-                    orderBy('timestamp', 'desc'),
+                    where('status', '==', 'completed'),
+                    orderBy('completedAt', 'desc'),
                     limit(50)
                 );
 
                 const snapshot = await getDocs(q);
-                const attempts = snapshot.docs.map(doc => ({
+                const runs = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
-                })) as QuizAttempt[];
+                }));
 
                 // Exclude diagnostics (no meaningful score data)
-                const scored = attempts.filter(a => (a as any).mode !== 'diagnostic' && (a as any).quizType !== 'diagnostic');
+                const scored = runs.filter((r: any) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic');
 
                 // Process data for chart (reverse to show chronological order)
-                const processedData = scored.reverse().map(attempt => {
-                    const accuracy = Math.round((attempt.score / attempt.totalQuestions) * 100);
+                const processedData = scored.reverse().map((run: any) => {
+                    // Calculate score from answers array
+                    const answers = run.answers || [];
+                    const totalQuestions = answers.length;
+                    const correctCount = answers.filter((a: any) => a.isCorrect).length;
+                    const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
 
-                    // Default to 0 if no time tracking data (legacy records)
+                    // Calculate speed from results or answers timing
                     let speed = 0;
-                    if (attempt.averageTimePerQuestion) {
-                        speed = Math.round(attempt.averageTimePerQuestion);
-                    } else if (attempt.timeSpent && attempt.totalQuestions > 0) {
-                        speed = Math.round(attempt.timeSpent / attempt.totalQuestions);
+                    if (run.results?.averageTimePerQuestion) {
+                        speed = Math.round(run.results.averageTimePerQuestion);
+                    } else if (run.results?.timeSpent && totalQuestions > 0) {
+                        speed = Math.round(run.results.timeSpent / totalQuestions);
                     }
 
+                    // Get timestamp from completedAt or updatedAt
+                    const timestamp = run.completedAt || run.updatedAt;
+                    const date = timestamp?.seconds
+                        ? new Date(timestamp.seconds * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                        : 'Unknown';
+
                     return {
-                        date: new Date(attempt.timestamp.seconds * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                        date,
                         accuracy,
                         speed
                     };

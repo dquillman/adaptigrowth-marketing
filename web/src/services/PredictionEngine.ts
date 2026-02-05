@@ -29,19 +29,20 @@ export const PredictionEngine = {
      */
     calculateReadiness: async (userId: string, examId: string): Promise<ReadinessReport> => {
         try {
-            const attemptsRef = collection(db, 'quizAttempts');
+            // Query from quizRuns/{userId}/runs - the actual data source
+            const runsRef = collection(db, 'quizRuns', userId, 'runs');
             const q = query(
-                attemptsRef,
-                where('userId', '==', userId),
+                runsRef,
                 where('examId', '==', examId),
-                orderBy('timestamp', 'desc'),
-                limit(50) // Analyze last 50 attempts
+                where('status', '==', 'completed'),
+                orderBy('completedAt', 'desc'),
+                limit(50) // Analyze last 50 runs
             );
 
             const snapshot = await getDocs(q);
-            const attempts = snapshot.docs.map(d => d.data());
+            const runs = snapshot.docs.map(d => d.data());
 
-            if (attempts.length === 0) {
+            if (runs.length === 0) {
                 return {
                     overallScore: null,
                     trend: 'stable',
@@ -67,47 +68,47 @@ export const PredictionEngine = {
                 domainStats[d.name] = { correct: 0, total: 0 };
             });
 
-            attempts.forEach(attempt => {
-                const score = Number(attempt.score) || 0;
-                const total = Number(attempt.totalQuestions) || 0;
+            runs.forEach(run => {
+                // Skip diagnostics
+                if (run.mode === 'diagnostic' || run.quizType === 'diagnostic') return;
 
-                // Skip attempts with no valid question data
+                const answers = run.answers || [];
+                const total = answers.length;
+                const correct = answers.filter((a: { isCorrect: boolean }) => a.isCorrect).length;
+
+                // Skip runs with no valid question data
                 if (total === 0) return;
 
-                totalCorrect += score;
+                totalCorrect += correct;
                 totalQuestions += total;
 
-                if (attempt.mode === 'simulation') mockCount++;
+                if (run.mode === 'simulation' || run.quizType === 'simulation') mockCount++;
 
-                // Process Details if available
-                if (attempt.details && Array.isArray(attempt.details)) {
-                    attempt.details.forEach((d: { domain: string; isCorrect: boolean }) => {
-                        if (!d.domain) return;
-                        if (!domainStats[d.domain]) domainStats[d.domain] = { correct: 0, total: 0 };
-                        domainStats[d.domain].total++;
-                        if (d.isCorrect) domainStats[d.domain].correct++;
-                    });
-                } else if (attempt.domain && attempt.domain !== 'Mixed') {
-                    // Fallback for attempts without details but with specific domain
-                    const d = attempt.domain;
-                    if (!domainStats[d]) domainStats[d] = { correct: 0, total: 0 };
-                    domainStats[d].total += total;
-                    domainStats[d].correct += score;
-                }
+                // Process per-answer domain data if available
+                answers.forEach((answer: { questionId?: string; domain?: string; isCorrect: boolean }) => {
+                    // Domain might be stored on the answer or in results
+                    const domain = answer.domain;
+                    if (!domain) return;
+
+                    if (!domainStats[domain]) domainStats[domain] = { correct: 0, total: 0 };
+                    domainStats[domain].total++;
+                    if (answer.isCorrect) domainStats[domain].correct++;
+                });
             });
 
             const overallAccuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
 
             // --- 2. Recent Trend (Last 5) ---
-            const recentAttempts = attempts.slice(0, 5);
+            const recentRuns = runs.slice(0, 5).filter(
+                (r: { mode?: string; quizType?: string }) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic'
+            );
             let recentCorrect = 0;
             let recentTotal = 0;
-            recentAttempts.forEach(a => {
-                const score = Number(a.score) || 0;
-                const total = Number(a.totalQuestions) || 0;
-                if (total === 0) return;
-                recentCorrect += score;
-                recentTotal += total;
+            recentRuns.forEach((r: { answers?: { isCorrect: boolean }[] }) => {
+                const answers = r.answers || [];
+                const correct = answers.filter(a => a.isCorrect).length;
+                recentCorrect += correct;
+                recentTotal += answers.length;
             });
             const recentAccuracy = recentTotal > 0 ? (recentCorrect / recentTotal) * 100 : 0;
 

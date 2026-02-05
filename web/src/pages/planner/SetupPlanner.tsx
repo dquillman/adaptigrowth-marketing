@@ -77,6 +77,13 @@ export default function SetupPlanner() {
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4">
             <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-8 shadow-2xl">
+                {/* Flexible Practice Microcopy - shown when user doesn't have a plan yet */}
+                {!editMode && !fromDiagnostic && (
+                    <p className="text-sm text-slate-500 text-center mb-6">
+                        You're practicing freely. Take the Diagnostic anytime to unlock a personalized plan.
+                    </p>
+                )}
+
                 <div className="text-center mb-8">
                     <h1 className="text-2xl font-bold font-display text-white mb-2">
                         {editMode ? 'Update Your Study Plan' : 'Your Custom Plan is Ready.'}

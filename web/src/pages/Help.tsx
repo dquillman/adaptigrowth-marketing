@@ -6,9 +6,12 @@ import {
     Zap,
     Target,
     Trophy,
-    ArrowDown,
     ChevronLeft,
-    MessageSquare
+    MessageSquare,
+    CalendarDays,
+    RefreshCw,
+    BarChart3,
+    Sparkles
 } from 'lucide-react';
 import ReportIssueModal from '../components/ReportIssueModal';
 
@@ -45,156 +48,199 @@ export default function Help() {
                 <div className="text-center mb-16 space-y-4">
                     <h2 className="text-4xl font-bold font-display text-white">Your Path to Mastery</h2>
                     <p className="text-lg text-slate-400">
-                        Follow this simple workflow to maximize your score.
+                        Two ways to prepare. Pick the one that fits your style.
                     </p>
                 </div>
 
-                {/* FLOW CHART */}
-                <div className="relative space-y-8">
-                    {/* Connecting Line */}
-                    <div className="absolute left-8 top-8 bottom-8 w-1 bg-slate-800 rounded-full -z-10"></div>
-
-                    {/* Step 1: Select Exam */}
-                    <div className="relative flex gap-6 group">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-slate-700 group-hover:border-blue-500 group-hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] flex items-center justify-center shrink-0 transition-all z-10">
-                            <Layout className="w-8 h-8 text-blue-400" />
+                {/* Path Selection */}
+                <div className="grid md:grid-cols-2 gap-6 mb-12">
+                    {/* Guided Plan - Recommended */}
+                    <div className="bg-gradient-to-br from-brand-900/40 to-slate-900/40 rounded-2xl p-6 border-2 border-brand-500/50 relative">
+                        <div className="absolute -top-3 left-6">
+                            <span className="text-xs font-bold px-3 py-1 rounded-full bg-brand-500 text-white">RECOMMENDED</span>
                         </div>
-                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold text-white">1. Select Your Exam</h3>
-                                <span className="text-xs font-bold px-2 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">SETUP</span>
+                        <div className="flex items-center gap-3 mb-4 mt-2">
+                            <div className="p-2 bg-brand-500/20 rounded-lg">
+                                <CalendarDays className="w-6 h-6 text-brand-400" />
                             </div>
-                            <p className="text-slate-400 leading-relaxed">
-                                Ensure the correct exam is selected in the top-left dropdown. Your progress is tracked separately for each exam.
-                            </p>
+                            <h3 className="text-xl font-bold text-white">Guided Plan</h3>
+                        </div>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                            Start with a diagnostic, get a personalized study plan, and let the system guide your preparation.
+                        </p>
+                        <div className="text-xs text-slate-500 space-y-1">
+                            <div className="flex items-center gap-2"><Sparkles className="w-3 h-3 text-brand-400" /> AI-generated schedule</div>
+                            <div className="flex items-center gap-2"><RefreshCw className="w-3 h-3 text-brand-400" /> Adapts to your progress</div>
+                            <div className="flex items-center gap-2"><BarChart3 className="w-3 h-3 text-brand-400" /> Evidence-based readiness</div>
                         </div>
                     </div>
 
-                    {/* Arrow */}
-                    <div className="pl-6 text-slate-700">
-                        <ArrowDown className="w-6 h-6 animate-bounce" />
-                    </div>
-
-                    {/* Step 2: Daily Check-in */}
-                    <div className="relative flex gap-6 group">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-slate-700 group-hover:border-emerald-500 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center justify-center shrink-0 transition-all z-10">
-                            <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                        </div>
-                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold text-white">2. Daily Check-in</h3>
-                                <span className="text-xs font-bold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">DAILY</span>
+                    {/* Flexible Practice */}
+                    <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-slate-700 rounded-lg">
+                                <Zap className="w-6 h-6 text-slate-400" />
                             </div>
-                            <p className="text-slate-400 leading-relaxed">
-                                Look at your <strong className="text-emerald-400">Mastery Rings</strong> on the dashboard.
-                                Your goal is to get all rings to 100%. This shows you exactly how much of the content you've mastered.
-                            </p>
+                            <h3 className="text-xl font-bold text-white">Flexible Practice</h3>
+                        </div>
+                        <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                            Jump straight into Smart Practice. Get domain feedback as you go, add a plan later if you want.
+                        </p>
+                        <div className="text-xs text-slate-500 space-y-1">
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-slate-500" /> Start immediately</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-slate-500" /> No commitment</div>
+                            <div className="flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-slate-500" /> Add plan anytime</div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Arrow */}
-                    <div className="pl-6 text-slate-700">
-                        <ArrowDown className="w-6 h-6 animate-bounce delay-75" />
-                    </div>
+                {/* Guided Plan Flow */}
+                <div className="mb-12">
+                    <h3 className="text-lg font-bold text-brand-400 mb-6 flex items-center gap-2">
+                        <CalendarDays className="w-5 h-5" />
+                        Guided Plan Flow
+                    </h3>
+                    <div className="relative space-y-6">
+                        {/* Connecting Line */}
+                        <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-brand-500/30 rounded-full -z-10"></div>
 
-                    {/* Step 3: Smart Practice */}
-                    <div className="relative flex gap-6 group">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-slate-700 group-hover:border-brand-500 group-hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] flex items-center justify-center shrink-0 transition-all z-10">
-                            <Zap className="w-8 h-8 text-brand-400" />
-                        </div>
-                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-xl font-bold text-white">3. Smart Practice</h3>
-                                <div className="flex gap-2">
-                                    <span className="text-xs font-bold px-2 py-1 rounded bg-slate-700 text-slate-300 border border-slate-600">CORE</span>
-                                </div>
+                        {/* Step 1: Diagnostic */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-brand-500/50 group-hover:border-brand-400 flex items-center justify-center shrink-0 transition-all z-10">
+                                <Target className="w-5 h-5 text-brand-400" />
                             </div>
-
-                            <p className="text-slate-400 leading-relaxed mb-6">
-                                Click <strong className="text-brand-400">Smart Start</strong>. The AI picks questions you need to review.
-                            </p>
-
-                            {/* Branching Logic Visualization */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
-                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Starter Plan</div>
-                                    <div className="flex items-center gap-2 text-white mb-2">
-                                        <div className="w-2 h-2 rounded-full bg-slate-500"></div>
-                                        <span>5 Questions / Day</span>
-                                    </div>
-                                    <p className="text-xs text-slate-500">Perfect for maintaining your daily streak.</p>
-                                </div>
-                                <div className="bg-gradient-to-br from-brand-900/40 to-slate-900/40 rounded-xl p-4 border border-brand-500/30">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <div className="text-xs font-bold text-brand-400 uppercase tracking-wider">Pro Plan</div>
-                                        <Zap className="w-3 h-3 text-brand-400" />
-                                    </div>
-                                    <div className="flex items-center gap-2 text-white mb-2">
-                                        <div className="w-2 h-2 rounded-full bg-brand-500"></div>
-                                        <span>Unlimited Practice</span>
-                                    </div>
-                                    <p className="text-xs text-slate-400">Accelerate your mastery with no limits.</p>
-                                </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">1. Take the Diagnostic</h4>
+                                <p className="text-sm text-slate-400">10-minute baseline assessment. The AI learns where you stand.</p>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Arrow */}
-                    <div className="pl-6 text-slate-700">
-                        <ArrowDown className="w-6 h-6 animate-bounce delay-150" />
-                    </div>
-
-                    {/* Step 4: Target Weaknesses */}
-                    <div className="relative flex gap-6 group">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-slate-700 group-hover:border-amber-500 group-hover:shadow-[0_0_20px_rgba(245,158,11,0.3)] flex items-center justify-center shrink-0 transition-all z-10">
-                            <Target className="w-8 h-8 text-amber-400" />
-                        </div>
-                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold text-white">4. Target Weaknesses</h3>
-                                <span className="text-xs font-bold px-2 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">REFINE</span>
+                        {/* Step 2: Study Plan */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-brand-500/50 group-hover:border-brand-400 flex items-center justify-center shrink-0 transition-all z-10">
+                                <CalendarDays className="w-5 h-5 text-brand-400" />
                             </div>
-                            <p className="text-slate-400 leading-relaxed mb-4">
-                                Use the <strong>Analytics</strong> tab to see advanced breakdowns of your performance.
-                            </p>
-                            <div className="flex items-start gap-3 bg-slate-900/50 p-3 rounded-lg border border-slate-700/50">
-                                <div className="p-1.5 bg-slate-800 rounded text-amber-400 shrink-0 mt-0.5">
-                                    <Target className="w-3 h-3" />
-                                </div>
-                                <div className="text-sm">
-                                    <strong className="text-white block mb-0.5">Pro Feature: Deep Analytics</strong>
-                                    <span className="text-slate-400">Unlock detailed readiness reports and domain-level trend analysis to spot weak points instantly.</span>
-                                </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">2. Get Your Study Plan</h4>
+                                <p className="text-sm text-slate-400">Set your exam date. We generate a day-by-day schedule focused on your weak areas.</p>
+                            </div>
+                        </div>
+
+                        {/* Step 3: Daily Practice */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-brand-500/50 group-hover:border-brand-400 flex items-center justify-center shrink-0 transition-all z-10">
+                                <Zap className="w-5 h-5 text-brand-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">3. Follow Daily Tasks</h4>
+                                <p className="text-sm text-slate-400">Complete the Smart Practice tasks on your planner. Mark them done as you go.</p>
+                            </div>
+                        </div>
+
+                        {/* Step 4: Recalculate */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-brand-500/50 group-hover:border-brand-400 flex items-center justify-center shrink-0 transition-all z-10">
+                                <RefreshCw className="w-5 h-5 text-brand-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">4. Update Your Plan</h4>
+                                <p className="text-sm text-slate-400">Click "Update Plan" anytime to re-anchor your schedule around your current weakest domain.</p>
+                            </div>
+                        </div>
+
+                        {/* Step 5: Readiness */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-brand-500/50 group-hover:border-brand-400 flex items-center justify-center shrink-0 transition-all z-10">
+                                <BarChart3 className="w-5 h-5 text-brand-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">5. Track Readiness</h4>
+                                <p className="text-sm text-slate-400">After 50+ questions, your Exam Readiness score becomes reliable. Watch it grow as you practice.</p>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Arrow */}
-                    <div className="pl-6 text-slate-700">
-                        <ArrowDown className="w-6 h-6 animate-bounce delay-200" />
-                    </div>
+                {/* Flexible Practice Flow */}
+                <div className="mb-12">
+                    <h3 className="text-lg font-bold text-slate-400 mb-6 flex items-center gap-2">
+                        <Zap className="w-5 h-5" />
+                        Flexible Practice Flow
+                    </h3>
+                    <div className="relative space-y-6">
+                        <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-slate-700 rounded-full -z-10"></div>
 
-                    {/* Step 5: Simulator */}
-                    <div className="relative flex gap-6 group">
-                        <div className="w-16 h-16 rounded-2xl bg-slate-800 border-2 border-slate-700 group-hover:border-rose-500 group-hover:shadow-[0_0_20px_rgba(244,63,94,0.3)] flex items-center justify-center shrink-0 transition-all z-10">
-                            <Trophy className="w-8 h-8 text-rose-400" />
-                        </div>
-                        <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 flex-1 group-hover:bg-slate-800 transition-colors">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="text-xl font-bold text-white">5. Exam Simulator</h3>
-                                <span className="text-xs font-bold px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20">PRO ONLY</span>
+                        {/* Step 1: Smart Practice */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-slate-600 group-hover:border-slate-500 flex items-center justify-center shrink-0 transition-all z-10">
+                                <Zap className="w-5 h-5 text-slate-400" />
                             </div>
-                            <p className="text-slate-400 leading-relaxed">
-                                Periodically take a full mock exam. This simulates the real test environment:
-                                <ul className="list-disc pl-5 mt-2 space-y-1 text-slate-500">
-                                    <li><strong>50 Questions</strong> in 60 minutes.</li>
-                                    <li><strong>No Feedback</strong> until the end.</li>
-                                    <li><strong>History Tracking</strong> to see your score improve.</li>
-                                </ul>
-                            </p>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">1. Start Smart Practice</h4>
+                                <p className="text-sm text-slate-400">Hit "Smart Start" from the dashboard. The AI picks questions you need most.</p>
+                            </div>
+                        </div>
+
+                        {/* Step 2: Domain Feedback */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-slate-600 group-hover:border-slate-500 flex items-center justify-center shrink-0 transition-all z-10">
+                                <Layout className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">2. See Domain Feedback</h4>
+                                <p className="text-sm text-slate-400">Your Mastery Rings show progress by domain. Focus on the weakest ones.</p>
+                            </div>
+                        </div>
+
+                        {/* Step 3: Optional Plan */}
+                        <div className="relative flex gap-4 group">
+                            <div className="w-12 h-12 rounded-xl bg-slate-800 border-2 border-slate-600 group-hover:border-slate-500 flex items-center justify-center shrink-0 transition-all z-10">
+                                <CalendarDays className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-bold text-white">3. Add a Plan (Optional)</h4>
+                                <p className="text-sm text-slate-400">Feeling ready for structure? Take the diagnostic anytime to unlock a personalized study plan.</p>
+                            </div>
                         </div>
                     </div>
+                </div>
 
+                {/* Pro Features */}
+                <div className="bg-slate-800/50 rounded-2xl p-6 border border-slate-700/50 mb-12">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <Trophy className="w-5 h-5 text-rose-400" />
+                        Pro Features
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-start gap-3">
+                            <Target className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                                <strong className="text-white">Deep Analytics</strong>
+                                <p className="text-slate-400">Detailed readiness reports and domain trend analysis.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Trophy className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                            <div>
+                                <strong className="text-white">Exam Simulator</strong>
+                                <p className="text-slate-400">50 questions in 60 minutes. Real test conditions.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <Zap className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
+                            <div>
+                                <strong className="text-white">Unlimited Practice</strong>
+                                <p className="text-slate-400">No daily question limits. Accelerate your prep.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <CalendarDays className="w-4 h-4 text-brand-400 shrink-0 mt-0.5" />
+                            <div>
+                                <strong className="text-white">Study Planner</strong>
+                                <p className="text-slate-400">AI-generated, adaptive daily schedule.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* XP & Levels Breakdown */}
