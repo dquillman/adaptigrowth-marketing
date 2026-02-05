@@ -6,12 +6,18 @@ import { getExamDomains } from './ExamMetadata';
 export const StudyPlanService = {
     /**
      * Generates a study schedule based on exam date and weekly hours.
-     * Uses a weighted distribution to assign topics:
-     * - Process: 50%
-     * - People: 42%
-     * - Business: 8%
+     * If an anchorDomain is provided (from diagnostic), the plan prioritizes
+     * that domain for the first several days before mixing in others.
      */
-    generatePlan: (userId: string, examId: string, examDate: Date, weeklyHours: number, examName?: string, domainNames?: string[]): StudyPlan => {
+    generatePlan: (
+        userId: string,
+        examId: string,
+        examDate: Date,
+        weeklyHours: number,
+        examName?: string,
+        domainNames?: string[],
+        anchorDomain?: string  // New: From diagnostic's lowest domain
+    ): StudyPlan => {
         const startDate = new Date();
         const daysUntilExam = Math.ceil((examDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -20,6 +26,10 @@ export const StudyPlanService = {
 
         // Define domains dynamically if provided, or fallback to known definitions
         const domains = getExamDomains(examId, examName, domainNames);
+
+        // Diagnostic Anchor Rule: If we have a recommended domain, prioritize it for first 5 days
+        const ANCHOR_DAYS = 5; // First 5 days focus on anchor domain
+        const hasAnchor = anchorDomain && domains.some(d => d.name === anchorDomain);
 
         // Simple deterministic generator
         for (let i = 0; i < daysUntilExam; i++) {
@@ -43,15 +53,25 @@ export const StudyPlanService = {
                 continue; // Skip standard generation for this day
             }
 
-            const rand = Math.random();
-            let selectedDomain = domains[0];
-            let cumulativeWeight = 0;
+            // ANCHOR RULE: During anchor period, force the diagnostic's lowest domain
+            // After anchor period, resume normal weighted random selection
+            const isInAnchorPeriod = hasAnchor && i < ANCHOR_DAYS;
 
-            for (const domain of domains) {
-                cumulativeWeight += domain.weight;
-                if (rand <= cumulativeWeight) {
-                    selectedDomain = domain;
-                    break;
+            let selectedDomain = domains[0];
+
+            if (isInAnchorPeriod) {
+                // Force anchor domain for first 5 days
+                selectedDomain = domains.find(d => d.name === anchorDomain) || domains[0];
+            } else {
+                // Normal weighted random selection after anchor period
+                const rand = Math.random();
+                let cumulativeWeight = 0;
+                for (const domain of domains) {
+                    cumulativeWeight += domain.weight;
+                    if (rand <= cumulativeWeight) {
+                        selectedDomain = domain;
+                        break;
+                    }
                 }
             }
 
@@ -68,8 +88,9 @@ export const StudyPlanService = {
                 durationMinutes: 30 // Default block
             });
 
-            // Add a Daily Quiz - Domain Quiz most days, Smart Quiz every 3rd day for reinforcement
-            const isSmartQuizDay = i % 3 === 2; // Every 3rd day (days 2, 5, 8, etc.)
+            // ANCHOR RULE: No Smart/Mixed quizzes during anchor period
+            // After anchor period: Smart Quiz every 3rd day for reinforcement
+            const isSmartQuizDay = !isInAnchorPeriod && i % 3 === 2;
 
             tasks.push({
                 id: `task-${i}-quiz`,
@@ -189,6 +210,155 @@ export const StudyPlanService = {
         } catch (error) {
             console.error("Error marking task complete:", error);
             throw error;
+        }
+    },
+
+    /**
+     * Recalculates the study plan based on current performance data.
+     * - Fetches userMastery data to determine current weakest domain
+     * - Preserves all past and today's tasks
+     * - Regenerates future tasks with new anchor domain
+     * Returns the new anchor domain for confirmation message.
+     */
+    recalculatePlanFromProgress: async (
+        userId: string,
+        examId: string,
+        existingPlan: StudyPlan,
+        examName?: string,
+        domainNames?: string[]
+    ): Promise<{ success: boolean; newAnchorDomain: string | null; error?: string }> => {
+        try {
+            // 1. Fetch current mastery data
+            const masteryId = `${userId}_${examId}`;
+            const masteryRef = doc(db, 'userMastery', masteryId);
+            const masterySnap = await getDoc(masteryRef);
+
+            if (!masterySnap.exists()) {
+                return { success: false, newAnchorDomain: null, error: 'No performance data found. Complete some quizzes first.' };
+            }
+
+            const masteryData = masterySnap.data().masteryData as Record<string, { correct: number; total: number }>;
+
+            // 2. Compute accuracy per domain and find lowest
+            let lowestAccuracy = 100;
+            let newAnchorDomain: string | null = null;
+
+            for (const [domain, stats] of Object.entries(masteryData)) {
+                if (stats.total > 0) {
+                    const accuracy = (stats.correct / stats.total) * 100;
+                    if (accuracy < lowestAccuracy) {
+                        lowestAccuracy = accuracy;
+                        newAnchorDomain = domain;
+                    }
+                }
+            }
+
+            if (!newAnchorDomain) {
+                return { success: false, newAnchorDomain: null, error: 'No domain performance data available.' };
+            }
+
+            // 3. Separate past/today tasks from future tasks
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const preservedTasks = existingPlan.tasks.filter(t => {
+                const taskDate = new Date(t.date);
+                taskDate.setHours(0, 0, 0, 0);
+                return taskDate.getTime() <= today.getTime();
+            });
+
+            // 4. Generate new future tasks with new anchor
+            const domains = getExamDomains(examId, examName, domainNames);
+            const ANCHOR_DAYS = 5;
+            const hasAnchor = newAnchorDomain && domains.some(d => d.name === newAnchorDomain);
+
+            const futureTasks: DailyTask[] = [];
+            const currentDate = new Date(today);
+            currentDate.setDate(currentDate.getDate() + 1); // Start from tomorrow
+
+            let dayIndex = 0;
+            while (currentDate < existingPlan.examDate) {
+                // Skip Saturdays (mock exam days)
+                if (currentDate.getDay() === 6) {
+                    futureTasks.push({
+                        id: `recalc-${dayIndex}-mock`,
+                        date: new Date(currentDate),
+                        domain: 'Mixed' as any,
+                        topic: 'Full Mock Exam',
+                        activityType: 'mock-exam',
+                        completed: false,
+                        durationMinutes: 240
+                    });
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    dayIndex++;
+                    continue;
+                }
+
+                // Anchor rule: first 5 future days focus on new anchor
+                const isInAnchorPeriod = hasAnchor && dayIndex < ANCHOR_DAYS;
+
+                let selectedDomain = domains[0];
+                if (isInAnchorPeriod) {
+                    selectedDomain = domains.find(d => d.name === newAnchorDomain) || domains[0];
+                } else {
+                    const rand = Math.random();
+                    let cumulativeWeight = 0;
+                    for (const domain of domains) {
+                        cumulativeWeight += domain.weight;
+                        if (rand <= cumulativeWeight) {
+                            selectedDomain = domain;
+                            break;
+                        }
+                    }
+                }
+
+                const topic = selectedDomain.topics[Math.floor(Math.random() * selectedDomain.topics.length)];
+
+                // Reading task
+                futureTasks.push({
+                    id: `recalc-${dayIndex}-read`,
+                    date: new Date(currentDate),
+                    domain: selectedDomain.name as any,
+                    topic: `Review: ${topic}`,
+                    activityType: 'reading',
+                    completed: false,
+                    durationMinutes: 30
+                });
+
+                // Quiz task - no smart quiz during anchor period
+                const isSmartQuizDay = !isInAnchorPeriod && dayIndex % 3 === 2;
+                futureTasks.push({
+                    id: `recalc-${dayIndex}-quiz`,
+                    date: new Date(currentDate),
+                    domain: isSmartQuizDay ? 'Mixed' as any : selectedDomain.name as any,
+                    topic: isSmartQuizDay ? 'Smart Quiz: Mixed Review' : `Domain Quiz: ${selectedDomain.name}`,
+                    activityType: 'quiz',
+                    completed: false,
+                    durationMinutes: isSmartQuizDay ? 20 : 15
+                });
+
+                currentDate.setDate(currentDate.getDate() + 1);
+                dayIndex++;
+            }
+
+            // 5. Merge preserved + future tasks
+            const mergedTasks = [...preservedTasks, ...futureTasks];
+
+            // 6. Update the plan in Firestore
+            if (!existingPlan.id) {
+                return { success: false, newAnchorDomain: null, error: 'Plan ID not found.' };
+            }
+
+            const planRef = doc(db, 'study_plans', existingPlan.id);
+            await updateDoc(planRef, {
+                tasks: mergedTasks,
+                lastRecalculatedAt: new Date()
+            });
+
+            return { success: true, newAnchorDomain };
+        } catch (error) {
+            console.error('Error recalculating plan:', error);
+            return { success: false, newAnchorDomain: null, error: 'Failed to update plan. Please try again.' };
         }
     }
 };

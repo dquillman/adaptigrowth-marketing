@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
 import { useExam } from '../../contexts/ExamContext';
@@ -14,6 +14,10 @@ export default function StudySchedule() {
     const [plan, setPlan] = useState<StudyPlan | null>(null);
     const [loading, setLoading] = useState(true);
     const [showExamConfig, setShowExamConfig] = useState(false);
+
+    // Recalculation state
+    const [recalculating, setRecalculating] = useState(false);
+    const [recalcToast, setRecalcToast] = useState<{ show: boolean; domain: string | null; error?: string }>({ show: false, domain: null });
 
     // Diagnostic context from navigation
     const fromDiagnostic = location.state?.source === 'diagnostic';
@@ -124,6 +128,44 @@ export default function StudySchedule() {
         }
     };
 
+    // Handle recalculation based on current progress
+    const handleRecalculatePlan = async () => {
+        if (!user || !plan || !selectedExamId) return;
+
+        setRecalculating(true);
+        setRecalcToast({ show: false, domain: null });
+
+        try {
+            const result = await StudyPlanService.recalculatePlanFromProgress(
+                user.uid,
+                selectedExamId,
+                plan,
+                examName || undefined,
+                []
+            );
+
+            if (result.success && result.newAnchorDomain) {
+                // Refresh plan from Firestore
+                const updatedPlan = await StudyPlanService.getCurrentPlan(user.uid, selectedExamId);
+                if (updatedPlan) {
+                    setPlan(updatedPlan);
+                }
+                setRecalcToast({ show: true, domain: result.newAnchorDomain });
+                // Auto-hide toast after 5 seconds
+                setTimeout(() => setRecalcToast({ show: false, domain: null }), 5000);
+            } else {
+                setRecalcToast({ show: true, domain: null, error: result.error || 'Could not update plan.' });
+                setTimeout(() => setRecalcToast({ show: false, domain: null }), 5000);
+            }
+        } catch (error) {
+            console.error('Recalculation failed:', error);
+            setRecalcToast({ show: true, domain: null, error: 'Failed to update plan. Please try again.' });
+            setTimeout(() => setRecalcToast({ show: false, domain: null }), 5000);
+        } finally {
+            setRecalculating(false);
+        }
+    };
+
     return (
         <div className="p-6 md:p-10 max-w-6xl mx-auto text-slate-100">
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -138,6 +180,15 @@ export default function StudySchedule() {
                     <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-sm">
                         {plan.weeklyHours} hours / week
                     </div>
+                    <button
+                        onClick={handleRecalculatePlan}
+                        disabled={recalculating}
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-indigo-500 hover:border-indigo-400 flex items-center gap-2"
+                        title="Adjusts your plan based on your current quiz performance"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                        {recalculating ? 'Updating...' : 'Update Plan Based on My Progress'}
+                    </button>
                     <button
                         onClick={() => navigate('/app/planner/setup', {
                             state: {
@@ -273,6 +324,25 @@ export default function StudySchedule() {
                     ))}
                 </div>
             </section>
+
+            {/* Recalculation Toast */}
+            {recalcToast.show && (
+                <div className={`fixed bottom-6 right-6 z-50 px-5 py-4 rounded-xl shadow-lg border ${recalcToast.error
+                    ? 'bg-red-900/90 border-red-500/50 text-red-100'
+                    : 'bg-emerald-900/90 border-emerald-500/50 text-emerald-100'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                        {recalcToast.error ? (
+                            <X className="w-5 h-5" />
+                        ) : (
+                            <CheckCircle className="w-5 h-5" />
+                        )}
+                        <span className="font-medium">
+                            {recalcToast.error || `Your plan has been updated to focus on ${recalcToast.domain}, based on your recent results.`}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             <MockExamConfigModal
                 isOpen={showExamConfig}
