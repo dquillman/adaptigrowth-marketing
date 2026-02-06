@@ -713,7 +713,8 @@ exports.getAdminUserList = functions.https.onCall(async (data, context) => {
                 access: profile === null || profile === void 0 ? void 0 : profile.access,
                 testerOverride: profile === null || profile === void 0 ? void 0 : profile.testerOverride,
                 testerExpiresAt: profile === null || profile === void 0 ? void 0 : profile.testerExpiresAt,
-                role: (profile === null || profile === void 0 ? void 0 : profile.role) || 'user'
+                role: (profile === null || profile === void 0 ? void 0 : profile.role) || 'user',
+                archived: (profile === null || profile === void 0 ? void 0 : profile.archived) || false
             };
         });
         // Sort by Creation Time (Newest First)
@@ -796,7 +797,19 @@ exports.resetExamProgress = functions.https.onCall(async (data, context) => {
             batch.delete(doc.ref);
         });
         await batch.commit();
-        return { success: true, count: attemptsSnap.size };
+        // 4. Delete quizRuns (separate batch due to subcollection structure)
+        // This is the NEW data source for Stats/Analytics
+        const runsQuery = db.collection('quizRuns').doc(userId).collection('runs')
+            .where('examId', '==', examId);
+        const runsSnap = await runsQuery.get();
+        if (runsSnap.size > 0) {
+            const runsBatch = db.batch();
+            runsSnap.docs.forEach((doc) => {
+                runsBatch.delete(doc.ref);
+            });
+            await runsBatch.commit();
+        }
+        return { success: true, count: attemptsSnap.size + runsSnap.size };
     }
     catch (error) {
         console.error("Error resetting progress:", error);

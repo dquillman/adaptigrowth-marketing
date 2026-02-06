@@ -26,6 +26,7 @@ import VerbalMode from "./pages/VerbalMode";
 import ReadinessReportPage from "./pages/ReadinessReport";
 import DiagnosticsPage from "./pages/DiagnosticsPage";
 import Faq from "./pages/Faq";
+import StartHere from "./pages/StartHere";
 
 // --- Auth Context ---
 interface AuthContextType {
@@ -358,6 +359,7 @@ function App() {
                   <Route path="readiness" element={<ReadinessReportPage />} />
                   <Route path="diagnostics" element={<DiagnosticsPage />} />
                   <Route path="faq" element={<Faq />} />
+                  <Route path="start-here" element={<StartHere />} />
                 </Route>
               </Route>
 

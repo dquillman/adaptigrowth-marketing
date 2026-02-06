@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase';
-import { Loader2, Users, Activity, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { functions, db } from '../firebase';
+import { Loader2, Users, Activity, Search, ShieldCheck, Trash2, Archive, ArchiveRestore, Eye, EyeOff } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
@@ -14,6 +15,7 @@ interface ActivityPoint {
 }
 
 export default function UsersPage() {
+    console.log("ARCHIVE UI VERSION 2 ACTIVE - " + new Date().toISOString());
     const [users, setUsers] = useState<UserData[]>([]);
     const [activityGraph, setActivityGraph] = useState<ActivityPoint[]>([]);
     const [loading, setLoading] = useState(true);
@@ -44,10 +46,13 @@ export default function UsersPage() {
 
     const [deleteConfirm, setDeleteConfirm] = useState<{ uid: string; email: string } | null>(null);
     const [grantConfirm, setGrantConfirm] = useState<{ uid: string; email: string } | null>(null);
-    const [revokeConfirm, setRevokeConfirm] = useState<{ uid: string; email: string } | null>(null); // New
+    const [revokeConfirm, setRevokeConfirm] = useState<{ uid: string; email: string } | null>(null);
+    const [archiveConfirm, setArchiveConfirm] = useState<{ uid: string; email: string; isArchived: boolean } | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [granting, setGranting] = useState(false);
-    const [revoking, setRevoking] = useState(false); // New
+    const [revoking, setRevoking] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+    const [showArchived, setShowArchived] = useState(false);
 
     const handleGrantTesterPro = async (uid: string) => {
         try {
@@ -134,17 +139,43 @@ export default function UsersPage() {
         }
     };
 
-    // Derived Stats
-    const totalUsers = users.length;
-    const proUsers = users.filter(u => u.isPro).length;
+    const handleArchiveUser = async (uid: string, archive: boolean) => {
+        try {
+            setArchiving(true);
+            await updateDoc(doc(db, 'users', uid), { archived: archive });
+
+            // Optimistic Update
+            setUsers(users.map(u => {
+                if (u.uid === uid) {
+                    return { ...u, archived: archive };
+                }
+                return u;
+            }));
+            setArchiveConfirm(null);
+            alert(archive ? 'User archived successfully.' : 'User restored successfully.');
+        } catch (error: any) {
+            console.error(`Error ${archive ? 'archiving' : 'restoring'} user:`, error);
+            alert(`Failed to ${archive ? 'archive' : 'restore'} user: ${error.message}`);
+        } finally {
+            setArchiving(false);
+        }
+    };
+
+    // Derived Stats (exclude archived from counts)
+    const activeUsers = users.filter(u => !u.archived);
+    const archivedCount = users.filter(u => u.archived).length;
+    const totalUsers = activeUsers.length;
+    const proUsers = activeUsers.filter(u => u.isPro).length;
     const freeUsers = totalUsers - proUsers;
 
-    // Filter Users
-    const filteredUsers = users.filter(user =>
-        user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.uid.includes(searchQuery)
-    );
+    // Filter Users (apply archive filter + search)
+    const filteredUsers = users
+        .filter(user => showArchived ? user.archived : !user.archived)
+        .filter(user =>
+            user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.uid.includes(searchQuery)
+        );
 
     // Prepare Graph Data
     const pieData = [
@@ -271,16 +302,37 @@ export default function UsersPage() {
             {/* Users Table */}
             <div className="bg-slate-800/50 rounded-2xl border border-white/5 overflow-hidden">
                 <div className="p-6 border-b border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <h3 className="text-lg font-bold text-white">All Users</h3>
-                    <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input
-                            type="text"
-                            placeholder="Search users..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
-                        />
+                    <div className="flex items-center gap-4">
+                        <h3 className="text-lg font-bold text-white">
+                            {showArchived ? 'Archived Users' : 'All Users'}
+                        </h3>
+                        {archivedCount > 0 && !showArchived && (
+                            <span className="text-xs text-slate-500 bg-slate-900 px-2 py-1 rounded">
+                                {archivedCount} archived
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => setShowArchived(!showArchived)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${showArchived
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                : 'bg-slate-900 text-slate-400 border border-slate-700 hover:border-slate-600'
+                                }`}
+                        >
+                            {showArchived ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                            {showArchived ? 'Viewing Archived' : 'Show Archived'}
+                        </button>
+                        <div className="relative w-full md:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="Search users..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -299,7 +351,11 @@ export default function UsersPage() {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {filteredUsers.slice(0, 50).map((user) => (
-                                <tr key={user.uid} className="hover:bg-white/[0.02] transition-colors">
+                                <tr
+                                    key={user.uid}
+                                    className={`hover:bg-white/[0.02] transition-colors ${user.archived ? 'opacity-60 bg-slate-900/30' : ''
+                                        }`}
+                                >
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white">
@@ -441,6 +497,24 @@ export default function UsersPage() {
                                             // Default Actions
                                             return (
                                                 <div className="flex gap-1 justify-end">
+                                                    {/* Archive / Restore Button */}
+                                                    {user.archived ? (
+                                                        <button
+                                                            onClick={() => setArchiveConfirm({ uid: user.uid, email: user.email, isArchived: true })}
+                                                            className="text-emerald-400 hover:text-emerald-300 transition-colors p-2 hover:bg-emerald-500/10 rounded-lg"
+                                                            title="Restore user"
+                                                        >
+                                                            <ArchiveRestore className="w-4 h-4" />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setArchiveConfirm({ uid: user.uid, email: user.email, isArchived: false })}
+                                                            className="text-amber-400 hover:text-amber-300 transition-colors p-2 hover:bg-amber-500/10 rounded-lg"
+                                                            title="Archive user"
+                                                        >
+                                                            <Archive className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => setDeleteConfirm({ uid: user.uid, email: user.email })}
                                                         className="text-red-400 hover:text-red-300 transition-colors p-2 hover:bg-red-500/10 rounded-lg"
@@ -586,6 +660,57 @@ export default function UsersPage() {
                                         </>
                                     ) : (
                                         'Revoke Access'
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Archive/Restore Confirmation Dialog */}
+            {
+                archiveConfirm && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full mx-4">
+                            <div className={`w-12 h-12 ${archiveConfirm.isArchived ? 'bg-emerald-500/10' : 'bg-amber-500/10'} rounded-full flex items-center justify-center mb-4`}>
+                                {archiveConfirm.isArchived
+                                    ? <ArchiveRestore className="w-6 h-6 text-emerald-500" />
+                                    : <Archive className="w-6 h-6 text-amber-500" />
+                                }
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">
+                                {archiveConfirm.isArchived ? 'Restore User' : 'Archive User'}
+                            </h3>
+                            <p className="text-slate-400 mb-6">
+                                {archiveConfirm.isArchived
+                                    ? <>Restore <span className="text-white font-medium">{archiveConfirm.email}</span> to the active users list?</>
+                                    : <>Archive <span className="text-white font-medium">{archiveConfirm.email}</span>? They will be hidden from the Users list but can be restored later.</>
+                                }
+                            </p>
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setArchiveConfirm(null)}
+                                    disabled={archiving}
+                                    className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleArchiveUser(archiveConfirm.uid, !archiveConfirm.isArchived)}
+                                    disabled={archiving}
+                                    className={`px-4 py-2 rounded-lg text-white transition-colors disabled:opacity-50 flex items-center gap-2 ${archiveConfirm.isArchived
+                                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                                        : 'bg-amber-600 hover:bg-amber-700'
+                                        }`}
+                                >
+                                    {archiving ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            {archiveConfirm.isArchived ? 'Restoring...' : 'Archiving...'}
+                                        </>
+                                    ) : (
+                                        archiveConfirm.isArchived ? 'Restore User' : 'Archive User'
                                     )}
                                 </button>
                             </div>

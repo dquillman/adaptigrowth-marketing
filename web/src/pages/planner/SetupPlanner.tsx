@@ -80,7 +80,7 @@ export default function SetupPlanner() {
                 {/* Flexible Practice Microcopy - shown when user doesn't have a plan yet */}
                 {!editMode && !fromDiagnostic && (
                     <p className="text-sm text-slate-500 text-center mb-6">
-                        You're practicing freely. Take the Diagnostic anytime to unlock a personalized plan.
+                        You're practicing freely. Your diagnostic unlocks a personalized study plan.
                     </p>
                 )}
 

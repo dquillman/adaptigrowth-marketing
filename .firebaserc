@@ -9,7 +9,7 @@
           "exam-coach-ai-platform"
         ],
         "admin": [
-          "exam-coach-ai-platform-admin"
+          "admin-core-20292"
         ],
         "staging": [
           "exam-coach-ai-platform-staging"

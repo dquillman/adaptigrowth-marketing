@@ -2,7 +2,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { DISPLAY_VERSION } from '../version';
 import { useSidebar } from '../contexts/SidebarContext';
-import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle, PlayCircle } from 'lucide-react';
 
 export default function Sidebar() {
     const { logout, user } = useAuth();
@@ -22,6 +22,7 @@ export default function Sidebar() {
 
     const menuItems = [
         { label: "Dashboard", path: "/app", icon: <LayoutDashboard className="w-5 h-5" /> },
+        { label: "Start Here", path: "/app/start-here", icon: <PlayCircle className="w-5 h-5" /> },
         { label: "Study Plan", path: "/app/planner", icon: <Calendar className="w-5 h-5" /> },
         { label: "Verbal Mode", path: "/app/verbal", icon: <Mic className="w-5 h-5" /> },
         { label: "Readiness", path: "/app/readiness", icon: <Target className="w-5 h-5" /> },

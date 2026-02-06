@@ -31,16 +31,40 @@ export const PredictionEngine = {
         try {
             // Query from quizRuns/{userId}/runs - the actual data source
             const runsRef = collection(db, 'quizRuns', userId, 'runs');
-            const q = query(
-                runsRef,
-                where('examId', '==', examId),
-                where('status', '==', 'completed'),
-                orderBy('completedAt', 'desc'),
-                limit(50) // Analyze last 50 runs
-            );
 
-            const snapshot = await getDocs(q);
-            const runs = snapshot.docs.map(d => d.data());
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let runs: any[] = [];
+
+            try {
+                // Try with composite query first (if index exists)
+                const q = query(
+                    runsRef,
+                    where('examId', '==', examId),
+                    where('status', '==', 'completed'),
+                    orderBy('completedAt', 'desc'),
+                    limit(50)
+                );
+                const snapshot = await getDocs(q);
+                runs = snapshot.docs.map(d => d.data());
+            } catch {
+                // Fallback: query only by status, filter client-side
+                console.warn("PredictionEngine: Composite index not available, using fallback query");
+                const fallbackQ = query(
+                    runsRef,
+                    where('status', '==', 'completed'),
+                    limit(100)
+                );
+                const snapshot = await getDocs(fallbackQ);
+                runs = snapshot.docs
+                    .map(d => d.data())
+                    .filter(r => r.examId === examId)
+                    .sort((a, b) => {
+                        const aTime = (a.completedAt as any)?.seconds || 0;
+                        const bTime = (b.completedAt as any)?.seconds || 0;
+                        return bTime - aTime;
+                    })
+                    .slice(0, 50);
+            }
 
             if (runs.length === 0) {
                 return {

@@ -48,7 +48,7 @@ export default function About() {
                             </div>
                             <h3 className="text-lg font-bold text-white mb-2 font-display">Smart Readiness</h3>
                             <p className="text-slate-400 text-sm leading-relaxed">
-                                Our advanced algorithm calculates your exam readiness by weighing your overall accuracy, recent trends, and question volume—preventing false confidence.
+                                Your diagnostic sets a baseline. Smart Practice drives improvement. Our algorithm weighs your accuracy, trends, and volume to show true readiness.
                             </p>
                         </div>
                         <div className="bg-slate-800/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-700">
@@ -95,8 +95,8 @@ export default function About() {
                             <li className="flex gap-4">
                                 <span className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-sm">1</span>
                                 <div>
-                                    <h4 className="text-white font-medium mb-1">Take the Daily Quiz</h4>
-                                    <p className="text-slate-400 text-sm">Start every session with a quick quiz. It warms up your brain and updates your mastery profile.</p>
+                                    <h4 className="text-white font-medium mb-1">Practice with Smart Start</h4>
+                                    <p className="text-slate-400 text-sm">Jump into Smart Practice from your dashboard. The AI picks questions targeting your weak spots and tracks your improvement.</p>
                                 </div>
                             </li>
                             <li className="flex gap-4">

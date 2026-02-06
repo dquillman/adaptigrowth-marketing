@@ -58,6 +58,28 @@ export function getUserEntitlement(userData: DocumentData | undefined, authUser?
     if (userData) {
         const plan = (userData.plan as UserPlan) || 'free';
 
+        // Handle TESTER access (role-based Pro access)
+        // Testers get full Pro access without Stripe billing
+        const isTester = userData.role === 'tester' || userData.testerOverride === true;
+        if (isTester) {
+            // Check if tester access has an expiration
+            const testerExpiresAt = userData.testerExpiresAt instanceof Timestamp
+                ? userData.testerExpiresAt.toDate()
+                : null;
+
+            // If no expiration set, or expiration is in the future, grant Pro access
+            if (!testerExpiresAt || testerExpiresAt > now) {
+                return {
+                    ...defaultState,
+                    isFree: false,
+                    isPro: true,
+                    plan: 'pro',
+                    accessLevel: 'pro',
+                    trialConsumed: true
+                };
+            }
+            // If tester access has expired, fall through to normal logic
+        }
 
         // Handle explicit legacy "isPro" override
         if (userData.isPro === true) {

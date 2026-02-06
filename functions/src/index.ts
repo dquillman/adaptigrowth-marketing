@@ -817,7 +817,8 @@ export const getAdminUserList = functions.https.onCall(async (data, context) => 
                 access: profile?.access,
                 testerOverride: profile?.testerOverride,
                 testerExpiresAt: profile?.testerExpiresAt,
-                role: profile?.role || 'user'
+                role: profile?.role || 'user',
+                archived: profile?.archived || false
             };
         });
 
@@ -919,7 +920,21 @@ export const resetExamProgress = functions.https.onCall(async (data, context) =>
 
         await batch.commit();
 
-        return { success: true, count: attemptsSnap.size };
+        // 4. Delete quizRuns (separate batch due to subcollection structure)
+        // This is the NEW data source for Stats/Analytics
+        const runsQuery = db.collection('quizRuns').doc(userId).collection('runs')
+            .where('examId', '==', examId);
+
+        const runsSnap = await runsQuery.get();
+        if (runsSnap.size > 0) {
+            const runsBatch = db.batch();
+            runsSnap.docs.forEach((doc) => {
+                runsBatch.delete(doc.ref);
+            });
+            await runsBatch.commit();
+        }
+
+        return { success: true, count: attemptsSnap.size + runsSnap.size };
 
     } catch (error: any) {
         console.error("Error resetting progress:", error);

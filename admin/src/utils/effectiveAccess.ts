@@ -15,6 +15,7 @@ export interface UserData {
         endDate: { _seconds: number, _nanoseconds: number };
     };
     trialEndsAt?: { _seconds: number, _nanoseconds: number };
+    archived?: boolean; // Soft-delete flag
 }
 
 export type AccessType = 'tester' | 'trial' | 'pro' | 'tester_invalid' | 'expired_trial' | 'none';

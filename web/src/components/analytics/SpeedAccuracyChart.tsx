@@ -70,22 +70,47 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
 
             try {
                 // Query from quizRuns/{userId}/runs - the actual data source
+                // Using simple query to avoid composite index requirements
                 const userId = auth.currentUser.uid;
-                const q = query(
-                    collection(db, 'quizRuns', userId, 'runs'),
-                    where('examId', '==', currentExamId),
-                    where('status', '==', 'completed'),
-                    orderBy('completedAt', 'desc'),
-                    limit(50)
-                );
+                const runsRef = collection(db, 'quizRuns', userId, 'runs');
 
-                const snapshot = await getDocs(q);
-                const runs = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+                let runs: any[] = [];
 
-                // Exclude diagnostics (no meaningful score data)
+                try {
+                    // Try with composite query first (if index exists)
+                    const q = query(
+                        runsRef,
+                        where('examId', '==', currentExamId),
+                        where('status', '==', 'completed'),
+                        orderBy('completedAt', 'desc'),
+                        limit(50)
+                    );
+                    const snapshot = await getDocs(q);
+                    runs = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                } catch {
+                    // Fallback: query only by status, filter client-side
+                    console.warn("SpeedAccuracyChart: Composite index not available, using fallback query");
+                    const fallbackQ = query(
+                        runsRef,
+                        where('status', '==', 'completed'),
+                        limit(100)
+                    );
+                    const snapshot = await getDocs(fallbackQ);
+                    runs = snapshot.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter((r: any) => r.examId === currentExamId)
+                        .sort((a: any, b: any) => {
+                            const aTime = a.completedAt?.seconds || 0;
+                            const bTime = b.completedAt?.seconds || 0;
+                            return bTime - aTime; // desc
+                        })
+                        .slice(0, 50);
+                }
+
+                // Exclude diagnostics (no meaningful trend data for chart)
                 const scored = runs.filter((r: any) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic');
 
                 // Process data for chart (reverse to show chronological order)
@@ -132,8 +157,9 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
 
     if (data.length === 0) {
         return (
-            <div className="h-64 w-full flex items-center justify-center text-slate-400 bg-slate-800/30 rounded-xl border border-slate-700/50">
-                No quiz data available yet.
+            <div className="h-64 w-full flex flex-col items-center justify-center text-slate-400 bg-slate-800/30 rounded-xl border border-slate-700/50 px-4 text-center">
+                <p className="font-medium">Performance trends appear after your first Smart Practice session.</p>
+                <p className="text-sm text-slate-500 mt-1">Diagnostic results are not included in trend analysis.</p>
             </div>
         );
     }

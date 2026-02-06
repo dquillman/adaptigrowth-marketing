@@ -111,7 +111,7 @@ export default function Help() {
                             </div>
                             <div className="flex-1">
                                 <h4 className="font-bold text-white">1. Take the Diagnostic</h4>
-                                <p className="text-sm text-slate-400">10-minute baseline assessment. The AI learns where you stand.</p>
+                                <p className="text-sm text-slate-400">One-time baseline assessment. The AI learns where you stand and uses this to build your plan.</p>
                             </div>
                         </div>
 
@@ -199,7 +199,7 @@ export default function Help() {
                             </div>
                             <div className="flex-1">
                                 <h4 className="font-bold text-white">3. Add a Plan (Optional)</h4>
-                                <p className="text-sm text-slate-400">Feeling ready for structure? Take the diagnostic anytime to unlock a personalized study plan.</p>
+                                <p className="text-sm text-slate-400">Ready for structure? Take the diagnostic to unlock your personalized study plan.</p>
                             </div>
                         </div>
                     </div>
@@ -241,6 +241,17 @@ export default function Help() {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* About Performance Trends */}
+                <div className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50 mb-12">
+                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5 text-slate-400" />
+                        About Performance Trends
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                        Performance trends are based on your Smart Practice sessions. Your diagnostic establishes your baseline and is not included in trend charts. If you reset your progress, your visible trends and practice history will be cleared.
+                    </p>
                 </div>
 
                 {/* XP & Levels Breakdown */}
