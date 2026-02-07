@@ -71,7 +71,8 @@ export default function StartHere() {
                 {/* CTA - Adaptive based on diagnostic completion */}
                 <div className="mt-12 text-center">
                     <Link
-                        to={hasCompletedDiagnostic ? "/app/planner" : "/app/diagnostics"}
+                        to={hasCompletedDiagnostic ? "/app/planner" : "/app/quiz"}
+                        state={hasCompletedDiagnostic ? undefined : { mode: 'diagnostic' }}
                         className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white px-8 py-4 rounded-xl font-bold hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg hover:shadow-brand-500/25 group"
                     >
                         {hasCompletedDiagnostic ? "Go to Your Study Plan" : "Start Diagnostic"}

@@ -1,12 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../firebase';
-// import { Link } from 'react-router-dom';
+import { functions, db } from '../firebase';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../App';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function DiagnosticsPage() {
+    const { user } = useAuth();
+    const [role, setRole] = useState<string | null>(null);
+    const [roleLoaded, setRoleLoaded] = useState(false);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Fetch user role for admin gate
+    useEffect(() => {
+        if (!user) { setRoleLoaded(true); return; }
+        getDoc(doc(db, 'users', user.uid))
+            .then(snap => setRole(snap.exists() ? (snap.data()?.role || 'user') : 'user'))
+            .catch(() => setRole('user'))
+            .finally(() => setRoleLoaded(true));
+    }, [user]);
+
+    if (!roleLoaded) return null;
+    if (role?.toLowerCase() !== 'admin') return <Navigate to="/app" replace />;
 
     const runTest = async () => {
         setLoading(true);
