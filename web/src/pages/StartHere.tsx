@@ -42,11 +42,37 @@ export default function StartHere() {
             <div className="mx-auto max-w-3xl px-6 py-12">
                 {/* Intro */}
                 <div className="text-center mb-12">
-                    <h2 className="text-3xl font-bold font-display text-white mb-4">New to ExamCoach?</h2>
-                    <p className="text-lg text-slate-400 max-w-xl mx-auto">
-                        A quick overview of how ExamCoach is different, before you begin.
-                    </p>
+                    <h2 className="text-3xl font-bold font-display text-white mb-4">
+                        {hasCompletedDiagnostic ? 'New to ExamCoach?' : 'Before you begin'}
+                    </h2>
+                    {!hasCompletedDiagnostic ? (
+                        <>
+                            <p className="text-lg text-slate-400 max-w-xl mx-auto mb-2">
+                                Would you like a 2-minute orientation before you begin?
+                            </p>
+                            <p className="text-sm text-slate-500 max-w-md mx-auto">
+                                Totally optional — you can skip straight to your diagnostic if you prefer.
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-lg text-slate-400 max-w-xl mx-auto">
+                            A quick overview of how ExamCoach is different.
+                        </p>
+                    )}
                 </div>
+
+                {/* Skip to Diagnostic (pre-diagnostic users only) */}
+                {!hasCompletedDiagnostic && (
+                    <div className="text-center mb-8">
+                        <Link
+                            to="/app/quiz"
+                            state={{ mode: 'diagnostic' }}
+                            className="text-sm text-slate-400 hover:text-white transition-colors underline underline-offset-4"
+                        >
+                            Skip to Diagnostic
+                        </Link>
+                    </div>
+                )}
 
                 {/* Single Orientation Video */}
                 <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
@@ -68,7 +94,7 @@ export default function StartHere() {
                     </div>
                 </div>
 
-                {/* CTA - Adaptive based on diagnostic completion */}
+                {/* CTA - Both paths converge to diagnostic (or planner if returning) */}
                 <div className="mt-12 text-center">
                     <Link
                         to={hasCompletedDiagnostic ? "/app/planner" : "/app/quiz"}

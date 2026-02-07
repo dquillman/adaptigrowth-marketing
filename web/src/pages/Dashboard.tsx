@@ -6,10 +6,11 @@ import { DISPLAY_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, getDocs, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { XPService } from '../services/xpService';
 import LevelBadge from '../components/LevelBadge';
 import ExamSelector from '../components/ExamSelector';
+import { DiagnosticService } from '../services/DiagnosticService';
 
 import LevelDetailModal from '../components/LevelDetailModal';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
@@ -58,6 +59,18 @@ export default function Dashboard() {
     const [showReportModal, setShowReportModal] = useState(false);
 
     const { trial } = useTrial();
+
+    // Onboarding gate: redirect first-time users to orientation
+    const [onboardingChecked, setOnboardingChecked] = useState(false);
+    const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+    useEffect(() => {
+        if (!auth.currentUser?.uid || !selectedExamId) return;
+        DiagnosticService.getLatestRun(auth.currentUser.uid, selectedExamId)
+            .then(run => setNeedsOnboarding(run?.status !== 'completed'))
+            .catch(() => setNeedsOnboarding(false))
+            .finally(() => setOnboardingChecked(true));
+    }, [selectedExamId]);
 
     // 1. Fetch domain totals when exam context changes
     useEffect(() => {
@@ -258,8 +271,13 @@ export default function Dashboard() {
         navigate('/app/quiz', { state: { filterDomain: weakest, mode: 'weakest' } });
     };
 
-    if (loading) {
+    if (loading || !onboardingChecked) {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
+    }
+
+    // Onboarding gate: first-time users go to orientation page
+    if (needsOnboarding) {
+        return <Navigate to="/app/start-here" replace />;
     }
 
     const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
