@@ -275,8 +275,9 @@ export default function Dashboard() {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
 
-    // Onboarding gate: first-time users go to orientation page
-    if (needsOnboarding) {
+    // Onboarding gate: first-time users go to orientation page (one-time only)
+    const onboardingAck = localStorage.getItem('ec_onboarding_ack') === 'true';
+    if (needsOnboarding && !onboardingAck) {
         return <Navigate to="/app/start-here" replace />;
     }
 
