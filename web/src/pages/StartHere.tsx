@@ -1,5 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, PlayCircle } from 'lucide-react';
+import { useAuth } from '../App';
+import { useExam } from '../contexts/ExamContext';
+import { DiagnosticService } from '../services/DiagnosticService';
 
 // VideoCard component preserved for future use (multiple videos)
 // interface VideoCardProps {
@@ -40,6 +44,22 @@ import { ChevronLeft, PlayCircle } from 'lucide-react';
 // }
 
 export default function StartHere() {
+    const { user } = useAuth();
+    const { selectedExamId } = useExam();
+    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState(false);
+
+    // Check diagnostic completion status
+    useEffect(() => {
+        const checkDiagnostic = async () => {
+            if (!user?.uid || !selectedExamId) return;
+
+            const latestRun = await DiagnosticService.getLatestRun(user.uid, selectedExamId);
+            setHasCompletedDiagnostic(latestRun?.status === 'completed');
+        };
+
+        checkDiagnostic();
+    }, [user?.uid, selectedExamId]);
+
     // Video URLs - update these when videos are hosted
     // v15: Single orientation video only
     const orientationVideo = {
@@ -102,13 +122,13 @@ export default function StartHere() {
                     </div>
                 </div>
 
-                {/* CTA */}
+                {/* CTA - Adaptive based on diagnostic completion */}
                 <div className="mt-12 text-center">
                     <Link
-                        to="/app/diagnostics"
+                        to={hasCompletedDiagnostic ? "/app/planner" : "/app/diagnostics"}
                         className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white px-8 py-4 rounded-xl font-bold hover:from-brand-500 hover:to-brand-400 transition-all shadow-lg hover:shadow-brand-500/25 group"
                     >
-                        Start Diagnostic
+                        {hasCompletedDiagnostic ? "Go to Your Study Plan" : "Start Diagnostic"}
                         <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
