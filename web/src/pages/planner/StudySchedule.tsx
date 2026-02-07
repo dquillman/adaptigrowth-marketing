@@ -32,8 +32,9 @@ export default function StudySchedule() {
     // Injected reinforcement task state (post-diagnostic/mock)
     const [injectedTask, setInjectedTask] = useState<InjectedTask | null>(null);
 
-    // Readiness state for mock exam demotion
-    const [isHighRisk, setIsHighRisk] = useState(false);
+    // Readiness state for mock exam gating (v15 trust fix)
+    const [readinessScore, setReadinessScore] = useState<number | null>(null);
+    const [readinessLoaded, setReadinessLoaded] = useState(false);
 
     // Diagnostic context from navigation
     const fromDiagnostic = location.state?.source === 'diagnostic';
@@ -144,8 +145,8 @@ export default function StudySchedule() {
         setInjectedTask(null);
     };
 
-    // Check readiness to determine if mock exams should be demoted
-    // Uses same logic as Exam Simulator: overallScore < 50 = High Risk
+    // Check readiness BEFORE Today's Mission renders (v15 trust fix)
+    // Score thresholds: <50 High Risk, 50-69 Borderline, >=70 Ready
     useEffect(() => {
         if (!user || !selectedExamId) return;
 
@@ -153,13 +154,12 @@ export default function StudySchedule() {
             try {
                 const { PredictionEngine } = await import('../../services/PredictionEngine');
                 const report = await PredictionEngine.calculateReadiness(user.uid, selectedExamId);
-                // High Risk = overallScore < 50 (same threshold as Exam Simulator)
-                const score = report?.overallScore ?? 100; // Default to safe if no data
-                setIsHighRisk(score < 50);
+                setReadinessScore(report?.overallScore ?? 100);
             } catch (error) {
                 console.error('Readiness check failed:', error);
-                // Default to not high risk if check fails
-                setIsHighRisk(false);
+                setReadinessScore(100); // Default to safe if check fails
+            } finally {
+                setReadinessLoaded(true);
             }
         };
 
@@ -190,7 +190,7 @@ export default function StudySchedule() {
         loadPlan();
     }, [user, navigate, selectedExamId]);
 
-    if (loading) return <div className="p-8 text-center text-slate-400">Loading your personalized roadmap...</div>;
+    if (loading || !readinessLoaded) return <div className="p-8 text-center text-slate-400">Loading your personalized roadmap...</div>;
     if (!plan) return null;
 
     // Group tasks by date
@@ -206,17 +206,26 @@ export default function StudySchedule() {
         return d.getTime() === today.getTime();
     });
 
-    // When High Risk, demote mock exams to the END of Today's Mission
-    // This ensures mock exams never appear as the first task when readiness is low
-    const todaysTasks = isHighRisk
-        ? [...todaysTasksRaw].sort((a, b) => {
-            const aIsMock = a.activityType === 'mock-exam';
-            const bIsMock = b.activityType === 'mock-exam';
-            if (aIsMock && !bIsMock) return 1;  // Mock goes after non-mock
-            if (!aIsMock && bIsMock) return -1; // Non-mock goes before mock
-            return 0; // Preserve original order otherwise
-        })
-        : todaysTasksRaw;
+    // v15 trust fix: Gate mock exams based on readiness score
+    // High Risk (<50): Suppress mock exams entirely
+    // Borderline (50-69): Allow but never first
+    // Ready (>=70): Normal behavior
+    const todaysTasks = (() => {
+        const score = readinessScore ?? 100;
+        if (score < 50) {
+            return todaysTasksRaw.filter(t => t.activityType !== 'mock-exam');
+        }
+        if (score < 70) {
+            return [...todaysTasksRaw].sort((a, b) => {
+                const aIsMock = a.activityType === 'mock-exam';
+                const bIsMock = b.activityType === 'mock-exam';
+                if (aIsMock && !bIsMock) return 1;
+                if (!aIsMock && bIsMock) return -1;
+                return 0;
+            });
+        }
+        return todaysTasksRaw;
+    })();
 
     const upcomingTasks = sortedTasks.filter(t => {
         const d = new Date(t.date);
