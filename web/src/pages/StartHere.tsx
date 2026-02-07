@@ -1,47 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, PlayCircle } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useAuth } from '../App';
 import { useExam } from '../contexts/ExamContext';
 import { DiagnosticService } from '../services/DiagnosticService';
-
-// VideoCard component preserved for future use (multiple videos)
-// interface VideoCardProps {
-//     number: number;
-//     title: string;
-//     videoUrl?: string;
-// }
-//
-// function VideoCard({ number, title, videoUrl }: VideoCardProps) {
-//     return (
-//         <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
-//             <div className="p-4 border-b border-slate-700/50">
-//                 <div className="flex items-center gap-3">
-//                     <span className="w-8 h-8 rounded-full bg-brand-500/20 text-brand-400 flex items-center justify-center text-sm font-bold">
-//                         {number}
-//                     </span>
-//                     <h3 className="font-bold text-white">{title}</h3>
-//                 </div>
-//             </div>
-//             <div className="aspect-video bg-slate-900 flex items-center justify-center">
-//                 {videoUrl ? (
-//                     <iframe
-//                         src={videoUrl}
-//                         title={title}
-//                         className="w-full h-full"
-//                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-//                         allowFullScreen
-//                     />
-//                 ) : (
-//                     <div className="text-center text-slate-500">
-//                         <PlayCircle className="w-16 h-16 mx-auto mb-3 opacity-30" />
-//                         <p className="text-sm">Video coming soon</p>
-//                     </div>
-//                 )}
-//             </div>
-//         </div>
-//     );
-// }
 
 export default function StartHere() {
     const { user } = useAuth();
@@ -59,19 +21,6 @@ export default function StartHere() {
 
         checkDiagnostic();
     }, [user?.uid, selectedExamId]);
-
-    // Video URLs - update these when videos are hosted
-    // v15: Single orientation video only
-    const orientationVideo = {
-        title: "A Smarter Way to Study",
-        videoUrl: undefined, // Replace with actual URL
-    };
-
-    // Future videos (hidden for v15, kept for potential reuse)
-    // const futureVideos = [
-    //     { number: 2, title: "How ExamCoach Trains Your Thinking", videoUrl: undefined },
-    //     { number: 3, title: "How to Use ExamCoach (2-Minute Start)", videoUrl: undefined },
-    // ];
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-brand-500/30">
@@ -102,23 +51,20 @@ export default function StartHere() {
                 {/* Single Orientation Video */}
                 <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 overflow-hidden">
                     <div className="p-4 border-b border-slate-700/50">
-                        <h3 className="font-bold text-white">{orientationVideo.title}</h3>
+                        <h3 className="font-bold text-white">A Smarter Way to Study</h3>
                     </div>
-                    <div className="aspect-video bg-slate-900 flex items-center justify-center">
-                        {orientationVideo.videoUrl ? (
-                            <iframe
-                                src={orientationVideo.videoUrl}
-                                title={orientationVideo.title}
-                                className="w-full h-full"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
+                    <div className="bg-slate-900">
+                        <video
+                            controls
+                            preload="metadata"
+                            className="w-full rounded-b-2xl border-t border-slate-700"
+                        >
+                            <source
+                                src="/videos/ec/v15/ec-v15-video-01-a-smarter-way-to-study.mp4"
+                                type="video/mp4"
                             />
-                        ) : (
-                            <div className="text-center text-slate-500">
-                                <PlayCircle className="w-16 h-16 mx-auto mb-3 opacity-30" />
-                                <p className="text-sm">Video coming soon</p>
-                            </div>
-                        )}
+                            Your browser does not support the video tag.
+                        </video>
                     </div>
                 </div>
 
