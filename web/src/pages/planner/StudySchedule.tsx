@@ -34,6 +34,7 @@ export default function StudySchedule() {
 
     // Readiness state for mock exam gating (v15 trust fix)
     const [readinessScore, setReadinessScore] = useState<number | null>(null);
+    const [readinessPreliminary, setReadinessPreliminary] = useState(false);
     const [readinessLoaded, setReadinessLoaded] = useState(false);
 
     // Diagnostic context from navigation
@@ -155,6 +156,7 @@ export default function StudySchedule() {
                 const { PredictionEngine } = await import('../../services/PredictionEngine');
                 const report = await PredictionEngine.calculateReadiness(user.uid, selectedExamId);
                 setReadinessScore(report?.overallScore ?? 100);
+                setReadinessPreliminary(report?.isPreliminary ?? false);
             } catch (error) {
                 console.error('Readiness check failed:', error);
                 setReadinessScore(100); // Default to safe if check fails
@@ -206,11 +208,13 @@ export default function StudySchedule() {
         return d.getTime() === today.getTime();
     });
 
-    // v15 trust fix: Gate mock exams based on readiness score
-    // High Risk (<50): Suppress mock exams entirely
-    // Borderline (50-69): Allow but never first
-    // Ready (>=70): Normal behavior
+    // v15 trust fix: Gate mock exams based on readiness
+    // HIGHEST PRIORITY: If preliminary (remaining questions > 0), suppress entirely
+    // Then score thresholds: <50 suppress, 50-69 never first, >=70 normal
     const todaysTasks = (() => {
+        if (readinessPreliminary) {
+            return todaysTasksRaw.filter(t => t.activityType !== 'mock-exam');
+        }
         const score = readinessScore ?? 100;
         if (score < 50) {
             return todaysTasksRaw.filter(t => t.activityType !== 'mock-exam');
