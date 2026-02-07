@@ -32,6 +32,9 @@ export default function StudySchedule() {
     // Injected reinforcement task state (post-diagnostic/mock)
     const [injectedTask, setInjectedTask] = useState<InjectedTask | null>(null);
 
+    // Readiness state for mock exam demotion
+    const [isHighRisk, setIsHighRisk] = useState(false);
+
     // Diagnostic context from navigation
     const fromDiagnostic = location.state?.source === 'diagnostic';
     const recommendedDomain = location.state?.recommendedDomain;
@@ -141,6 +144,28 @@ export default function StudySchedule() {
         setInjectedTask(null);
     };
 
+    // Check readiness to determine if mock exams should be demoted
+    // Uses same logic as Exam Simulator: overallScore < 50 = High Risk
+    useEffect(() => {
+        if (!user || !selectedExamId) return;
+
+        const checkReadiness = async () => {
+            try {
+                const { PredictionEngine } = await import('../../services/PredictionEngine');
+                const report = await PredictionEngine.calculateReadiness(user.uid, selectedExamId);
+                // High Risk = overallScore < 50 (same threshold as Exam Simulator)
+                const score = report?.overallScore ?? 100; // Default to safe if no data
+                setIsHighRisk(score < 50);
+            } catch (error) {
+                console.error('Readiness check failed:', error);
+                // Default to not high risk if check fails
+                setIsHighRisk(false);
+            }
+        };
+
+        checkReadiness();
+    }, [user, selectedExamId]);
+
     useEffect(() => {
         if (!user || !selectedExamId) return;
 
@@ -175,11 +200,23 @@ export default function StudySchedule() {
     // Sort tasks
     const sortedTasks = [...plan.tasks].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    const todaysTasks = sortedTasks.filter(t => {
+    const todaysTasksRaw = sortedTasks.filter(t => {
         const d = new Date(t.date);
         d.setHours(0, 0, 0, 0);
         return d.getTime() === today.getTime();
     });
+
+    // When High Risk, demote mock exams to the END of Today's Mission
+    // This ensures mock exams never appear as the first task when readiness is low
+    const todaysTasks = isHighRisk
+        ? [...todaysTasksRaw].sort((a, b) => {
+            const aIsMock = a.activityType === 'mock-exam';
+            const bIsMock = b.activityType === 'mock-exam';
+            if (aIsMock && !bIsMock) return 1;  // Mock goes after non-mock
+            if (!aIsMock && bIsMock) return -1; // Non-mock goes before mock
+            return 0; // Preserve original order otherwise
+        })
+        : todaysTasksRaw;
 
     const upcomingTasks = sortedTasks.filter(t => {
         const d = new Date(t.date);
