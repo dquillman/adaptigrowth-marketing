@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw, Zap } from 'lucide-react';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
 import { useExam } from '../../contexts/ExamContext';
 import type { StudyPlan, DailyTask } from '../../types/StudyPlan';
 import { useNavigate, useLocation } from 'react-router-dom';
 import MockExamConfigModal from '../../components/planner/MockExamConfigModal';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase';
+
+// Injected reinforcement task after diagnostic/mock
+interface InjectedTask {
+    id: string;
+    runId: string;
+    domain: string;
+    source: 'diagnostic' | 'mock-exam';
+}
 
 export default function StudySchedule() {
     const { user } = useAuth();
@@ -18,6 +28,9 @@ export default function StudySchedule() {
     // Recalculation state
     const [recalculating, setRecalculating] = useState(false);
     const [recalcToast, setRecalcToast] = useState<{ show: boolean; domain: string | null; error?: string }>({ show: false, domain: null });
+
+    // Injected reinforcement task state (post-diagnostic/mock)
+    const [injectedTask, setInjectedTask] = useState<InjectedTask | null>(null);
 
     // Diagnostic context from navigation
     const fromDiagnostic = location.state?.source === 'diagnostic';
@@ -50,6 +63,83 @@ export default function StudySchedule() {
 
     // Use the global Exam context
     const { selectedExamId, examName } = useExam();
+
+    // Check for recent diagnostic/mock that needs reinforcement
+    useEffect(() => {
+        if (!user || !selectedExamId) return;
+
+        const checkForReinforcement = async () => {
+            try {
+                // Query recent completed diagnostic or simulation runs
+                const runsRef = collection(db, 'quizRuns', user.uid, 'runs');
+                const q = query(
+                    runsRef,
+                    where('status', '==', 'completed'),
+                    where('examId', '==', selectedExamId),
+                    orderBy('completedAt', 'desc'),
+                    limit(5)
+                );
+
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) return;
+
+                // Find the most recent diagnostic or simulation (mock exam)
+                for (const docSnap of snapshot.docs) {
+                    const run = docSnap.data();
+                    const runId = docSnap.id;
+
+                    // Only consider diagnostic or simulation (mock exam) runs
+                    if (run.quizType !== 'diagnostic' && run.quizType !== 'simulation') continue;
+
+                    // Check if we've already addressed this run
+                    const ackKey = `ec_reinforcement_ack_${runId}`;
+                    if (localStorage.getItem(ackKey)) continue;
+
+                    // Extract weakest domain from results
+                    const domainResults = run.results?.domainResults;
+                    if (!domainResults) continue;
+
+                    let weakestDomain: string | null = null;
+                    let worstAccuracy = Infinity;
+
+                    for (const [domain, stats] of Object.entries(domainResults) as [string, { correct: number; total: number }][]) {
+                        if (stats.total > 0) {
+                            const accuracy = stats.correct / stats.total;
+                            if (accuracy < worstAccuracy) {
+                                worstAccuracy = accuracy;
+                                weakestDomain = domain;
+                            }
+                        }
+                    }
+
+                    if (weakestDomain) {
+                        setInjectedTask({
+                            id: `reinforcement-${runId}`,
+                            runId,
+                            domain: weakestDomain,
+                            source: run.quizType === 'diagnostic' ? 'diagnostic' : 'mock-exam'
+                        });
+                        return; // Only one injection at a time
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking for reinforcement:', error);
+            }
+        };
+
+        checkForReinforcement();
+    }, [user, selectedExamId]);
+
+    // Handle completing the injected reinforcement task
+    const handleReinforcementComplete = () => {
+        if (!injectedTask) return;
+
+        // Mark as acknowledged in localStorage
+        const ackKey = `ec_reinforcement_ack_${injectedTask.runId}`;
+        localStorage.setItem(ackKey, new Date().toISOString());
+
+        setInjectedTask(null);
+    };
 
     useEffect(() => {
         if (!user || !selectedExamId) return;
@@ -298,23 +388,63 @@ export default function StudySchedule() {
                     Today's Mission
                 </h2>
 
-                {todaysTasks.length === 0 ? (
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
-                        <CheckCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                        <p>No tasks scheduled for today. Enjoy your break!</p>
-                    </div>
-                ) : (
-                    <div className="grid gap-4">
-                        {todaysTasks.map(task => (
+                <div className="grid gap-4">
+                    {/* Injected Reinforcement Task - appears FIRST */}
+                    {injectedTask && (
+                        <div className="bg-gradient-to-r from-amber-900/40 to-slate-800 border-2 border-amber-500/50 rounded-xl p-4 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none"></div>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                                    <Zap className="w-6 h-6 text-amber-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                            PRIORITY
+                                        </span>
+                                        <span className="text-xs text-slate-400">~20 min</span>
+                                    </div>
+                                    <h3 className="font-bold text-white">Focused Reinforcement: {injectedTask.domain}</h3>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        Based on your recent {injectedTask.source === 'diagnostic' ? 'diagnostic' : 'mock exam'} results
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        navigate('/app/quiz', {
+                                            state: {
+                                                mode: 'weakest',
+                                                filterDomain: injectedTask.domain,
+                                                source: 'reinforcement'
+                                            }
+                                        });
+                                        handleReinforcementComplete();
+                                    }}
+                                    className="shrink-0 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+                                >
+                                    Start
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Regular Today's Tasks */}
+                    {todaysTasks.length === 0 && !injectedTask ? (
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
+                            <CheckCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                            <p>No tasks scheduled for today. Enjoy your break!</p>
+                        </div>
+                    ) : (
+                        todaysTasks.map(task => (
                             <TaskCard
                                 key={task.id}
                                 task={task}
                                 onToggleComplete={() => handleToggleComplete(task.id, task.completed)}
                                 onStartMock={() => setShowExamConfig(true)}
                             />
-                        ))}
-                    </div>
-                )}
+                        ))
+                    )}
+                </div>
             </section>
 
             {/* Upcoming */}
