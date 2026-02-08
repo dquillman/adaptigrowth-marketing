@@ -749,6 +749,9 @@ export default function Dashboard() {
                                         localStorage.removeItem('exam_coach_last_reinforcement_shown');
                                         localStorage.removeItem('exam_coach_suggestion_history');
 
+                                        // Clear Onboarding Flag so Intro Video plays again
+                                        localStorage.removeItem('ec_onboarding_ack');
+
                                         // Suppress Thinking Traps until a new run completes
                                         localStorage.setItem('exam_coach_traps_suppressed', 'true');
 
