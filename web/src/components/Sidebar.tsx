@@ -16,7 +16,8 @@ export default function Sidebar() {
     const { selectedExamId } = useExam();
 
     // Hide Dashboard during onboarding (no completed diagnostic)
-    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState(true); // Default visible
+    // Tri-state: null = loading (show Dashboard), false = hide, true = show
+    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState<boolean | null>(null);
 
     useEffect(() => {
         if (!user?.uid || !selectedExamId) return;
@@ -45,8 +46,10 @@ export default function Sidebar() {
         { label: "FAQ", path: "/app/faq", icon: <HelpCircle className="w-5 h-5" /> },
     ];
 
+    // Hide Dashboard ONLY when explicitly false (confirmed no diagnostic)
+    // null (loading) and true both show Dashboard
     const menuItems = allMenuItems.filter(item =>
-        !item.requiresDiagnostic || hasCompletedDiagnostic
+        !item.requiresDiagnostic || hasCompletedDiagnostic !== false
     );
 
     return (
