@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { DISPLAY_VERSION } from '../version';
 import { useSidebar } from '../contexts/SidebarContext';
+import { useExam } from '../contexts/ExamContext';
+import { DiagnosticService } from '../services/DiagnosticService';
 import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle, PlayCircle } from 'lucide-react';
 
 export default function Sidebar() {
@@ -10,6 +13,17 @@ export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
     const { isCollapsed, toggleSidebar } = useSidebar();
+    const { selectedExamId } = useExam();
+
+    // Hide Dashboard during onboarding (no completed diagnostic)
+    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState(true); // Default visible
+
+    useEffect(() => {
+        if (!user?.uid || !selectedExamId) return;
+        DiagnosticService.getLatestRun(user.uid, selectedExamId)
+            .then(run => setHasCompletedDiagnostic(run?.status === 'completed'))
+            .catch(() => setHasCompletedDiagnostic(true));
+    }, [user?.uid, selectedExamId]);
 
     const handleLogout = async () => {
         try {
@@ -20,8 +34,8 @@ export default function Sidebar() {
         }
     };
 
-    const menuItems = [
-        { label: "Dashboard", path: "/app", icon: <LayoutDashboard className="w-5 h-5" /> },
+    const allMenuItems = [
+        { label: "Dashboard", path: "/app", icon: <LayoutDashboard className="w-5 h-5" />, requiresDiagnostic: true },
         { label: "New to ExamCoach?", path: "/app/start-here", icon: <PlayCircle className="w-5 h-5" /> },
         { label: "Study Plan", path: "/app/planner", icon: <Calendar className="w-5 h-5" /> },
         { label: "Verbal Mode", path: "/app/verbal", icon: <Mic className="w-5 h-5" /> },
@@ -30,6 +44,10 @@ export default function Sidebar() {
         { label: "Stats", path: "/app/stats", icon: <BarChart2 className="w-5 h-5" /> },
         { label: "FAQ", path: "/app/faq", icon: <HelpCircle className="w-5 h-5" /> },
     ];
+
+    const menuItems = allMenuItems.filter(item =>
+        !item.requiresDiagnostic || hasCompletedDiagnostic
+    );
 
     return (
         <aside className={`fixed left-0 top-0 z-40 h-screen ${isCollapsed ? 'w-20' : 'w-64'} bg-slate-950 border-r border-slate-800 flex flex-col transition-all duration-300`}>
