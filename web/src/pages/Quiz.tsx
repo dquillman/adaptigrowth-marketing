@@ -661,6 +661,12 @@ export default function Quiz() {
         const masteryId = `${userId}_${activeExamId}`;
         const masteryRef = doc(db, 'userMastery', masteryId);
 
+        // Prep Data for both specific persistence and legacy run completion
+        const totalDuration = questionDurations.reduce((a, b) => a + b, 0);
+        // Use the number of questions actually answered (details captured) as the total
+        const finalDetails = explicitDetails || quizDetails;
+        const answeredCount = finalDetails.length;
+
         try {
             const masteryDoc = await getDoc(masteryRef);
             let newMastery: Record<string, { correct: number; total: number }> = {};
@@ -687,19 +693,12 @@ export default function Quiz() {
             console.log('Mastery updated successfully');
 
             // Save Quiz Attempt
-            const totalDuration = questionDurations.reduce((a, b) => a + b, 0);
-            // const avgTime = totalDuration / questions.length;
-
             const attemptRef = collection(db, 'quizAttempts');
 
             // Determine primary domain for the quiz
             const filterDomain = location.state?.filterDomain;
             const primaryDomain = filterDomain || 'Mixed'; // Use specific domain if filtered, otherwise Mixed
 
-            // Use the number of questions actually answered (details captured) as the total
-            // This prevents penalizing the user if they quit early (e.g. 3/3 instead of 3/10)
-            const finalDetails = explicitDetails || quizDetails;
-            const answeredCount = finalDetails.length;
             if (answeredCount === 0) return; // Don't save empty attempts
 
             // EQV Telemetry: Effective Question Variety (uniqueQuestionsSeen / totalQuestionsPresented)
@@ -740,8 +739,11 @@ export default function Quiz() {
         if (activeRunId) {
             await QuizRunService.completeRun(userId, activeRunId, {
                 score,
-                totalQuestions: questions.length,
-                domainResults
+                totalQuestions: answeredCount,
+                domainResults,
+                timeSpent: totalDuration,
+                averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
+                mode: location.state?.mode || 'standard'
             });
         }
     };
@@ -1280,7 +1282,26 @@ export default function Quiz() {
                                             navigate('/app');
                                         } else {
                                             // Legacy Mode: Submit immediately
-                                            await saveQuizResults();
+                                            // BUG FIX: If user has SUBMITTED the current question (showExplanation is true),
+                                            // but not yet clicked NEXT, we need to include this question's details.
+                                            let finalDetails = quizDetails;
+
+                                            if (showExplanation) {
+                                                const currentQuestion = questions[currentQuestionIndex];
+                                                const isCorrect = selectedOption === currentQuestion.correctAnswer;
+
+                                                finalDetails = [...quizDetails, {
+                                                    questionId: currentQuestion.id,
+                                                    selectedOption,
+                                                    correctOption: currentQuestion.correctAnswer,
+                                                    isCorrect,
+                                                    domain: currentQuestion.domain,
+                                                    explanationViewed: explanationExpanded,
+                                                    actionLatency: explanationRenderTime ? (Date.now() - explanationRenderTime) / 1000 : null
+                                                }];
+                                            }
+
+                                            await saveQuizResults(finalDetails);
                                             // Re-enable Thinking Traps display after quiz completion
                                             localStorage.removeItem('exam_coach_traps_suppressed');
                                             setQuizCompleted(true);

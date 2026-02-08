@@ -15,6 +15,13 @@
           "exam-coach-ai-platform-staging"
         ]
       }
+    },
+    "exam-coach-ai-platform-staging": {
+      "hosting": {
+        "exam-coach": [
+          "exam-coach-ai-platform-staging"
+        ]
+      }
     }
   },
   "etags": {}
