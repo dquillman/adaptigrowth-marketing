@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { DISPLAY_VERSION } from '../version';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useExam } from '../contexts/ExamContext';
-import { DiagnosticService } from '../services/DiagnosticService';
 import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle, PlayCircle } from 'lucide-react';
 
 export default function Sidebar() {
@@ -13,18 +11,7 @@ export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
     const { isCollapsed, toggleSidebar } = useSidebar();
-    const { selectedExamId } = useExam();
-
-    // Hide Dashboard during onboarding (no completed diagnostic)
-    // Tri-state: null = loading (show Dashboard), false = hide, true = show
-    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState<boolean | null>(null);
-
-    useEffect(() => {
-        if (!user?.uid || !selectedExamId) return;
-        DiagnosticService.getLatestRun(user.uid, selectedExamId)
-            .then(run => setHasCompletedDiagnostic(run?.status === 'completed'))
-            .catch(() => setHasCompletedDiagnostic(true));
-    }, [user?.uid, selectedExamId]);
+    const { hasCompletedDiagnostic } = useExam();
 
     const handleLogout = async () => {
         try {

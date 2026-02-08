@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw, Zap, ChevronLeft } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw, Zap } from 'lucide-react';
+import DashboardLink from '../../components/DashboardLink';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
 import { useExam } from '../../contexts/ExamContext';
 import type { StudyPlan, DailyTask } from '../../types/StudyPlan';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import MockExamConfigModal from '../../components/planner/MockExamConfigModal';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -309,10 +310,7 @@ export default function StudySchedule() {
     return (
         <div className="p-6 md:p-10 max-w-6xl mx-auto text-slate-100">
             {/* Back to Dashboard */}
-            <Link to="/app" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-white transition-colors mb-4">
-                <ChevronLeft className="w-4 h-4" />
-                Dashboard
-            </Link>
+            <DashboardLink className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-white transition-colors mb-4" />
 
             {/* Guided Plan Microcopy */}
             <p className="text-sm text-slate-500 mb-4">

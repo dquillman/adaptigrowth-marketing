@@ -1,14 +1,17 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { doc, getDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { DiagnosticService } from '../services/DiagnosticService';
 
 interface ExamContextType {
     selectedExamId: string;
     examName: string;
     examDomains: string[];
     loading: boolean;
+    hasCompletedDiagnostic: boolean | null;
     switchExam: (examId: string) => Promise<void>;
+    markDiagnosticComplete: () => void;
 }
 
 const ExamContext = createContext<ExamContextType | undefined>(undefined);
@@ -20,6 +23,23 @@ export function ExamProvider({ children }: { children: ReactNode }) {
     const [examName, setExamName] = useState<string>('');
     const [examDomains, setExamDomains] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Diagnostic completion — single source of truth (tri-state: null = loading)
+    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        setHasCompletedDiagnostic(null);
+        if (!selectedExamId) return;
+        const unsub = onAuthStateChanged(auth, (user) => {
+            if (!user) return;
+            DiagnosticService.getLatestRun(user.uid, selectedExamId)
+                .then(run => setHasCompletedDiagnostic(run?.status === 'completed'))
+                .catch(() => setHasCompletedDiagnostic(true));
+        });
+        return () => unsub();
+    }, [selectedExamId]);
+
+    const markDiagnosticComplete = useCallback(() => setHasCompletedDiagnostic(true), []);
 
     // Load exam metadata whenever selectedExamId changes
     useEffect(() => {
@@ -90,7 +110,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <ExamContext.Provider value={{ selectedExamId, examName, examDomains, loading, switchExam }}>
+        <ExamContext.Provider value={{ selectedExamId, examName, examDomains, loading, hasCompletedDiagnostic, switchExam, markDiagnosticComplete }}>
             {children}
         </ExamContext.Provider>
     );

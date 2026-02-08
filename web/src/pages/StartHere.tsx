@@ -1,27 +1,13 @@
-import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
-import { useAuth } from '../App';
 import { useExam } from '../contexts/ExamContext';
-import { DiagnosticService } from '../services/DiagnosticService';
 
 export default function StartHere() {
-    const { user } = useAuth();
-    const { selectedExamId } = useExam();
+    const { hasCompletedDiagnostic: contextDiagnostic } = useExam();
     const navigate = useNavigate();
-    const [hasCompletedDiagnostic, setHasCompletedDiagnostic] = useState(false);
 
-    // Check diagnostic completion status
-    useEffect(() => {
-        const checkDiagnostic = async () => {
-            if (!user?.uid || !selectedExamId) return;
-
-            const latestRun = await DiagnosticService.getLatestRun(user.uid, selectedExamId);
-            setHasCompletedDiagnostic(latestRun?.status === 'completed');
-        };
-
-        checkDiagnostic();
-    }, [user?.uid, selectedExamId]);
+    // Treat null (loading) same as false (pre-diagnostic view)
+    const hasCompletedDiagnostic = contextDiagnostic === true;
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-brand-500/30">

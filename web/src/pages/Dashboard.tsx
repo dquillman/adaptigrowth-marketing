@@ -10,7 +10,6 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import { XPService } from '../services/xpService';
 import LevelBadge from '../components/LevelBadge';
 import ExamSelector from '../components/ExamSelector';
-import { DiagnosticService } from '../services/DiagnosticService';
 
 import LevelDetailModal from '../components/LevelDetailModal';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
@@ -33,7 +32,7 @@ export default function Dashboard() {
     const { isCollapsed } = useSidebar();
 
     // Use UseExam globally
-    const { selectedExamId, examName, examDomains, loading: examLoading } = useExam();
+    const { selectedExamId, examName, examDomains, loading: examLoading, hasCompletedDiagnostic: contextDiagnostic, markDiagnosticComplete } = useExam();
 
     const [domainMasteryCounts, setDomainMasteryCounts] = useState<Record<string, number>>({});
     const [domainTotalCounts, setDomainTotalCounts] = useState<Record<string, number>>({});
@@ -60,17 +59,14 @@ export default function Dashboard() {
 
     const { trial } = useTrial();
 
-    // Onboarding gate: redirect first-time users to orientation
-    const [onboardingChecked, setOnboardingChecked] = useState(false);
-    const [needsOnboarding, setNeedsOnboarding] = useState(false);
-
+    // Sync real-time activity detection back to global context
     useEffect(() => {
-        if (!auth.currentUser?.uid || !selectedExamId) return;
-        DiagnosticService.getLatestRun(auth.currentUser.uid, selectedExamId)
-            .then(run => setNeedsOnboarding(run?.status !== 'completed'))
-            .catch(() => setNeedsOnboarding(false))
-            .finally(() => setOnboardingChecked(true));
-    }, [selectedExamId]);
+        if (contextDiagnostic === true) return;
+        const done = recentActivity.some(
+            (a: any) => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
+        );
+        if (done) markDiagnosticComplete();
+    }, [recentActivity, contextDiagnostic, markDiagnosticComplete]);
 
     // 1. Fetch domain totals when exam context changes
     useEffect(() => {
@@ -271,21 +267,21 @@ export default function Dashboard() {
         navigate('/app/quiz', { state: { filterDomain: weakest, mode: 'weakest' } });
     };
 
-    if (loading || !onboardingChecked) {
+    if (loading || contextDiagnostic === null) {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
 
     // Onboarding gate: first-time users go to orientation page (one-time only)
     const onboardingAck = localStorage.getItem('ec_onboarding_ack') === 'true';
-    if (needsOnboarding && !onboardingAck) {
+    if (contextDiagnostic === false && !onboardingAck) {
         return <Navigate to="/app/start-here" replace />;
     }
 
     const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
     const hasActiveRun = resumableRuns.length > 0;
 
-    // Check for completed diagnostic: must have mode='diagnostic' AND a score (completion indicator)
-    const hasCompletedDiagnostic = recentActivity.some(
+    // Real-time diagnostic detection from activity snapshot (for UI toggle)
+    const diagnosticDone = recentActivity.some(
         (a: any) => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
     );
 
@@ -403,7 +399,7 @@ export default function Dashboard() {
                     {/* Main Content - Blurred if Expired */}
                     <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
                         {/* Onboarding / Welcome Section */}
-                        {!hasCompletedDiagnostic && !loading ? (
+                        {!diagnosticDone && !loading ? (
                             <>
                                 {/* Step 1: Diagnostic Banner */}
                                 <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden">
