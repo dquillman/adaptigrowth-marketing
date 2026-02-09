@@ -228,53 +228,38 @@ export const StudyPlanService = {
         domainNames?: string[]
     ): Promise<{ success: boolean; newAnchorDomain: string | null; error?: string }> => {
         try {
-            // 1. Fetch current mastery data
-            const masteryId = `${userId}_${examId}`;
-            const masteryRef = doc(db, 'userMastery', masteryId);
-            const masterySnap = await getDoc(masteryRef);
-
-            if (!masterySnap.exists()) {
-                return { success: false, newAnchorDomain: null, error: 'No performance data found. Complete some quizzes first.' };
-            }
-
-            const masteryData = masterySnap.data().masteryData as Record<string, { correct: number; total: number }>;
-
-            // 2. Compute accuracy per domain and find lowest
-            let lowestAccuracy = 100;
-            let newAnchorDomain: string | null = null;
-
-            for (const [domain, stats] of Object.entries(masteryData)) {
-                if (stats.total > 0) {
-                    const accuracy = (stats.correct / stats.total) * 100;
-                    if (accuracy < lowestAccuracy) {
-                        lowestAccuracy = accuracy;
-                        newAnchorDomain = domain;
-                    }
-                }
-            }
+            // 1. Single canonical check: resolve weakest domain from diagnostic (v15)
+            const { DiagnosticService } = await import('./DiagnosticService');
+            const latestDiagnostic = await DiagnosticService.getLatestRun(userId, examId);
+            const newAnchorDomain = latestDiagnostic ? DiagnosticService.getWeakestDomain(latestDiagnostic) : null;
 
             if (!newAnchorDomain) {
-                return { success: false, newAnchorDomain: null, error: 'No domain performance data available.' };
+                return { success: false, newAnchorDomain: null, error: 'No diagnostic results found. Please complete a diagnostic first.' };
             }
 
             // 3. Separate past/today tasks from future tasks
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
+            // FIX: v15 Sync Rule - Dropping "Today's" INCOMPLETE tasks so they regenerate with new anchor.
+            // Only preserve:
+            // 1. Tasks stricty in the past (< today)
+            // 2. Tasks for today that are ALREADY COMPLETED (so we don't lose progress)
             const preservedTasks = existingPlan.tasks.filter(t => {
                 const taskDate = new Date(t.date);
                 taskDate.setHours(0, 0, 0, 0);
-                return taskDate.getTime() <= today.getTime();
+
+                if (taskDate.getTime() < today.getTime()) return true; // Past
+                if (taskDate.getTime() === today.getTime() && t.completed) return true; // Today + Completed
+                return false; // Drop Today's Incomplete (will be regenerated with new focus)
             });
 
-            // 4. Generate new future tasks with new anchor
+            // 4. Generate new future tasks — v15: ALL tasks locked to diagnostic weakest domain
             const domains = getExamDomains(examId, examName, domainNames);
-            const ANCHOR_DAYS = 5;
-            const hasAnchor = newAnchorDomain && domains.some(d => d.name === newAnchorDomain);
+            const anchorDomain = domains.find(d => d.name === newAnchorDomain) || domains[0];
 
             const futureTasks: DailyTask[] = [];
             const currentDate = new Date(today);
-            currentDate.setDate(currentDate.getDate() + 1); // Start from tomorrow
 
             let dayIndex = 0;
             while (currentDate < existingPlan.examDate) {
@@ -294,47 +279,28 @@ export const StudyPlanService = {
                     continue;
                 }
 
-                // Anchor rule: first 5 future days focus on new anchor
-                const isInAnchorPeriod = hasAnchor && dayIndex < ANCHOR_DAYS;
+                const topic = anchorDomain.topics[Math.floor(Math.random() * anchorDomain.topics.length)];
 
-                let selectedDomain = domains[0];
-                if (isInAnchorPeriod) {
-                    selectedDomain = domains.find(d => d.name === newAnchorDomain) || domains[0];
-                } else {
-                    const rand = Math.random();
-                    let cumulativeWeight = 0;
-                    for (const domain of domains) {
-                        cumulativeWeight += domain.weight;
-                        if (rand <= cumulativeWeight) {
-                            selectedDomain = domain;
-                            break;
-                        }
-                    }
-                }
-
-                const topic = selectedDomain.topics[Math.floor(Math.random() * selectedDomain.topics.length)];
-
-                // Reading task
+                // Reading task — v15: anchor domain only
                 futureTasks.push({
                     id: `recalc-${dayIndex}-read`,
                     date: new Date(currentDate),
-                    domain: selectedDomain.name as any,
+                    domain: anchorDomain.name as any,
                     topic: `Review: ${topic}`,
                     activityType: 'reading',
                     completed: false,
                     durationMinutes: 30
                 });
 
-                // Quiz task - no smart quiz during anchor period
-                const isSmartQuizDay = !isInAnchorPeriod && dayIndex % 3 === 2;
+                // Quiz task — v15: anchor domain only, no Smart Quiz rotation
                 futureTasks.push({
                     id: `recalc-${dayIndex}-quiz`,
                     date: new Date(currentDate),
-                    domain: isSmartQuizDay ? 'Mixed' as any : selectedDomain.name as any,
-                    topic: isSmartQuizDay ? 'Smart Quiz: Mixed Review' : `Domain Quiz: ${selectedDomain.name}`,
+                    domain: anchorDomain.name as any,
+                    topic: `Domain Quiz: ${anchorDomain.name}`,
                     activityType: 'quiz',
                     completed: false,
-                    durationMinutes: isSmartQuizDay ? 20 : 15
+                    durationMinutes: 15
                 });
 
                 currentDate.setDate(currentDate.getDate() + 1);
