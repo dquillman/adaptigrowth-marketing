@@ -809,7 +809,19 @@ exports.resetExamProgress = functions.https.onCall(async (data, context) => {
             });
             await runsBatch.commit();
         }
-        return { success: true, count: attemptsSnap.size + runsSnap.size };
+        // 5. Delete study plan documents for this exam
+        const plansQuery = db.collection('study_plans')
+            .where('userId', '==', userId)
+            .where('examId', '==', examId);
+        const plansSnap = await plansQuery.get();
+        if (plansSnap.size > 0) {
+            const plansBatch = db.batch();
+            plansSnap.docs.forEach((doc) => {
+                plansBatch.delete(doc.ref);
+            });
+            await plansBatch.commit();
+        }
+        return { success: true, count: attemptsSnap.size + runsSnap.size + plansSnap.size };
     }
     catch (error) {
         console.error("Error resetting progress:", error);

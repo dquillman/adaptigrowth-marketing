@@ -18,4 +18,5 @@ export interface StudyPlan {
     tasks: DailyTask[];
     createdAt: Date;
     status: 'active' | 'completed' | 'archived';
+    anchorDomain?: string; // v15: diagnostic weakest domain used for plan generation
 }

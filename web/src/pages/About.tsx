@@ -12,7 +12,7 @@ export default function About() {
                                 <img src="/favicon.png" alt="Exam Coach Pro AI Logo" className="w-8 h-8 rounded-lg object-contain shadow-lg shadow-brand-500/20" />
                                 <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </Link>
-                            <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">
+                            <span className="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono font-semibold text-slate-300">
                                 v{DISPLAY_VERSION}
                             </span>
                         </div>

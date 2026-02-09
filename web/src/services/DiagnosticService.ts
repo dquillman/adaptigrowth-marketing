@@ -125,5 +125,39 @@ export const DiagnosticService = {
             console.error("Error getting latest run:", error);
             return null;
         }
+    },
+
+    /**
+     * Determines the weakest domain from a diagnostic run.
+     * STRICT RULE: Diagnostic only. No external mastery.
+     * 
+     * TODO: v16+ Replace diagnostic-only domain selection with blended performance model 
+     * (diagnostic + quiz history + readiness). Do not implement blended logic in v15.
+     */
+    getWeakestDomain: (run: any): string | null => {
+        // Primary source: results.domainResults (written by QuizRunService.completeRun)
+        // Shape: Record<string, { correct: number; total: number }>
+        const domainResults = run.results?.domainResults;
+        if (!domainResults || typeof domainResults !== 'object') return null;
+
+        const domains = Object.keys(domainResults).map(domain => {
+            const stats = domainResults[domain];
+            return {
+                domain,
+                accuracy: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0
+            };
+        });
+
+        if (domains.length === 0) return null;
+
+        // Sort: Lowest Accuracy first. Tie-breaker: Alphabetical.
+        domains.sort((a, b) => {
+            if (Math.abs(a.accuracy - b.accuracy) > 0.01) {
+                return a.accuracy - b.accuracy;
+            }
+            return a.domain.localeCompare(b.domain);
+        });
+
+        return domains[0].domain;
     }
 };

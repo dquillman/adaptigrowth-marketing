@@ -246,25 +246,38 @@ export default function Dashboard() {
         return Math.min(100, Math.round((mastered / total) * 100));
     };
 
-    const handleWeakestStart = () => {
-        if (!examDomains || examDomains.length === 0) {
-            navigate('/app/quiz');
-            return;
-        }
+    const handleWeakestStart = async () => {
+        setLoading(true);
+        try {
+            // v15 Rule: Smart Practice targets the Diagnostic's weakest domain ONLY.
+            // No calculated mastery from general practice.
+            if (!auth.currentUser || !selectedExamId) return;
 
-        let weakest = examDomains[0];
-        let minP = 101;
+            const { DiagnosticService } = await import('../services/DiagnosticService');
+            const run = await DiagnosticService.getLatestRun(auth.currentUser.uid, selectedExamId);
 
-        examDomains.forEach(d => {
-            const p = getPercentage(d);
-            if (p < minP) {
-                minP = p;
-                weakest = d;
+            let targetDomain = null;
+
+            if (run) {
+                targetDomain = DiagnosticService.getWeakestDomain(run);
             }
-        });
 
-        console.log("Smart Practice targeting weakest domain:", weakest);
-        navigate('/app/quiz', { state: { filterDomain: weakest, mode: 'weakest' } });
+            // Fallback if no diagnostic or no domain found: use first available exam domain or Mixed
+            if (!targetDomain) {
+                console.warn("No diagnostic weakest domain found for Smart Practice. Greeting fallback.");
+                targetDomain = (examDomains && examDomains.length > 0) ? examDomains[0] : 'Mixed';
+            }
+
+            console.log("Smart Practice targeting (Diagnostic):", targetDomain);
+            navigate('/app/quiz', { state: { filterDomain: targetDomain, mode: 'weakest' } });
+
+        } catch (error) {
+            console.error("Error starting smart practice:", error);
+            // Fallback
+            navigate('/app/quiz', { state: { filterDomain: 'Mixed', mode: 'weakest' } });
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (loading || contextDiagnostic === null) {
@@ -288,7 +301,7 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen flex bg-transparent relative">
             <Sidebar />
-            <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs font-mono text-white/50 pointer-events-none z-50">
+            <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-sm font-mono font-semibold text-white/50 pointer-events-none z-50">
                 ExamCoach v{DISPLAY_VERSION}
             </div>
             <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col transition-all duration-300`}>
@@ -751,6 +764,11 @@ export default function Dashboard() {
 
                                         // Clear Onboarding Flag so Intro Video plays again
                                         localStorage.removeItem('ec_onboarding_ack');
+
+                                        // Clear study plan reinforcement ack keys
+                                        Object.keys(localStorage)
+                                            .filter(k => k.startsWith('ec_reinforcement_ack_'))
+                                            .forEach(k => localStorage.removeItem(k));
 
                                         // Suppress Thinking Traps until a new run completes
                                         localStorage.setItem('exam_coach_traps_suppressed', 'true');

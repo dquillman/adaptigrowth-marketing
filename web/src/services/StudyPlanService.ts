@@ -228,12 +228,33 @@ export const StudyPlanService = {
         domainNames?: string[]
     ): Promise<{ success: boolean; newAnchorDomain: string | null; error?: string }> => {
         try {
-            // 1. Single canonical check: resolve weakest domain from diagnostic (v15)
+            // 1. Single canonical check: resolve weakest domain from latest COMPLETED diagnostic (v15)
+            // Diagnostics are stored in quizRuns (QuizRunService), not the diagnostics collection.
             const { DiagnosticService } = await import('./DiagnosticService');
-            const latestDiagnostic = await DiagnosticService.getLatestRun(userId, examId);
-            const newAnchorDomain = latestDiagnostic ? DiagnosticService.getWeakestDomain(latestDiagnostic) : null;
+            const runsRef = collection(db, 'quizRuns', userId, 'runs');
+            const diagQuery = query(
+                runsRef,
+                where('examId', '==', examId),
+                where('mode', '==', 'diagnostic'),
+                where('status', '==', 'completed'),
+                orderBy('completedAt', 'desc'),
+                limit(5)
+            );
+            console.log('[PLAN-DEBUG] querying quizRuns/', userId, '/runs WHERE examId=', examId, 'mode=diagnostic status=completed');
+            const diagSnap = await getDocs(diagQuery);
+            console.log('[PLAN-DEBUG] results:', diagSnap.size, 'docs');
+            // Find first completed diagnostic with valid domainResults
+            let newAnchorDomain: string | null = null;
+            for (const d of diagSnap.docs) {
+                const data = d.data();
+                console.log('[PLAN-DEBUG] run', d.id, '→ results.domainResults=', JSON.stringify(data.results?.domainResults));
+                newAnchorDomain = DiagnosticService.getWeakestDomain(data);
+                console.log('[PLAN-DEBUG] getWeakestDomain →', newAnchorDomain);
+                if (newAnchorDomain) break;
+            }
 
             if (!newAnchorDomain) {
+                console.log('[PLAN-DEBUG] BLOCKED — no valid diagnostic found for uid=', userId, 'examId=', examId);
                 return { success: false, newAnchorDomain: null, error: 'No diagnostic results found. Please complete a diagnostic first.' };
             }
 
@@ -318,12 +339,13 @@ export const StudyPlanService = {
             const planRef = doc(db, 'study_plans', existingPlan.id);
             await updateDoc(planRef, {
                 tasks: mergedTasks,
+                anchorDomain: newAnchorDomain,
                 lastRecalculatedAt: new Date()
             });
 
             return { success: true, newAnchorDomain };
-        } catch (error) {
-            console.error('Error recalculating plan:', error);
+        } catch (error: any) {
+            console.error('[PLAN-DEBUG] EXCEPTION in recalculatePlanFromProgress:', error?.code, error?.message, error);
             return { success: false, newAnchorDomain: null, error: 'Failed to update plan. Please try again.' };
         }
     }

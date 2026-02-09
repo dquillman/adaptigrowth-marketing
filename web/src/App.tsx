@@ -256,7 +256,7 @@ function AppLayout() {
         <div className="pointer-events-auto">
           <IdentityIndicator />
         </div>
-        <div className="text-xs font-mono text-white/30 px-2">
+        <div className="text-sm font-mono font-semibold text-white/40 px-2">
           v{DISPLAY_VERSION}
         </div>
       </div>

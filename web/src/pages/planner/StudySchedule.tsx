@@ -7,8 +7,6 @@ import { useExam } from '../../contexts/ExamContext';
 import type { StudyPlan, DailyTask } from '../../types/StudyPlan';
 import { useNavigate, useLocation } from 'react-router-dom';
 import MockExamConfigModal from '../../components/planner/MockExamConfigModal';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
 
 // Injected reinforcement task after diagnostic/mock
 interface InjectedTask {
@@ -38,9 +36,8 @@ export default function StudySchedule() {
     const [readinessPreliminary, setReadinessPreliminary] = useState(false);
     const [readinessLoaded, setReadinessLoaded] = useState(false);
 
-    // Diagnostic context from navigation
+    // Diagnostic context from navigation (used only for one-time exam date prompt)
     const fromDiagnostic = location.state?.source === 'diagnostic';
-    const recommendedDomain = location.state?.recommendedDomain;
 
     // Exam date prompt state
     const EXAM_DATE_KEY = 'exam_coach_pmp_exam_date';
@@ -70,78 +67,29 @@ export default function StudySchedule() {
     // Use the global Exam context
     const { selectedExamId, examName } = useExam();
 
-    // Check for recent diagnostic/mock that needs reinforcement
+    // v15: Reinforcement derived from plan.anchorDomain (single source of truth).
+    // No independent diagnostic query — the plan IS the canonical domain source.
     useEffect(() => {
-        if (!user || !selectedExamId) return;
+        if (!user || !plan?.anchorDomain) return;
 
-        const checkForReinforcement = async () => {
-            try {
-                // Query recent completed diagnostic or simulation runs
-                const runsRef = collection(db, 'quizRuns', user.uid, 'runs');
-                const q = query(
-                    runsRef,
-                    where('status', '==', 'completed'),
-                    where('examId', '==', selectedExamId),
-                    orderBy('completedAt', 'desc'),
-                    limit(5)
-                );
+        // Ack key uses plan ID + domain so it re-shows when plan is recalculated to a new domain
+        const ackKey = `ec_reinforcement_ack_${plan.id}_${plan.anchorDomain}`;
+        if (localStorage.getItem(ackKey)) return;
 
-                const snapshot = await getDocs(q);
-                if (snapshot.empty) return;
-
-                // Find the most recent diagnostic or simulation (mock exam)
-                for (const docSnap of snapshot.docs) {
-                    const run = docSnap.data();
-                    const runId = docSnap.id;
-
-                    // Only consider diagnostic or simulation (mock exam) runs
-                    if (run.quizType !== 'diagnostic' && run.quizType !== 'simulation') continue;
-
-                    // Check if we've already addressed this run
-                    const ackKey = `ec_reinforcement_ack_${runId}`;
-                    if (localStorage.getItem(ackKey)) continue;
-
-                    // Extract weakest domain from results
-                    const domainResults = run.results?.domainResults;
-                    if (!domainResults) continue;
-
-                    let weakestDomain: string | null = null;
-                    let worstAccuracy = Infinity;
-
-                    for (const [domain, stats] of Object.entries(domainResults) as [string, { correct: number; total: number }][]) {
-                        if (stats.total > 0) {
-                            const accuracy = stats.correct / stats.total;
-                            if (accuracy < worstAccuracy) {
-                                worstAccuracy = accuracy;
-                                weakestDomain = domain;
-                            }
-                        }
-                    }
-
-                    if (weakestDomain) {
-                        setInjectedTask({
-                            id: `reinforcement-${runId}`,
-                            runId,
-                            domain: weakestDomain,
-                            source: run.quizType === 'diagnostic' ? 'diagnostic' : 'mock-exam'
-                        });
-                        return; // Only one injection at a time
-                    }
-                }
-            } catch (error) {
-                console.error('Error checking for reinforcement:', error);
-            }
-        };
-
-        checkForReinforcement();
-    }, [user, selectedExamId]);
+        setInjectedTask({
+            id: `reinforcement-${plan.id}`,
+            runId: plan.id || '',
+            domain: plan.anchorDomain,
+            source: 'diagnostic'
+        });
+    }, [user, plan]);
 
     // Handle completing the injected reinforcement task
     const handleReinforcementComplete = () => {
-        if (!injectedTask) return;
+        if (!injectedTask || !plan) return;
 
-        // Mark as acknowledged in localStorage
-        const ackKey = `ec_reinforcement_ack_${injectedTask.runId}`;
+        // Mark as acknowledged in localStorage (keyed to plan + domain)
+        const ackKey = `ec_reinforcement_ack_${plan.id}_${plan.anchorDomain}`;
         localStorage.setItem(ackKey, new Date().toISOString());
 
         setInjectedTask(null);
@@ -355,34 +303,32 @@ export default function StudySchedule() {
                 </div>
             </header>
 
-            {/* Diagnostic Context Banner */}
-            {fromDiagnostic && (
+            {/* Diagnostic Context Banner — v15: reads plan.anchorDomain (single source of truth) */}
+            {plan.anchorDomain && (
                 <div className="mb-6 bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-4">
                     <p className="text-indigo-200 text-sm">
-                        <span className="font-semibold">✓ This study plan is based on your diagnostic results.</span>
-                        {recommendedDomain && (
-                            <span className="block mt-1 text-indigo-300">
-                                We'll start by focusing on <strong className="text-white">{recommendedDomain}</strong>, your biggest opportunity for improvement.
-                            </span>
-                        )}
+                        <span className="font-semibold">&#10003; This study plan is based on your diagnostic results.</span>
+                        <span className="block mt-1 text-indigo-300">
+                            Your plan focuses on <strong className="text-white">{plan.anchorDomain}</strong>, your biggest opportunity for improvement.
+                        </span>
                     </p>
                 </div>
             )}
 
-            {/* Recommended Next Step */}
-            {fromDiagnostic && recommendedDomain && (
+            {/* Recommended Next Step — v15: reads plan.anchorDomain (single source of truth) */}
+            {plan.anchorDomain && (
                 <div className="mb-6 bg-purple-900/20 border border-purple-500/30 rounded-xl p-4">
                     <div className="flex items-center justify-between gap-4">
                         <div>
                             <p className="text-purple-300 text-sm font-semibold">
-                                Recommended: Domain Quiz ({recommendedDomain})
+                                Recommended: Domain Quiz ({plan.anchorDomain})
                             </p>
                             <p className="text-slate-400 text-xs mt-1">
                                 This domain showed the most opportunity in your diagnostic. Other quiz types are available in the sidebar.
                             </p>
                         </div>
                         <button
-                            onClick={() => navigate('/app/quiz', { state: { mode: 'weakest', filterDomain: recommendedDomain } })}
+                            onClick={() => navigate('/app/quiz', { state: { mode: 'weakest', filterDomain: plan.anchorDomain } })}
                             className="shrink-0 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
                         >
                             Start Domain Quiz
@@ -527,7 +473,7 @@ export default function StudySchedule() {
                             <CheckCircle className="w-5 h-5" />
                         )}
                         <span className="font-medium">
-                            {recalcToast.error || `Your plan has been updated to focus on ${recalcToast.domain}, based on your recent results.`}
+                            {recalcToast.error || `Based on your most recent diagnostic, your weakest domain is ${recalcToast.domain}. Your plan was updated to focus there.`}
                         </span>
                     </div>
                 </div>
