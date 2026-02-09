@@ -15,3 +15,5 @@ admin/_force_admin_backup/
 admin/_gate_backup/
 web/src/components/*.bak*
 temp_*
+# Windows reserved device names
+nul

@@ -13,6 +13,7 @@ import { useExam } from '../contexts/ExamContext';
 import { SmartQuizService } from '../services/smartQuiz';
 import { useMarketingCopy } from '../hooks/useMarketingCopy';
 import { QuizRunService } from '../services/QuizRunService';
+import { UsageEventService } from '../services/UsageEventService';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useSmartQuizReview } from '../contexts/SmartQuizReviewContext';
 import QuestionProvenanceBadge from '../components/QuestionProvenanceBadge';
@@ -495,6 +496,15 @@ export default function Quiz() {
 
         // Save Granular Question Progress (SRS)
         updateQuestionProgress(currentQuestion.id, isCorrect);
+
+        // Usage event: core action (answer submitted), capped at 20/session
+        const userId = auth.currentUser?.uid;
+        const coreKey = 'ec_usage_core_count';
+        const count = parseInt(sessionStorage.getItem(coreKey) || '0', 10);
+        if (count < 20 && userId) {
+            UsageEventService.emit(userId, 'coreAction');
+            sessionStorage.setItem(coreKey, String(count + 1));
+        }
     };
 
     const updateQuestionProgress = async (questionId: string, isCorrect: boolean) => {
@@ -745,6 +755,11 @@ export default function Quiz() {
                 averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
                 mode: location.state?.mode || 'standard'
             });
+        }
+
+        // Usage event: diagnostic completion
+        if ((location.state?.mode || 'standard') === 'diagnostic' && userId) {
+            UsageEventService.emit(userId, 'completion');
         }
     };
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, Clock, ChevronRight, Check } from 'lucide-react';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
+import { UsageEventService } from '../../services/UsageEventService';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useExam } from '../../contexts/ExamContext';
 
@@ -63,6 +64,7 @@ export default function SetupPlanner() {
             );
 
             await StudyPlanService.savePlan(plan);
+            UsageEventService.emit(user.uid, 'completion');
 
             // Navigate to main planner view
             navigate('/app/planner');

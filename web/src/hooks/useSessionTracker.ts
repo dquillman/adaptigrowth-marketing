@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { collection, addDoc, updateDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 import { useLocation } from 'react-router-dom';
+import { UsageEventService } from '../services/UsageEventService';
 
 /**
  * Hook to track user sessions in Firestore.
@@ -33,6 +34,15 @@ export function useSessionTracker(user: User | null) {
             sessionIdRef.current = docRef.id;
             loginAtRef.current = loginTime; // Local approximation for duration calc
             sessionStorage.setItem('ecp_session_id', docRef.id);
+
+            // Usage event: once per calendar day
+            const today = new Date().toISOString().split('T')[0];
+            const key = `ec_usage_session_${user.uid}_${today}`;
+            if (!localStorage.getItem(key)) {
+                UsageEventService.emit(user.uid, 'session');
+                localStorage.setItem(key, '1');
+            }
+
             console.log('Session created:', docRef.id);
         } catch (error) {
             console.error('Failed to create session:', error);
