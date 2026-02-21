@@ -17,3 +17,8 @@ web/src/components/*.bak*
 temp_*
 # Windows reserved device names
 nul
+
+# Service account keys and runtime secrets — NEVER commit these
+functions/serviceAccountKey.json
+functions/exam-coach-ai-platform-firebase-adminsdk-fbsvc-ae6b0d59c6.json
+functions/.runtimeconfig.json

@@ -270,27 +270,32 @@ exports.generateQuestions = functions
     }
     try {
         const completion = await getOpenAI().chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-4o",
             messages: [
                 {
                     role: "system",
-                    content: "You are a PMP Exam Question Generator. Return ONLY a raw JSON array of objects. Do not include markdown formatting."
+                    content: "You are a senior PMP instructor and exam question author. Return ONLY a raw JSON array of objects. Do not include markdown formatting."
                 },
                 {
                     role: "user",
                     content: `
                         Generate ${count} unique, high-quality PMP exam questions about "${topic}".
                         ${difficultyPrompt}
-                        
+
                         Each object must have:
                         - stem: The question text (scenario-based).
-                        - options: Array of 4 strings.
+                        - options: Array of 4 strings (labeled A through D in the scenario context).
                         - correctAnswer: Index of the correct option (0-3).
-                        - explanation: Detailed explanation of why the answer is correct.
+                        - explanation: A structured explanation with the following labeled sections separated by double line breaks:
+                          1. Begin with clear reasoning explaining why the correct answer is correct.
+                          2. "PMI Decision Lens:" — identify the specific PMI principle, mindset, or framework being applied.
+                          3. "Why this conflicts:" — explicitly analyze EACH incorrect option by name. For each distractor: state what the option suggests and explain precisely why it fails in this scenario. Do NOT use generic phrases like "skip foundational steps" or "address symptoms rather than root causes." Be concrete and scenario-specific.
+                          4. "Pattern:" — provide a reusable heuristic for similar PMP questions.
+                          The explanation must read like a senior PMP instructor reviewing a real exam scenario. Avoid generic filler language.
                         - domain: Must be exactly "${topic}".
-                        - difficulty: "${difficulty === 'Mixed' ? 'Varies (Easy, Medium, or Hard)' : difficulty}". **IMPORTANT:** If Mixed, you MUST incorrectly label each question as Easy, Medium, or Hard based on its actual complexity. Do NOT write "Mixed".
+                        - difficulty: "${difficulty === 'Mixed' ? 'Varies (Easy, Medium, or Hard)' : difficulty}". **IMPORTANT:** If Mixed, you MUST label each question as Easy, Medium, or Hard based on its actual complexity. Do NOT write "Mixed".
                         - visual_description: A short, vivid visual description of the scenario (e.g. "A construction site meeting in the rain", "A tense boardroom negotiation"). Max 15 words.
-            
+
                         Ensure questions are NOT in this list of existing questions: ${JSON.stringify(Array.from(existingStems).slice(0, 50))}...
                     `
                 }
@@ -388,6 +393,8 @@ exports.batchGenerateQuestions = functions
         const examDescription = examData.description || "";
         const domains = examData.domains || [];
         const blueprint = examData.blueprint || [];
+        // PMP detection: use higher-quality model and structured explanation prompt
+        const isPMP = examId === '7qmPagj9A6RpkC0CwGkY' || examId.toLowerCase().startsWith('pmp') || examName.toLowerCase().includes('pmp');
         // 2. Determine Distribution
         let distribution = [];
         if (blueprint.length > 0) {
@@ -467,12 +474,21 @@ exports.batchGenerateQuestions = functions
             const storedStemsArray = Array.from(existingStems);
             const randomSample = storedStemsArray.sort(() => 0.5 - Math.random()).slice(0, 30);
             try {
+                const pmpExplanationInstruction = `- explanation: A structured explanation with the following labeled sections separated by double line breaks:
+                                      1. Begin with clear reasoning explaining why the correct answer is correct.
+                                      2. "PMI Decision Lens:" — identify the specific PMI principle, mindset, or framework being applied.
+                                      3. "Why this conflicts:" — explicitly analyze EACH incorrect option by name. For each distractor: state what the option suggests and explain precisely why it fails in this scenario. Do NOT use generic phrases like "skip foundational steps" or "address symptoms rather than root causes." Be concrete and scenario-specific.
+                                      4. "Pattern:" — provide a reusable heuristic for similar PMP questions.
+                                      The explanation must read like a senior PMP instructor reviewing a real exam scenario. Avoid generic filler language.`;
+                const defaultExplanationInstruction = `- explanation: Detailed explanation of why the answer is correct.`;
                 const completion = await getOpenAI().chat.completions.create({
-                    model: "gpt-4o-mini",
+                    model: isPMP ? "gpt-4o" : "gpt-4o-mini",
                     messages: [
                         {
                             role: "system",
-                            content: `You are an expert exam question generator for the "${examName}". Description: ${examDescription}. Return a JSON object with a "questions" array.`
+                            content: isPMP
+                                ? `You are a senior PMP instructor and exam question author for the "${examName}". Description: ${examDescription}. Return a JSON object with a "questions" array.`
+                                : `You are an expert exam question generator for the "${examName}". Description: ${examDescription}. Return a JSON object with a "questions" array.`
                         },
                         {
                             role: "user",
@@ -484,21 +500,21 @@ exports.batchGenerateQuestions = functions
                                     ${item.questionType ? `Question Style: "${item.questionType}"` : ''}
                                     ${item.keywords ? `Focus Keywords: "${item.keywords}"` : ''}
                                     ${item.reference ? `Reference Source: "${item.reference}"` : ''}
-                                    
+
                                     Each object in the "questions" array must have:
                                     - stem: The question text (scenario-based, professional tone).
-                                    - options: Array of 4 strings.
+                                    - options: Array of 4 strings${isPMP ? ' (labeled A through D in the scenario context)' : ''}.
                                     - correctAnswer: Index of the correct option (0-3).
-                                    - explanation: Detailed explanation of why the answer is correct.
+                                    ${isPMP ? pmpExplanationInstruction : defaultExplanationInstruction}
                                     ${item.reference ? `- explanation should cite: "${item.reference}"` : ''}
                                     - domain: "${item.domain}"
                                     ${item.subDomain ? `- subDomain: "${item.subDomain}"` : ''}
                                     - difficulty: "${item.difficulty || 'Varies (Easy, Medium, or Hard)'}". **IMPORTANT:** If you are asked to mix difficulties, specificy 'Easy', 'Medium', or 'Hard' for each question. Do NOT label them 'Mixed'.
                                     - visual_description: A short, vivid visual description of the scenario (e.g. "A construction site meeting in the rain", "A tense boardroom negotiation"). Max 15 words.
-                                    
+
                                     CRITICAL: Do NOT generate questions identical or very similar to these existing ones:
                                     ${JSON.stringify(randomSample)}
-                                    
+
                                     Ensure questions are challenging and relevant to the exam description.
                                 `
                         }

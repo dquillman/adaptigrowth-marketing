@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { SmartQuizService } from '../services/smartQuiz';
 import { XPService } from '../services/xpService';
@@ -151,18 +151,7 @@ export const useSimulator = () => {
         const timeSpent = (questions.length * 72) - timeLeft; // Crude calc based on initial time
 
         try {
-            await addDoc(collection(db, 'quizAttempts'), {
-                userId: user.uid,
-                examId: currentExamId,
-                score,
-                totalQuestions: questions.length,
-                timestamp: new Date(),
-                mode: 'simulation',
-                timeSpent,
-                details
-            });
-
-            await XPService.awardXP(questions.length * 5 + score * 10, "Completed Exam Simulator");
+            await XPService.awardXP(questions.length * 5 + score * 10, "Completed Exam Simulator", currentExamId);
 
             navigate('/app/simulator/results', {
                 state: {

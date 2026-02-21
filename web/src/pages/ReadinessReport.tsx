@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../App';
+import DashboardLink from '../components/DashboardLink';
 import { PredictionEngine, type ReadinessReport } from '../services/PredictionEngine';
 import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2, Lock, Loader } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import PatternInsightCard, { type PatternData } from '../components/PatternInsightCard';
 import { StudyPlanService } from '../services/StudyPlanService';
 import { useExam } from '../contexts/ExamContext';
+import { applyReadinessConfidence } from '../utils/readinessConfidence';
+import { PerformanceTrendService, type OverallTrendResult } from '../services/performanceTrendService';
 
 export default function ReadinessReportPage() {
     const { user } = useAuth();
@@ -18,6 +23,8 @@ export default function ReadinessReportPage() {
     const [minedPatterns, setMinedPatterns] = useState<PatternData[]>([]);
     const [loading, setLoading] = useState(true);
     const [daysUntilExam, setDaysUntilExam] = useState<number | null>(null);
+    const [userXp, setUserXp] = useState(0);
+    const [rollingTrend, setRollingTrend] = useState<OverallTrendResult | null>(null);
 
     // Evidence thresholds
     const MIN_EVIDENCE_THRESHOLD = 50;
@@ -27,10 +34,12 @@ export default function ReadinessReportPage() {
         const fetchReport = async () => {
             if (!user || !selectedExamId) return;
             try {
-                // Parallel fetch: Readiness + Weakest Patterns
-                const [readinessData, patternsResult] = await Promise.allSettled([
+                // Parallel fetch: Readiness + Weakest Patterns + User XP + Rolling Trend
+                const [readinessData, patternsResult, userDocResult, rollingResult] = await Promise.allSettled([
                     PredictionEngine.calculateReadiness(user.uid, selectedExamId),
-                    httpsCallable(getFunctions(), 'getWeakestPatterns')()
+                    httpsCallable(getFunctions(), 'getWeakestPatterns')(),
+                    getDoc(doc(db, 'users', user.uid)),
+                    PerformanceTrendService.getRollingOverallTrend(user.uid, selectedExamId),
                 ]);
 
                 if (readinessData.status === 'fulfilled') {
@@ -39,6 +48,21 @@ export default function ReadinessReportPage() {
 
                 if (patternsResult.status === 'fulfilled' && patternsResult.value.data) {
                     setMinedPatterns(patternsResult.value.data as PatternData[]);
+                }
+
+                if (rollingResult.status === 'fulfilled') {
+                    setRollingTrend(rollingResult.value);
+                }
+
+                if (userDocResult.status === 'fulfilled' && userDocResult.value.exists()) {
+                    const data = userDocResult.value.data();
+                    let effectiveXp = 0;
+                    if (selectedExamId && data.examXP && typeof data.examXP[selectedExamId] === 'number') {
+                        effectiveXp = data.examXP[selectedExamId];
+                    } else {
+                        effectiveXp = 0;
+                    }
+                    setUserXp(effectiveXp);
                 }
             } catch (error) {
                 console.error("Failed to load readiness report", error);
@@ -106,14 +130,27 @@ export default function ReadinessReportPage() {
         return 'text-red-400 bg-red-400/10 border-red-400/20';
     };
 
+    // Apply Readiness Confidence Modifier (display only — does not affect stored data or domain analytics)
+    const displayedScore = applyReadinessConfidence(report.overallScore, userXp);
+
+    // Confidence tier label derived from exam-scoped XP
+    const getConfidenceLabel = (xp: number): string => {
+        if (xp >= 1000) return 'Very High';
+        if (xp >= 500) return 'High';
+        if (xp >= 100) return 'Moderate';
+        return 'Low';
+    };
+    const confidenceLabel = getConfidenceLabel(userXp);
+
     // Radial Progress Math
     const radius = 80;
     const circumference = 2 * Math.PI * radius;
-    const offset = circumference - ((report.overallScore ?? 0) / 100) * circumference;
+    const offset = circumference - ((displayedScore ?? 0) / 100) * circumference;
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 p-8 pb-24">
             <div className="max-w-4xl mx-auto space-y-8">
+                <DashboardLink />
 
                 {/* Header */}
                 <div>
@@ -167,7 +204,7 @@ export default function ReadinessReportPage() {
                                             />
                                             <circle
                                                 cx="96" cy="96" r={radius}
-                                                className={`${report.overallScore !== null ? getScoreColor(report.overallScore) : 'stroke-slate-600'} transition-all duration-1000 ease-out`}
+                                                className={`${displayedScore !== null ? getScoreColor(displayedScore) : 'stroke-slate-600'} transition-all duration-1000 ease-out`}
                                                 strokeWidth="12"
                                                 strokeDasharray={circumference}
                                                 strokeDashoffset={offset}
@@ -176,8 +213,8 @@ export default function ReadinessReportPage() {
                                             />
                                         </svg>
                                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                            <span className={`text-4xl font-black ${report.overallScore !== null ? getScoreColor(report.overallScore).split(' ')[0] : 'text-slate-500'}`}>
-                                                {report.overallScore !== null ? `${report.overallScore}%` : '—'}
+                                            <span className={`text-4xl font-black ${displayedScore !== null ? getScoreColor(displayedScore).split(' ')[0] : 'text-slate-500'}`}>
+                                                {displayedScore !== null ? `${displayedScore}%` : '—'}
                                             </span>
                                             <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
                                                 Probability
@@ -205,6 +242,25 @@ export default function ReadinessReportPage() {
                                     </div>
                                 </div>
 
+                                {/* Rolling 50-Question Trend */}
+                                {rollingTrend && rollingTrend.totalQuestions >= 10 && (
+                                    <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
+                                        <div>
+                                            <p className="text-sm text-slate-400">Rolling 50-Question Trend</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {rollingTrend.direction === 'improving' && <TrendingUp className="w-5 h-5 text-emerald-400" />}
+                                                {rollingTrend.direction === 'declining' && <TrendingDown className="w-5 h-5 text-red-400" />}
+                                                {rollingTrend.direction === 'stable' && <Minus className="w-5 h-5 text-slate-400" />}
+                                                <span className="font-bold capitalize text-white">{rollingTrend.direction}</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm text-slate-400">Rolling Average</p>
+                                            <p className="font-bold text-xl text-white mt-1">{rollingTrend.currentAverage}%</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div>
                                     <h3 className="font-bold text-white mb-2 flex items-center gap-2">
                                         {report.isPreliminary ? (
@@ -213,7 +269,7 @@ export default function ReadinessReportPage() {
                                                 <span>Building Your Readiness Profile</span>
                                             </div>
                                         ) : (
-                                            (report.overallScore ?? 0) >= 75 ? (
+                                            (displayedScore ?? 0) >= 75 ? (
                                                 <div className="flex items-center gap-2 text-emerald-400">
                                                     <CheckCircle className="w-5 h-5" />
                                                     <span>Assessment</span>
@@ -229,9 +285,9 @@ export default function ReadinessReportPage() {
                                     <p className="text-slate-400 text-sm leading-relaxed">
                                         {report.isPreliminary
                                             ? `We need a bit more data to estimate your exam readiness accurately. Complete about ${MIN_EVIDENCE_THRESHOLD - report.totalQuestionsAnswered > 0 ? MIN_EVIDENCE_THRESHOLD - report.totalQuestionsAnswered : 'a few'} more questions for a reliable score.`
-                                            : (report.overallScore ?? 0) >= 80
+                                            : (displayedScore ?? 0) >= 80
                                                 ? "You are showing strong readiness! Maintain this consistency and focus on time management."
-                                                : (report.overallScore ?? 0) >= 65
+                                                : (displayedScore ?? 0) >= 65
                                                     ? "You're getting close, but consistency is key. Focus on your weak domains below to boost your score."
                                                     : "We recommend more targeted practice before scheduling your exam. Focus on fundamental concepts."}
                                     </p>
@@ -245,6 +301,17 @@ export default function ReadinessReportPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {displayedScore !== null && !report.isPreliminary && (
+                            <div className={`mt-4 pt-4 border-t border-slate-700/50 flex items-center justify-between text-sm ${!checkPermission('analytics') ? 'blur-sm opacity-50' : ''}`}>
+                                <span className="text-slate-400">
+                                    Confidence: <span className="text-slate-200 font-medium">{confidenceLabel}</span>
+                                </span>
+                                <span className="text-slate-500">
+                                    Based on {report.totalQuestionsAnswered} validated responses.
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Quick Stats */}
@@ -326,9 +393,9 @@ export default function ReadinessReportPage() {
                         <h3 className="font-bold text-white mb-3">What this means</h3>
                         <div className="text-sm text-slate-300 space-y-3 leading-relaxed">
                             <p>
-                                {report.overallScore >= 80
+                                {(displayedScore ?? 0) >= 80
                                     ? "You are making strong progress. Your accuracy is consistently high, which means your study approach is working. Stay the course and keep your practice sessions regular."
-                                    : report.overallScore >= 65
+                                    : (displayedScore ?? 0) >= 65
                                         ? "You are on the right track but not yet consistent. Some domains are solid while others need more reps. That gap is normal at this stage — targeted practice will close it."
                                         : "You are still building your foundation. This is early in the process, and lower scores here are expected. Focus on understanding why the correct answer is correct, not just memorizing answers."}
                             </p>

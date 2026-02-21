@@ -23,6 +23,7 @@ export interface QuizRun {
         questionId: string;
         selectedOption: number;
         isCorrect: boolean;
+        domain?: string;
         timestamp: any;
     }[];
 
@@ -39,6 +40,25 @@ export interface QuizRun {
     };
 }
 
+/**
+ * Derives domainResults from the authoritative answers[] array.
+ * Single source of truth — ignores React state accumulation.
+ */
+export function deriveDomainResultsFromAnswers(
+    answers: { isCorrect: boolean; domain?: string }[]
+): Record<string, { correct: number; total: number }> {
+    const results: Record<string, { correct: number; total: number }> = {};
+    for (const a of answers) {
+        if (!a.domain) continue;
+        if (!results[a.domain]) {
+            results[a.domain] = { correct: 0, total: 0 };
+        }
+        results[a.domain].total++;
+        if (a.isCorrect) results[a.domain].correct++;
+    }
+    return results;
+}
+
 export const QuizRunService = {
     /**
      * Creates a new Quiz Run document.
@@ -52,6 +72,19 @@ export const QuizRunService = {
         meta?: QuizRun['meta']
     ): Promise<string> => {
         try {
+            // Abandon any orphaned in_progress runs to prevent stale resume banners
+            const orphanQ = query(
+                collection(db, 'quizRuns', userId, 'runs'),
+                where('status', '==', 'in_progress')
+            );
+            const orphans = await getDocs(orphanQ);
+            if (orphans.size > 0) {
+                console.log(`[createRun] Abandoning ${orphans.size} orphaned in_progress run(s)`);
+                await Promise.all(orphans.docs.map(d =>
+                    updateDoc(d.ref, { status: 'abandoned', updatedAt: serverTimestamp() })
+                ));
+            }
+
             const runsRef = collection(db, 'quizRuns', userId, 'runs');
             const newRunRef = doc(runsRef);
 
@@ -89,7 +122,7 @@ export const QuizRunService = {
     saveProgress: async (
         userId: string,
         runId: string,
-        answer: { questionId: string, selectedOption: number, isCorrect: boolean },
+        answer: { questionId: string, selectedOption: number, isCorrect: boolean, domain?: string },
         nextIndex: number
     ) => {
         try {
@@ -143,12 +176,34 @@ export const QuizRunService = {
     completeRun: async (userId: string, runId: string, results: any) => {
         try {
             const runRef = doc(db, 'quizRuns', userId, 'runs', runId);
-            await updateDoc(runRef, {
+
+            // Read persisted answers — authoritative source
+            const snap = await getDoc(runRef);
+            const updatePayload: any = {
                 status: 'completed',
                 completedAt: serverTimestamp(),
                 results,
                 updatedAt: serverTimestamp()
-            });
+            };
+            if (snap.exists()) {
+                const data = snap.data();
+                const rawAnswers = data.answers || [];
+                const cleanAnswers = rawAnswers.filter((a: any) => a.selectedOption !== undefined);
+                if (cleanAnswers.length !== rawAnswers.length) {
+                    console.warn(`[completeRun] Filtered ${rawAnswers.length - cleanAnswers.length} answers with undefined selectedOption`);
+                    updatePayload.answers = cleanAnswers;
+                }
+
+                // Derive score and domainResults from persisted answers, not React state
+                const correctCount = cleanAnswers.filter((a: any) => a.isCorrect).length;
+                updatePayload.results = {
+                    ...results,
+                    score: correctCount,
+                    domainResults: deriveDomainResultsFromAnswers(cleanAnswers),
+                };
+            }
+
+            await updateDoc(runRef, updatePayload);
         } catch (error) {
             console.error("Error completing quiz run:", error);
         }

@@ -11,9 +11,10 @@ import { APP_VERSION } from '../version';
 interface ReportIssueModalProps {
     isOpen: boolean;
     onClose: () => void;
+    context?: Record<string, string | undefined>;
 }
 
-export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalProps) {
+export default function ReportIssueModal({ isOpen, onClose, context }: ReportIssueModalProps) {
     const { user } = useAuth();
     const location = useLocation();
 
@@ -51,7 +52,8 @@ export default function ReportIssueModal({ isOpen, onClose }: ReportIssueModalPr
                 timestamp: serverTimestamp(),
                 status: 'new',
                 version: APP_VERSION,
-                attachmentUrl
+                attachmentUrl,
+                ...(context || {})
             });
 
             setSuccess(true);

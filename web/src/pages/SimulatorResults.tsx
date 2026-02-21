@@ -2,8 +2,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { CheckCircle, XCircle, RotateCcw, LayoutDashboard, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, RotateCcw, LayoutDashboard, Clock, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { auth } from '../firebase';
+import { useExam } from '../contexts/ExamContext';
+import { PredictionEngine, type DomainReadiness } from '../services/PredictionEngine';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -12,7 +15,10 @@ export default function SimulatorResults() {
     const navigate = useNavigate();
     const { score, total, timeSpent, questions, answers_map, flagged = {} } = location.state || {}; // answers_map is index->optionIndex
 
+    const { selectedExamId } = useExam();
     const [domainStats, setDomainStats] = useState<any[]>([]);
+    const [overallDomains, setOverallDomains] = useState<DomainReadiness[]>([]);
+    const [showTooltip, setShowTooltip] = useState(false);
     const [filter, setFilter] = useState<'all' | 'correct' | 'wrong' | 'flagged' | 'unanswered'>('all');
 
     useEffect(() => {
@@ -42,6 +48,15 @@ export default function SimulatorResults() {
 
         setDomainStats(stats);
     }, [questions]);
+
+    // Fetch overall trend from PredictionEngine
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user || !selectedExamId) return;
+        PredictionEngine.calculateReadiness(user.uid, selectedExamId).then(report => {
+            setOverallDomains(report.domainBreakdown.filter(d => d.status !== 'Insufficient'));
+        }).catch(() => {});
+    }, [selectedExamId]);
 
     if (!questions) return null;
 
@@ -116,7 +131,27 @@ export default function SimulatorResults() {
 
                         {/* Domain Breakdown */}
                         <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-6">
-                            <h3 className="font-bold text-white mb-4">Performance by Domain</h3>
+                            {/* This Exam Performance */}
+                            <div className="flex items-center gap-2 mb-4">
+                                <h3 className="font-bold text-white">This Exam Performance</h3>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowTooltip(!showTooltip)}
+                                        onMouseEnter={() => setShowTooltip(true)}
+                                        onMouseLeave={() => setShowTooltip(false)}
+                                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                                        aria-label="Domain ranking info"
+                                    >
+                                        <Info className="w-4 h-4" />
+                                    </button>
+                                    {showTooltip && (
+                                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 leading-relaxed shadow-xl z-10">
+                                            This section shows your performance on this exam.<br />Overall Trend reflects long-term performance across attempts.
+                                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 bg-slate-900 border-r border-b border-slate-600 rotate-45 -mt-1"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                             <div className="space-y-4">
                                 {domainStats.map((stat, idx) => (
                                     <div key={idx}>
@@ -136,6 +171,33 @@ export default function SimulatorResults() {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Overall Trend */}
+                            {overallDomains.length > 0 && (
+                                <>
+                                    <div className="border-t border-slate-700/60 my-6"></div>
+                                    <h3 className="font-bold text-slate-400 text-sm uppercase tracking-wider mb-4">Overall Trend</h3>
+                                    <div className="space-y-3">
+                                        {overallDomains.map((d) => (
+                                            <div key={d.domain}>
+                                                <div className="flex justify-between text-sm mb-1">
+                                                    <span className="text-slate-400">{d.domain}</span>
+                                                    <span className="font-medium text-slate-300">{d.score}%</span>
+                                                </div>
+                                                <div className="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full transition-all duration-500"
+                                                        style={{
+                                                            width: `${d.score}%`,
+                                                            backgroundColor: `hsl(${Math.min(d.score * 1.2, 120)}, 60%, 40%)`
+                                                        }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

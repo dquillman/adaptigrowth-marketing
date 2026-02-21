@@ -95,7 +95,7 @@ export default function Pricing() {
 
                 {/* Back Button */}
                 <button
-                    onClick={() => window.location.href = '/'}
+                    onClick={() => window.location.href = '/app'}
                     className="absolute top-8 left-8 text-slate-400 hover:text-white transition-colors flex items-center gap-2"
                 >
                     <ArrowLeft className="w-5 h-5" />

@@ -258,7 +258,7 @@ export default function StudySchedule() {
     return (
         <div className="p-6 md:p-10 max-w-6xl mx-auto text-slate-100">
             {/* Back to Dashboard */}
-            <DashboardLink className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-white transition-colors mb-4" />
+            <DashboardLink />
 
             {/* Guided Plan Microcopy */}
             <p className="text-sm text-slate-500 mb-4">

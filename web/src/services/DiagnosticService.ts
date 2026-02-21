@@ -128,6 +128,72 @@ export const DiagnosticService = {
     },
 
     /**
+     * Returns true if ANY completed diagnostic run exists for this exam.
+     * Queries quizRuns (the unified collection where Quiz.tsx persists all runs)
+     * — NOT the legacy diagnostics collection (which has zero writers).
+     */
+    hasCompletedRun: async (userId: string, examId: string): Promise<boolean> => {
+        console.log('[hasCompletedRun] called with userId:', userId, 'examId:', examId);
+        try {
+            // Diagnostic runs are persisted via QuizRunService.createRun() into quizRuns/{userId}/runs
+            // with quizType='diagnostic' and status='completed'.
+            // Query 2 fields to avoid 3-field composite index; filter examId client-side.
+            const runsRef = collection(db, 'quizRuns', userId, 'runs');
+            const q = query(
+                runsRef,
+                where('quizType', '==', 'diagnostic'),
+                where('status', '==', 'completed'),
+                limit(5)
+            );
+            const snap = await getDocs(q);
+            console.log('[hasCompletedRun] docs returned:', snap.size);
+            snap.docs.forEach((d, i) => {
+                const data = d.data();
+                console.log(`[hasCompletedRun] doc[${i}]:`, {
+                    id: d.id,
+                    examId: data.examId,
+                    quizType: data.quizType,
+                    status: data.status,
+                    mode: data.mode,
+                    completedAt: data.completedAt,
+                });
+            });
+            const result = snap.docs.some(d => d.data().examId === examId);
+            console.log('[hasCompletedRun] examId match result:', result);
+            return result;
+        } catch (error: any) {
+            console.error('[hasCompletedRun] QUERY FAILED:', error.code, error.message);
+            if (error.code === 'failed-precondition') {
+                // Missing composite index — fall back to single-field query
+                console.warn('[DiagnosticService] Missing index for hasCompletedRun, using fallback');
+                try {
+                    const runsRef = collection(db, 'quizRuns', userId, 'runs');
+                    const fallbackQ = query(runsRef, where('status', '==', 'completed'));
+                    const fallbackSnap = await getDocs(fallbackQ);
+                    console.log('[hasCompletedRun] fallback docs:', fallbackSnap.size);
+                    fallbackSnap.docs.forEach((d, i) => {
+                        const data = d.data();
+                        console.log(`[hasCompletedRun] fallback doc[${i}]:`, {
+                            id: d.id,
+                            examId: data.examId,
+                            quizType: data.quizType,
+                            status: data.status,
+                        });
+                    });
+                    return fallbackSnap.docs.some(d => {
+                        const data = d.data();
+                        return data.quizType === 'diagnostic' && data.examId === examId;
+                    });
+                } catch {
+                    return false;
+                }
+            }
+            console.error("Error checking diagnostic completion:", error);
+            return false;
+        }
+    },
+
+    /**
      * Determines the weakest domain from a diagnostic run.
      * STRICT RULE: Diagnostic only. No external mastery.
      * 

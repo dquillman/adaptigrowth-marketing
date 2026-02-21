@@ -5,7 +5,6 @@ import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { APP_VERSION, DISPLAY_VERSION } from "./version";
 import { isValidVersion, evaluateVersion } from "./utils/versionCheck";
-
 // Pages
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";

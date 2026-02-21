@@ -7,6 +7,7 @@ import { DiagnosticService } from '../services/DiagnosticService';
 interface ExamContextType {
     selectedExamId: string;
     examName: string;
+    bankVersion: string;
     examDomains: string[];
     loading: boolean;
     hasCompletedDiagnostic: boolean | null;
@@ -21,6 +22,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
         return localStorage.getItem('selectedExamId') || 'default-exam';
     });
     const [examName, setExamName] = useState<string>('');
+    const [bankVersion, setBankVersion] = useState<string>('1.0');
     const [examDomains, setExamDomains] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -32,9 +34,16 @@ export function ExamProvider({ children }: { children: ReactNode }) {
         if (!selectedExamId) return;
         const unsub = onAuthStateChanged(auth, (user) => {
             if (!user) return;
-            DiagnosticService.getLatestRun(user.uid, selectedExamId)
-                .then(run => setHasCompletedDiagnostic(run?.status === 'completed'))
-                .catch(() => setHasCompletedDiagnostic(true));
+            console.log('[ExamContext] checking diagnostic for examId:', selectedExamId, 'userId:', user.uid);
+            DiagnosticService.hasCompletedRun(user.uid, selectedExamId)
+                .then(completed => {
+                    console.log('[ExamContext] hasCompletedRun returned:', completed, 'for examId:', selectedExamId);
+                    setHasCompletedDiagnostic(completed);
+                })
+                .catch((err) => {
+                    console.error('[ExamContext] hasCompletedRun error:', err);
+                    setHasCompletedDiagnostic(true);
+                });
         });
         return () => unsub();
     }, [selectedExamId]);
@@ -55,6 +64,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
                     if (snap.exists()) {
                         const data = snap.data();
                         setExamName(data.name || 'Unknown Exam');
+                        setBankVersion(data.bankVersion || '1.0');
                         setExamDomains(data.domains || []);
                     } else {
                         // Fallback if ID is invalid: Auto-select first published exam
@@ -75,6 +85,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
                             // Actually, updating selectedExamId triggers the effect again, so we can just return or let it re-run.
                             // But to avoid flicker, we can set them:
                             setExamName(data.name || 'Unknown Exam');
+                            setBankVersion(data.bankVersion || '1.0');
                             setExamDomains(data.domains || []);
                         } else {
                             setExamName('No Exams Found');
@@ -110,7 +121,7 @@ export function ExamProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <ExamContext.Provider value={{ selectedExamId, examName, examDomains, loading, hasCompletedDiagnostic, switchExam, markDiagnosticComplete }}>
+        <ExamContext.Provider value={{ selectedExamId, examName, bankVersion, examDomains, loading, hasCompletedDiagnostic, switchExam, markDiagnosticComplete }}>
             {children}
         </ExamContext.Provider>
     );

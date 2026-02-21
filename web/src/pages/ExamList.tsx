@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import DashboardLink from '../components/DashboardLink';
 
 interface Exam {
     id: string;
@@ -45,16 +46,10 @@ export default function ExamList() {
     return (
         <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-8">
             <div className="max-w-7xl mx-auto space-y-8">
-                <div className="flex items-center gap-4">
-                    <Link to="/app" className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                    </Link>
-                    <div>
-                        <h1 className="text-3xl font-bold text-white font-display tracking-tight">Available Exams</h1>
-                        <p className="text-slate-400 mt-1">Select an exam to start practicing.</p>
-                    </div>
+                <DashboardLink />
+                <div>
+                    <h1 className="text-3xl font-bold text-white font-display tracking-tight">Available Exams</h1>
+                    <p className="text-slate-400 mt-1">Select an exam to start practicing.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

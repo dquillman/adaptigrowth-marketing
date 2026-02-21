@@ -8,17 +8,7 @@
         "web": [
           "exam-coach-ai-platform"
         ],
-        "admin": [
-          "admin-core-20292"
-        ],
         "staging": [
-          "exam-coach-ai-platform-staging"
-        ]
-      }
-    },
-    "exam-coach-ai-platform-staging": {
-      "hosting": {
-        "exam-coach": [
           "exam-coach-ai-platform-staging"
         ]
       }

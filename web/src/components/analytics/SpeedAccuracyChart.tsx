@@ -14,11 +14,11 @@ import { collection, query, where, orderBy, limit, getDocs } from 'firebase/fire
 import { db, auth } from '../../firebase';
 
 interface ChartData {
-    date: string;
+    xKey: string;   // unique per data point (prevents category collision)
+    date: string;   // formatted label for tooltip
     accuracy: number;
-    speed: number; // seconds per question
+    speed: number;  // seconds per question
 }
-
 
 interface SpeedAccuracyChartProps {
     currentExamId: string;
@@ -27,7 +27,6 @@ interface SpeedAccuracyChartProps {
 export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChartProps) {
     const [data, setData] = useState<ChartData[]>([]);
     const [loading, setLoading] = useState(true);
-    // const [showInfo, setShowInfo] = useState(false);
 
     // Fix for "width(-1)" warning: Only render chart when container has valid dimensions
     // We use a hybrid approach: ResizeObserver for correctness + Timeout for safety
@@ -69,15 +68,12 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
             if (!auth.currentUser || !currentExamId) return;
 
             try {
-                // Query from quizRuns/{userId}/runs - the actual data source
-                // Using simple query to avoid composite index requirements
                 const userId = auth.currentUser.uid;
                 const runsRef = collection(db, 'quizRuns', userId, 'runs');
 
                 let runs: any[] = [];
 
                 try {
-                    // Try with composite query first (if index exists)
                     const q = query(
                         runsRef,
                         where('examId', '==', currentExamId),
@@ -91,7 +87,6 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
                         ...doc.data()
                     }));
                 } catch {
-                    // Fallback: query only by status, filter client-side
                     console.warn("SpeedAccuracyChart: Composite index not available, using fallback query");
                     const fallbackQ = query(
                         runsRef,
@@ -105,23 +100,37 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
                         .sort((a: any, b: any) => {
                             const aTime = a.completedAt?.seconds || 0;
                             const bTime = b.completedAt?.seconds || 0;
-                            return bTime - aTime; // desc
+                            return bTime - aTime;
                         })
                         .slice(0, 50);
                 }
 
-                // Exclude diagnostics (no meaningful trend data for chart)
-                const scored = runs.filter((r: any) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic');
+                // Exclude diagnostics, reverse to chronological order
+                const nonDiag = runs
+                    .filter((r: any) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic')
+                    .reverse();
 
-                // Process data for chart (reverse to show chronological order)
-                const processedData = scored.reverse().map((run: any) => {
-                    // Calculate score from answers array
-                    const answers = run.answers || [];
-                    const totalQuestions = answers.length;
-                    const correctCount = answers.filter((a: any) => a.isCorrect).length;
-                    const accuracy = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+                // Derive per-run accuracy and speed directly from answers[]
+                // Falls back to results.score for legacy runs with empty answers[]
+                const processedData: ChartData[] = nonDiag.map((run: any, i: number) => {
+                    const answers = (run.answers || []).filter(
+                        (a: any) => a?.selectedOption !== undefined
+                    );
+                    const snapshotLen = run.snapshot?.questionIds?.length || 0;
 
-                    // Calculate speed from results or answers timing
+                    let accuracy = 0;
+                    if (answers.length > 0) {
+                        // Primary: derive from persisted answers
+                        const correctCount = answers.filter((a: any) => a.isCorrect).length;
+                        const totalQuestions = snapshotLen || answers.length;
+                        accuracy = Math.round((correctCount / totalQuestions) * 100);
+                    } else if (snapshotLen > 0 && run.results?.score != null) {
+                        // Fallback: legacy runs with no answers[] but valid results.score
+                        accuracy = Math.round((run.results.score / snapshotLen) * 100);
+                    }
+
+                    const totalQuestions = snapshotLen || answers.length;
+
                     let speed = 0;
                     if (run.results?.averageTimePerQuestion) {
                         speed = Math.round(run.results.averageTimePerQuestion);
@@ -129,16 +138,19 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
                         speed = Math.round(run.results.timeSpent / totalQuestions);
                     }
 
-                    // Get timestamp from completedAt or updatedAt
-                    const timestamp = run.completedAt || run.updatedAt;
-                    const date = timestamp?.seconds
-                        ? new Date(timestamp.seconds * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                    const ts = run.completedAt || run.updatedAt;
+                    const date = ts?.seconds
+                        ? new Date(ts.seconds * 1000).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                          })
                         : 'Unknown';
 
                     return {
+                        xKey: `${date} #${i + 1}`,
                         date,
                         accuracy,
-                        speed
+                        speed,
                     };
                 });
 
@@ -183,11 +195,13 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
                             >
                                 <CartesianGrid stroke="#334155" strokeDasharray="3 3" vertical={false} />
                                 <XAxis
-                                    dataKey="date"
+                                    dataKey="xKey"
                                     stroke="#94a3b8"
                                     tick={{ fill: '#94a3b8' }}
                                     tickLine={{ stroke: '#334155' }}
                                     axisLine={{ stroke: '#334155' }}
+                                    tickFormatter={(v: string) => v.replace(/ #\d+$/, '')}
+                                    interval="preserveStartEnd"
                                 />
 
                                 {/* Left Y-Axis: Accuracy (%) */}
@@ -216,6 +230,7 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
                                     contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', borderRadius: '0.75rem', color: '#f1f5f9' }}
                                     itemStyle={{ color: '#f1f5f9' }}
                                     labelStyle={{ color: '#94a3b8', marginBottom: '0.5rem' }}
+                                    labelFormatter={(v: string) => v.replace(/ #\d+$/, '')}
                                 />
                                 <Legend wrapperStyle={{ paddingTop: '10px' }} />
 

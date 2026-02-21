@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.15.0';
+export const APP_VERSION = '1.15.2';
 
 const isStaging = typeof window !== 'undefined' && window.location.hostname.includes('staging');
 

@@ -3,6 +3,7 @@ import { useAuth } from '../App';
 import { db } from '../firebase';
 import { doc, onSnapshot, collection, query, where, getDocs, Timestamp, updateDoc } from 'firebase/firestore';
 import { getUserEntitlement, type UserEntitlement } from '../utils/entitlement';
+import { getAnsweredCount } from '../utils/questionMetrics';
 
 interface SubscriptionContextType {
     isPro: boolean;
@@ -106,19 +107,17 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             const todayTimestamp = Timestamp.fromDate(today);
 
             try {
-                // Query attempts from today
+                // Query completed runs from today (quizRuns subcollection)
                 const q = query(
-                    collection(db, 'quizAttempts'),
-                    where('userId', '==', user.uid),
-                    where('timestamp', '>=', todayTimestamp)
+                    collection(db, 'quizRuns', user.uid, 'runs'),
+                    where('completedAt', '>=', todayTimestamp)
                 );
 
                 const snapshot = await getDocs(q);
                 let total = 0;
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    // Assuming 'totalQuestions' is the count field
-                    total += (data.totalQuestions || 0);
+                    total += getAnsweredCount(data);
                 });
 
                 setQuestionsAnsweredToday(total);

@@ -4,7 +4,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import TutorBreakdown, { type TutorResponse } from '../components/TutorBreakdown';
 import type { PatternData } from '../components/PatternInsightCard';
-import { doc, setDoc, getDoc, collection, query, getDocs, addDoc, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { XPService } from '../services/xpService';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -12,11 +12,13 @@ import SubscriptionUpsellModal from '../components/SubscriptionUpsellModal';
 import { useExam } from '../contexts/ExamContext';
 import { SmartQuizService } from '../services/smartQuiz';
 import { useMarketingCopy } from '../hooks/useMarketingCopy';
-import { QuizRunService } from '../services/QuizRunService';
+import { QuizRunService, deriveDomainResultsFromAnswers } from '../services/QuizRunService';
 import { UsageEventService } from '../services/UsageEventService';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useSmartQuizReview } from '../contexts/SmartQuizReviewContext';
 import QuestionProvenanceBadge from '../components/QuestionProvenanceBadge';
+import { quizReportStore } from '../utils/quizReportStore';
+import StructuredExplanation from '../components/explanations/StructuredExplanation';
 
 interface Question {
     id: string;
@@ -93,7 +95,7 @@ export default function Quiz() {
     }, [location.state]);
 
     // Global context fallback
-    const { selectedExamId, examDomains } = useExam();
+    const { selectedExamId, examName, bankVersion, examDomains } = useExam();
 
     const [activeExamId, setActiveExamId] = useState<string>('');
     const [reinforcementMessage, setReinforcementMessage] = useState<string | null>(null);
@@ -236,15 +238,6 @@ export default function Quiz() {
                             diagIds
                         );
 
-                        await addDoc(collection(db, 'quizAttempts'), {
-                            userId: auth.currentUser!.uid,
-                            examId: activeExamId,
-                            mode: 'diagnostic',
-                            completed: false,
-                            runId,
-                            totalQuestions: diagIds.length,
-                            timestamp: new Date()
-                        });
                         setActiveRunId(runId);
                         setQuizType('diagnostic');
                     } catch (e) {
@@ -340,63 +333,101 @@ export default function Quiz() {
 
                 // 4. Selection Logic (SRS Algorithm)
                 // Priority: Learning (Review) > New > Mastered (Refresh)
-                // 4. Selection Logic (SRS Algorithm)
-                // Priority: Learning (Review) > New > Mastered (Refresh)
 
-                // Limit questions based on plan
                 const TARGET_SIZE = isPro ? 10 : 5;
                 let selected: Question[] = [];
-                const selectedIds = new Set<string>(); // LAYER 1: Session Uniqueness
-
+                const selectedIds = new Set<string>();
                 const shuffle = (arr: any[]) => arr.sort(() => 0.5 - Math.random());
 
-                const addUnique = (candidates: Question[]) => {
-                    for (const c of candidates) {
-                        if (selected.length >= TARGET_SIZE) break;
-                        if (!selectedIds.has(c.id)) {
-                            selected.push(c);
-                            selectedIds.add(c.id);
+                if (!filterDomain && examDomains && examDomains.length >= 2) {
+                    // --- Adaptive multi-domain distribution ---
+                    const masterySnap = await getDoc(doc(db, 'userMastery', `${user.uid}_${activeExamId}`));
+                    const mData = masterySnap.exists() ? masterySnap.data()?.masteryData || {} : {};
+
+                    // Rank domains weakest → strongest
+                    const ranked = examDomains
+                        .map(d => ({
+                            domain: d,
+                            score: mData[d]?.total > 0 ? (mData[d].correct / mData[d].total) * 100 : 0
+                        }))
+                        .sort((a, b) => a.score - b.score);
+
+                    // Distribution: gap between #1 and #2 weakest determines spread
+                    const gap = ranked[1].score - ranked[0].score;
+                    const base = gap < 3 ? [5, 3, 2] : [6, 3, 1];
+
+                    // Scale to TARGET_SIZE (handles Pro=10, Free=5)
+                    const dist = base.map(n => Math.round((n / 10) * TARGET_SIZE));
+                    let sum = dist.reduce((a, b) => a + b, 0);
+                    while (sum < TARGET_SIZE) { dist[0]++; sum++; }
+                    while (sum > TARGET_SIZE) { dist[dist.length - 1] = Math.max(0, dist[dist.length - 1] - 1); sum--; }
+
+                    // Per-domain selection with SRS priority (learning → new → mastered)
+                    for (let i = 0; i < Math.min(ranked.length, dist.length); i++) {
+                        const d = ranked[i].domain;
+                        const quota = dist[i];
+                        let added = 0;
+
+                        for (const pool of [
+                            shuffle(learning.filter(q => q.domain === d)),
+                            shuffle(newQs.filter(q => q.domain === d)),
+                            shuffle(mastered.filter(q => q.domain === d)),
+                        ]) {
+                            for (const q of pool) {
+                                if (added >= quota || selected.length >= TARGET_SIZE) break;
+                                if (!selectedIds.has(q.id)) {
+                                    selected.push(q);
+                                    selectedIds.add(q.id);
+                                    added++;
+                                }
+                            }
                         }
                     }
-                };
 
-                // A. Add all 'Learning' questions
-                addUnique(shuffle(learning));
+                    // Fallback: if any domain was sparse, fill from remaining questions
+                    if (selected.length < TARGET_SIZE) {
+                        for (const pool of [shuffle(learning), shuffle(newQs), shuffle(mastered)]) {
+                            for (const q of pool) {
+                                if (selected.length >= TARGET_SIZE) break;
+                                if (!selectedIds.has(q.id)) {
+                                    selected.push(q);
+                                    selectedIds.add(q.id);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // --- Single-domain mode (mastery ring clicks) ---
+                    const addUnique = (candidates: Question[]) => {
+                        for (const c of candidates) {
+                            if (selected.length >= TARGET_SIZE) break;
+                            if (!selectedIds.has(c.id)) {
+                                selected.push(c);
+                                selectedIds.add(c.id);
+                            }
+                        }
+                    };
 
-                // B. Fill with 'New' questions
-                if (selected.length < TARGET_SIZE) {
-                    // We can just add unique from the shuffled "new" bucket
-                    addUnique(shuffle(newQs));
-                }
-
-                // C. Fill with 'Mastered' questions
-                // If filtering by specific domain, we ALLOW mastered questions to fill the quiz
-                // to ensure the user gets a full 10-question set if available.
-                if (selected.length < TARGET_SIZE && mastered.length > 0) {
-                    // If filterDomain is active, we are more aggressive about reusing mastered content
-                    const remaining = TARGET_SIZE - selected.length;
-                    const toTake = filterDomain ? remaining : Math.min(remaining, Math.ceil(TARGET_SIZE * 0.3));
-
-                    // Shuffle mastered and add strictly unique
-                    const shuffledMastered = shuffle(mastered);
-                    let taken = 0;
-                    for (const m of shuffledMastered) {
-                        if (taken >= toTake) break;
-                        if (selected.length >= TARGET_SIZE) break;
-                        if (!selectedIds.has(m.id)) {
-                            selected.push(m);
-                            selectedIds.add(m.id);
-                            taken++;
+                    addUnique(shuffle(learning));
+                    if (selected.length < TARGET_SIZE) addUnique(shuffle(newQs));
+                    if (selected.length < TARGET_SIZE && mastered.length > 0) {
+                        const remaining = TARGET_SIZE - selected.length;
+                        const toTake = filterDomain ? remaining : Math.min(remaining, Math.ceil(TARGET_SIZE * 0.3));
+                        const shuffledMastered = shuffle(mastered);
+                        let taken = 0;
+                        for (const m of shuffledMastered) {
+                            if (taken >= toTake || selected.length >= TARGET_SIZE) break;
+                            if (!selectedIds.has(m.id)) {
+                                selected.push(m);
+                                selectedIds.add(m.id);
+                                taken++;
+                            }
                         }
                     }
                 }
 
-                // selected = selected.slice(0, TARGET_SIZE); // Already handled by logic loops but safe to keep if simple array concat was used.
-                // Re-shuffle final selection so order isn't purely Learning -> New -> Mastered
                 selected = selected.sort(() => 0.5 - Math.random());
-
-                console.log("Selected Smart Questions:", selected);
-                console.log("Selected Smart Questions:", selected);
+                console.log("Selected Smart Questions:", selected.length, selected.map(q => q.domain));
                 setQuestions(selected);
 
                 // UNIFIED PERSISTENCE: Create Run for Smart/Weakest Modes if not resuming
@@ -447,18 +478,20 @@ export default function Quiz() {
         const isCorrect = selectedOption === currentQuestion.correctAnswer;
 
         if (isCorrect) {
-            setScore(score + 1);
+            setScore(prev => prev + 1);
         }
 
         // Track domain results
-        const domain = currentQuestion.domain || 'Process';
-        setDomainResults(prev => ({
-            ...prev,
-            [domain]: {
-                correct: (prev[domain]?.correct || 0) + (isCorrect ? 1 : 0),
-                total: (prev[domain]?.total || 0) + 1
-            }
-        }));
+        const domain = currentQuestion.domain;
+        if (domain) {
+            setDomainResults(prev => ({
+                ...prev,
+                [domain]: {
+                    correct: (prev[domain]?.correct || 0) + (isCorrect ? 1 : 0),
+                    total: (prev[domain]?.total || 0) + 1
+                }
+            }));
+        }
 
         // Track Details for Readiness Engine
         // We can't know if they viewed the explanation yet (it happens AFTER this function).
@@ -477,22 +510,11 @@ export default function Quiz() {
         // But 'quizDetails' is an array. We need to update the LAST item? 
         setShowExplanation(true);
         setExplanationRenderTime(Date.now()); // Start latency timer
-        setExplanationExpanded(false); // Reset for new question
+        setExplanationExpanded(true); // Auto-expand for immediate learning reinforcement
         setTutorBreakdown(null); // Reset breakdown
 
-        // Trigger Tutor Breakdown generation if incorrect (or just pre-fetch?)
-        // For MVP, if incorrect, we might want to fetch it.
-        // Actually, let's fetch it on demand OR if incorrect to show immediately.
-        if (!isCorrect) {
-            setExplanationExpanded(true); // Open automatically on wrong
-            fetchTutorBreakdown(currentQuestion, selectedOption);
-        } else {
-            // For TRAP MODE, we MUST fetch breakdown to ensure the backend updates user_pattern_stats
-            // so the user can 'graduate' from the trap.
-            if (location.state?.mode === 'trap') {
-                fetchTutorBreakdown(currentQuestion, selectedOption);
-            }
-        }
+        // Always fetch tutor breakdown for learning reinforcement
+        fetchTutorBreakdown(currentQuestion, selectedOption);
 
         // Save Granular Question Progress (SRS)
         updateQuestionProgress(currentQuestion.id, isCorrect);
@@ -519,7 +541,8 @@ export default function Quiz() {
                     await QuizRunService.saveProgress(user.uid, activeRunId, {
                         questionId,
                         selectedOption: selectedOption,
-                        isCorrect
+                        isCorrect,
+                        domain: currentQuestion?.domain
                     }, questions.length > currentQuestionIndex + 1 ? currentQuestionIndex + 1 : currentQuestionIndex);
                 }
             } catch (e) {
@@ -674,8 +697,24 @@ export default function Quiz() {
         // Prep Data for both specific persistence and legacy run completion
         const totalDuration = questionDurations.reduce((a, b) => a + b, 0);
         // Use the number of questions actually answered (details captured) as the total
-        const finalDetails = explicitDetails || quizDetails;
+        const rawDetails = explicitDetails || quizDetails;
+        const finalDetails = rawDetails.filter((d: any) => d.selectedOption !== undefined);
         const answeredCount = finalDetails.length;
+
+        // Derive domainResults from persisted answers[] (authoritative source)
+        // Handles save & resume correctly — React state only tracks current session
+        let derivedDomainResults = domainResults; // fallback if no activeRunId
+        if (activeRunId) {
+            try {
+                const runDoc = await QuizRunService.getRunById(userId, activeRunId);
+                if (runDoc) {
+                    const persistedAnswers = (runDoc.answers || []).filter((a: any) => a.selectedOption !== undefined);
+                    derivedDomainResults = deriveDomainResultsFromAnswers(persistedAnswers);
+                }
+            } catch (e) {
+                console.warn('[saveQuizResults] Could not read persisted answers, using React state fallback:', e);
+            }
+        }
 
         try {
             const masteryDoc = await getDoc(masteryRef);
@@ -686,7 +725,7 @@ export default function Quiz() {
                 newMastery = { ...(currentData.masteryData || {}) };
             }
 
-            Object.entries(domainResults).forEach(([domain, stats]) => {
+            Object.entries(derivedDomainResults).forEach(([domain, stats]) => {
                 if (!newMastery[domain]) {
                     newMastery[domain] = { correct: 0, total: 0 };
                 }
@@ -702,34 +741,7 @@ export default function Quiz() {
 
             console.log('Mastery updated successfully');
 
-            // Save Quiz Attempt
-            const attemptRef = collection(db, 'quizAttempts');
-
-            // Determine primary domain for the quiz
-            const filterDomain = location.state?.filterDomain;
-            const primaryDomain = filterDomain || 'Mixed'; // Use specific domain if filtered, otherwise Mixed
-
             if (answeredCount === 0) return; // Don't save empty attempts
-
-            // EQV Telemetry: Effective Question Variety (uniqueQuestionsSeen / totalQuestionsPresented)
-            const newQuestionCount = questions.filter(q => !questionProgressMap.has(q.id)).length;
-            const eqv = questions.length > 0 ? newQuestionCount / questions.length : 0;
-
-            await addDoc(attemptRef, {
-                userId,
-                examId: activeExamId,
-                score,
-                totalQuestions: answeredCount, // Use answered count
-                timestamp: new Date(),
-                domain: primaryDomain,
-                timeSpent: totalDuration,
-                averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
-                details: finalDetails,
-                mode: location.state?.mode || 'standard', // Track mode for Drift Analysis
-                isPro: isPro, // Track tier for Drift Analysis
-                eqv: parseFloat(eqv.toFixed(4)) // Effective Question Variety (internal telemetry)
-            });
-            console.log('Quiz attempt saved successfully');
 
         } catch (error) {
             console.error("Error saving results:", error);
@@ -749,8 +761,7 @@ export default function Quiz() {
         if (activeRunId) {
             await QuizRunService.completeRun(userId, activeRunId, {
                 score,
-                totalQuestions: answeredCount,
-                domainResults,
+                domainResults: derivedDomainResults,
                 timeSpent: totalDuration,
                 averageTimePerQuestion: answeredCount > 0 ? totalDuration / answeredCount : 0,
                 mode: location.state?.mode || 'standard'
@@ -838,7 +849,8 @@ export default function Quiz() {
                     {
                         questionId: currentQuestion.id,
                         selectedOption: selectedOption !== null ? selectedOption : -1, // -1 for skip if allowed? Assuming selectedOption is required by UI
-                        isCorrect: isCorrect
+                        isCorrect: isCorrect,
+                        domain: currentQuestion.domain
                     },
                     currentQuestionIndex + 1 // Next Index to resume from
                 );
@@ -877,6 +889,19 @@ export default function Quiz() {
             setQuizCompleted(true);
         }
     };
+
+    // Populate quiz report store so Sidebar's "Report a Problem" can attach context
+    useEffect(() => {
+        if (!loading && !quizCompleted && questions.length > 0) {
+            quizReportStore.set({
+                source: 'quiz',
+                questionId: questions[currentQuestionIndex]?.id,
+                quizType,
+                examId: activeExamId || undefined,
+            });
+        }
+        return () => { quizReportStore.clear(); };
+    }, [loading, quizCompleted, currentQuestionIndex, quizType, activeExamId, questions]);
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center">Loading quiz...</div>;
@@ -1273,8 +1298,7 @@ export default function Quiz() {
                                             const { QuizRunService } = await import('../services/QuizRunService');
                                             await QuizRunService.completeRun(auth.currentUser!.uid, activeRunId, {
                                                 abort: true,
-                                                score: score,
-                                                totalQuestions: questions.length
+                                                score: score
                                             });
                                         }
                                         navigate('/app');
@@ -1513,56 +1537,18 @@ export default function Quiz() {
                                             >
                                                 {isPMPExam(currentQuestion.examId) ? 'View PMI Doctrine Explanation' : 'Load Coach Breakdown'}
                                             </button>
-                                            <div className="mt-4 p-4 bg-slate-800/50 rounded text-slate-300 text-left">
-                                                <p className="font-bold text-slate-400 text-xs uppercase mb-2">Standard Explanation</p>
-                                                {currentQuestion.explanation}
+                                            <div className="mt-4 p-4 text-left">
+                                                <StructuredExplanation explanation={currentQuestion.explanation} title="Standard Explanation" />
                                             </div>
                                         </div>
                                     ) : isPMPExam(currentQuestion.examId) && tutorBreakdown ? (
-                                        /* PMP Doctrine Explanation - Clean, pattern-based rendering */
-                                        <div className="mt-6 bg-indigo-900/30 backdrop-blur-sm rounded-xl border border-indigo-500/30 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                            <div className="bg-indigo-900/50 px-6 py-3 border-b border-indigo-500/20 flex items-center gap-2">
-                                                <span className="text-xl">📐</span>
-                                                <h3 className="text-indigo-200 font-bold font-display">PMI Decision Doctrine</h3>
+                                        /* PMP Doctrine Explanation */
+                                        <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                                            <div className="px-6 py-3 border-b border-slate-700/50">
+                                                <h3 className="text-slate-200 font-bold font-display text-lg">PMI Decision Doctrine</h3>
                                             </div>
                                             <div className="p-6">
-                                                <div className="prose prose-invert prose-sm max-w-none">
-                                                    {tutorBreakdown.examLens.split('\n\n').map((paragraph, idx) => (
-                                                        <div key={idx} className="mb-4 last:mb-0">
-                                                            {paragraph.startsWith('PMI Decision Lens:') ? (
-                                                                <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-4 mb-4">
-                                                                    <p className="text-emerald-300 font-bold text-lg">
-                                                                        {paragraph}
-                                                                    </p>
-                                                                </div>
-                                                            ) : paragraph.startsWith('Why this conflicts:') ? (
-                                                                <div className="bg-amber-900/20 border border-amber-500/20 rounded-lg p-4 mb-4">
-                                                                    <h4 className="text-amber-400 font-bold text-sm mb-2">Why This Conflicts</h4>
-                                                                    <p className="text-slate-300 text-sm leading-relaxed">
-                                                                        {paragraph.replace('Why this conflicts:', '').trim()}
-                                                                    </p>
-                                                                </div>
-                                                            ) : paragraph.startsWith('Pattern:') ? (
-                                                                <div className="bg-blue-900/20 border border-blue-500/20 rounded-lg p-4 mb-4">
-                                                                    <h4 className="text-blue-400 font-bold text-sm mb-2">🎯 Pattern to Remember</h4>
-                                                                    <p className="text-blue-200 text-sm font-medium">
-                                                                        {paragraph.replace('Pattern:', '').trim()}
-                                                                    </p>
-                                                                </div>
-                                                            ) : paragraph.startsWith('Note:') ? (
-                                                                <div className="bg-slate-800/50 rounded-lg p-4">
-                                                                    <p className="text-slate-400 text-sm italic">
-                                                                        {paragraph.replace('Note:', '💡').trim()}
-                                                                    </p>
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-slate-300 text-sm leading-relaxed">
-                                                                    {paragraph}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
+                                                <StructuredExplanation explanation={tutorBreakdown.examLens} />
                                             </div>
                                         </div>
                                     ) : (
@@ -1590,14 +1576,12 @@ export default function Quiz() {
                                 </button>
                             ) : (
                                 <div className="flex gap-4">
-                                    {!explanationExpanded && (
-                                        <button
-                                            onClick={() => setExplanationExpanded(true)}
-                                            className="bg-blue-600/20 text-blue-300 border border-blue-500/30 px-6 py-3 rounded-xl font-medium hover:bg-blue-600/30 transition-all"
-                                        >
-                                            Show Explanation
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => setExplanationExpanded(!explanationExpanded)}
+                                        className="bg-blue-600/20 text-blue-300 border border-blue-500/30 px-6 py-3 rounded-xl font-medium hover:bg-blue-600/30 transition-all"
+                                    >
+                                        {explanationExpanded ? 'Hide Explanation' : 'Show Explanation'}
+                                    </button>
                                     <button
                                         onClick={handleNext}
                                         className="bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
@@ -1611,7 +1595,7 @@ export default function Quiz() {
                 </div>
             </main>
             <footer className="py-6 text-center text-xs text-slate-600">
-                v1.0.1
+                {examName} Bank v{bankVersion}
             </footer>
 
             <SubscriptionUpsellModal

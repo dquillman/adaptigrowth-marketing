@@ -1,16 +1,134 @@
+import DashboardLink from '../components/DashboardLink';
 import SpeedAccuracyChart from '../components/analytics/SpeedAccuracyChart';
+import RollingTrendChart from '../components/analytics/RollingTrendChart';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { Lock } from 'lucide-react';
+import { Lock, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../contexts/ExamContext';
+import { useEffect, useState } from 'react';
+import { auth, db } from '../firebase';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import {
+    PerformanceTrendService,
+    type OverallTrendResult,
+    type DomainTrendResult,
+} from '../services/performanceTrendService';
+
+const DOMAIN_COLORS: Record<string, string> = {
+    'People': '#a78bfa',           // violet-400
+    'Process': '#34d399',          // emerald-400
+    'Business Environment': '#f59e0b', // amber-500
+};
+
+const DOMAINS = ['People', 'Process', 'Business Environment'];
+
+function DirectionBadge({ direction }: { direction: 'improving' | 'declining' | 'stable' }) {
+    if (direction === 'improving') {
+        return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                <TrendingUp className="w-3.5 h-3.5" /> Improving
+            </span>
+        );
+    }
+    if (direction === 'declining') {
+        return (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-full">
+                <TrendingDown className="w-3.5 h-3.5" /> Declining
+            </span>
+        );
+    }
+    return (
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-400 bg-slate-500/10 border border-slate-500/20 px-2.5 py-1 rounded-full">
+            <Minus className="w-3.5 h-3.5" /> Stable
+        </span>
+    );
+}
 
 export default function Stats() {
     const { checkPermission } = useSubscription();
     const { selectedExamId, examName } = useExam();
     const navigate = useNavigate();
 
+    const [overallTrend, setOverallTrend] = useState<OverallTrendResult | null>(null);
+    const [domainTrends, setDomainTrends] = useState<DomainTrendResult[]>([]);
+    const [quizScores, setQuizScores] = useState<{ completedAt: number; scorePercent: number }[]>([]);
+    const [trendLoading, setTrendLoading] = useState(true);
+
+    useEffect(() => {
+        const uid = auth.currentUser?.uid;
+        if (!uid || !selectedExamId) return;
+        setTrendLoading(true);
+
+        const fetchQuizScores = async () => {
+            try {
+                const runsRef = collection(db, 'quizRuns', uid, 'runs');
+                let runs: any[] = [];
+                try {
+                    const q = query(
+                        runsRef,
+                        where('examId', '==', selectedExamId),
+                        where('status', '==', 'completed'),
+                        orderBy('completedAt', 'desc'),
+                        limit(200)
+                    );
+                    const snap = await getDocs(q);
+                    runs = snap.docs.map(d => d.data());
+                } catch {
+                    // Fallback if composite index missing
+                    const fallbackQ = query(runsRef, where('status', '==', 'completed'), limit(500));
+                    const snap = await getDocs(fallbackQ);
+                    runs = snap.docs.map(d => d.data()).filter((r: any) => r.examId === selectedExamId);
+                }
+
+                const scores = runs
+                    .filter((r: any) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic')
+                    .map((r: any) => {
+                        const totalQ = r.snapshot?.questionIds?.length || 0;
+                        const answers = (r.answers || []).filter(
+                            (a: any) => a?.selectedOption !== undefined
+                        );
+                        const correctCount = answers.filter(
+                            (a: any) => a.isCorrect
+                        ).length;
+                        const ts = r.completedAt?.seconds
+                            ? r.completedAt.seconds * 1000
+                            : r.completedAt?.toMillis?.()
+                                ? r.completedAt.toMillis()
+                                : Date.now();
+                        return {
+                            completedAt: ts,
+                            scorePercent: totalQ > 0
+                                ? Math.round((correctCount / totalQ) * 100)
+                                : 0,
+                        };
+                    });
+                setQuizScores(scores);
+            } catch (err) {
+                console.error('Failed to fetch quiz scores for bars:', err);
+            }
+        };
+
+        Promise.all([
+            PerformanceTrendService.getRollingOverallTrend(uid, selectedExamId),
+            PerformanceTrendService.getAllDomainTrends(uid, selectedExamId, DOMAINS),
+            fetchQuizScores(),
+        ]).then(([overall, domains]) => {
+            setOverallTrend(overall);
+            setDomainTrends(domains);
+        }).catch(err => {
+            console.error('Failed to load performance trends:', err);
+        }).finally(() => {
+            setTrendLoading(false);
+        });
+    }, [selectedExamId]);
+
+    const isProGated = !checkPermission('analytics');
+
     return (
         <div className="space-y-8">
+            <DashboardLink />
+
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white font-display">Your Statistics</h1>
@@ -19,14 +137,73 @@ export default function Stats() {
                 </div>
             </div>
 
+            {/* Rolling Performance Trend Section */}
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
-                <h3 className="text-xl font-bold text-white font-display mb-6">Performance Trends</h3>
+                <h3 className="text-xl font-bold text-white font-display mb-2">Performance Trend</h3>
+                <p className="text-sm text-slate-400 leading-relaxed mb-6">
+                    Performance Trend reflects your rolling average across your most recent 50 questions. This smooths out single-quiz volatility and highlights consistent improvement over time.
+                </p>
+
                 <div className="relative">
-                    <div className={!checkPermission('analytics') ? "blur-md pointer-events-none opacity-50 select-none" : ""}>
-                        <SpeedAccuracyChart currentExamId={selectedExamId} />
+                    <div className={isProGated ? 'blur-md pointer-events-none opacity-50 select-none' : ''}>
+                        {/* Overall Trend */}
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Overall Rolling Trend</h4>
+                                {!trendLoading && overallTrend && overallTrend.totalQuestions >= 10 && (
+                                    <div className="flex items-center gap-3">
+                                        <DirectionBadge direction={overallTrend.direction} />
+                                        <span className="text-xs text-slate-500">{overallTrend.totalQuestions} questions</span>
+                                    </div>
+                                )}
+                            </div>
+                            <RollingTrendChart
+                                data={overallTrend?.dataPoints ?? []}
+                                color="#10b981"
+                                height={300}
+                                loading={trendLoading}
+                                emptyMessage="Complete a few quizzes to see your rolling performance trend."
+                                quizScores={quizScores}
+                            />
+                        </div>
+
+                        {/* Domain Trends */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {DOMAINS.map(domain => {
+                                const trend = domainTrends.find(d => d.domain === domain);
+                                const color = DOMAIN_COLORS[domain] || '#94a3b8';
+                                const qCount = trend?.totalQuestions ?? 0;
+                                const remaining = Math.max(0, 10 - qCount);
+                                const emptyMsg = qCount > 0
+                                    ? `${qCount} question${qCount === 1 ? '' : 's'} completed \u2014 ${remaining} more needed for trend (min 10).`
+                                    : `No ${domain} data yet.`;
+                                return (
+                                    <div key={domain} className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-bold text-slate-300">{domain}</h4>
+                                            {!trendLoading && trend && qCount >= 10 && (
+                                                <DirectionBadge direction={trend.direction} />
+                                            )}
+                                        </div>
+                                        {!trendLoading && trend && qCount >= 10 && (
+                                            <span className="text-xs text-slate-500">{qCount} questions</span>
+                                        )}
+                                        <RollingTrendChart
+                                            data={trend?.dataPoints ?? []}
+                                            color={color}
+                                            height={220}
+                                            loading={trendLoading}
+                                            compact
+                                            emptyMessage={emptyMsg}
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
 
-                    {!checkPermission('analytics') && (
+                    {/* Pro gate overlay */}
+                    {isProGated && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
                             <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-xl border border-slate-700">
                                 <Lock className="w-6 h-6 text-brand-400" />
@@ -46,7 +223,33 @@ export default function Stats() {
                 </div>
             </div>
 
+            {/* Existing Speed & Accuracy Chart */}
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
+                <h3 className="text-xl font-bold text-white font-display mb-6">Speed &amp; Accuracy per Session</h3>
+                <div className="relative">
+                    <div className={isProGated ? "blur-md pointer-events-none opacity-50 select-none" : ""}>
+                        <SpeedAccuracyChart currentExamId={selectedExamId} />
+                    </div>
 
+                    {isProGated && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+                            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4 shadow-xl border border-slate-700">
+                                <Lock className="w-6 h-6 text-brand-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Pro Feature</h3>
+                            <p className="text-slate-300 mb-6 text-center max-w-sm">
+                                Upgrade to unlock detailed performance analytics and trends.
+                            </p>
+                            <button
+                                onClick={() => navigate('/app/pricing')}
+                                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold py-2 px-6 rounded-lg shadow-lg hover:shadow-purple-500/25 transition-all"
+                            >
+                                Upgrade Now
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

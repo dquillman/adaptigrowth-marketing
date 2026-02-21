@@ -6,13 +6,13 @@ import {
     Zap,
     Target,
     Trophy,
-    ChevronLeft,
     MessageSquare,
     CalendarDays,
     RefreshCw,
     BarChart3,
     Sparkles
 } from 'lucide-react';
+import DashboardLink from '../components/DashboardLink';
 import ReportIssueModal from '../components/ReportIssueModal';
 
 export default function Help() {
@@ -23,14 +23,6 @@ export default function Help() {
             {/* Header */}
             <header className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
                 <div className="mx-auto max-w-5xl px-6 h-20 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link to="/app" className="text-slate-400 hover:text-white transition-colors group flex items-center gap-2">
-                            <div className="p-2 rounded-lg bg-slate-800 border border-slate-700 group-hover:border-slate-500 transition-colors">
-                                <ChevronLeft className="w-5 h-5" />
-                            </div>
-                            <span className="font-bold">Back to Dashboard</span>
-                        </Link>
-                    </div>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400">
                             <Zap className="w-6 h-6" />
@@ -43,6 +35,7 @@ export default function Help() {
             </header>
 
             <div className="mx-auto max-w-2xl px-6 py-12">
+                <DashboardLink />
 
                 {/* Intro */}
                 <div className="text-center mb-16 space-y-4">
@@ -254,44 +247,40 @@ export default function Help() {
                     </p>
                 </div>
 
-                {/* XP & Levels Breakdown */}
+                {/* Practice Data & Readiness */}
                 <div className="mt-12 bg-slate-800/30 rounded-2xl p-8 border border-slate-700/50">
-                    <h3 className="text-2xl font-bold text-white mb-6 font-display text-center">How XP & Levels Work</h3>
-                    <div className="grid md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-brand-500/20 rounded-lg text-brand-400">
-                                    <Zap className="w-5 h-5" />
+                    <h3 className="text-2xl font-bold text-white mb-6 font-display text-center">How Practice Data Improves Your Readiness Score</h3>
+                    <div className="space-y-6 text-sm text-slate-400 leading-relaxed">
+                        <p>
+                            Every question you answer contributes to a growing dataset specific to the exam you are studying. This data drives your Exam Readiness prediction, which estimates how likely you are to pass based on observed accuracy, domain coverage, and consistency.
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-brand-500/20 rounded-lg text-brand-400">
+                                        <BarChart3 className="w-5 h-5" />
+                                    </div>
+                                    <h4 className="font-bold text-white">Prediction Confidence</h4>
                                 </div>
-                                <h4 className="font-bold text-white">Earning XP</h4>
+                                <p>
+                                    With fewer than 50 validated responses, your readiness score is marked as preliminary. As your response count grows, the prediction becomes more statistically reliable and the confidence rating increases from Low through Moderate, High, and Very High.
+                                </p>
                             </div>
-                            <ul className="space-y-2 text-slate-400 text-sm">
-                                <li className="flex justify-between">
-                                    <span>Attempt a Question</span>
-                                    <span className="text-white font-bold">+10 XP</span>
-                                </li>
-                                <li className="flex justify-between">
-                                    <span>Correct Answer Bonus</span>
-                                    <span className="text-white font-bold">+5 XP</span>
-                                </li>
-                                <li className="flex justify-between">
-                                    <span>Daily Streak Bonus</span>
-                                    <span className="text-white font-bold">+50 XP</span>
-                                </li>
-                            </ul>
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-purple-500/20 rounded-lg text-purple-400">
-                                    <Trophy className="w-5 h-5" />
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-brand-500/20 rounded-lg text-brand-400">
+                                        <Target className="w-5 h-5" />
+                                    </div>
+                                    <h4 className="font-bold text-white">Exam-Scoped Data</h4>
                                 </div>
-                                <h4 className="font-bold text-white">Exam-Specific Levels</h4>
+                                <p>
+                                    Your practice data is tracked per exam. Studying for one certification does not influence readiness predictions for another. Each exam has its own accuracy history, domain breakdown, and confidence rating.
+                                </p>
                             </div>
-                            <p className="text-slate-400 text-sm leading-relaxed">
-                                Your <strong>Level</strong> is specific to each exam (e.g., PMP vs CompTIA).
-                                As you earn XP, you'll level up, unlocking cooler badges and showing your growing mastery of that specific subject.
-                            </p>
                         </div>
+                        <p className="text-slate-500 border-t border-slate-700/50 pt-4">
+                            The system does not reward volume for its own sake. Answering more questions matters only because it produces better data for the prediction model. Focus on understanding, not accumulation.
+                        </p>
                     </div>
                 </div>
                 <p className="text-slate-500 mb-8 italic">

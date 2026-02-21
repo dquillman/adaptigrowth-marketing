@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../App';
 import { DISPLAY_VERSION } from '../version';
 import { useSidebar } from '../contexts/SidebarContext';
 import { useExam } from '../contexts/ExamContext';
-import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle, PlayCircle } from 'lucide-react';
+import { LayoutDashboard, BookOpen, ChevronLeft, ChevronRight, Calendar, BarChart2, Mic, Target, HelpCircle, PlayCircle, Flag, AlertTriangle } from 'lucide-react';
+import ReportIssueModal from './ReportIssueModal';
+import { quizReportStore } from '../utils/quizReportStore';
+import { auth, db } from '../firebase';
+import { collection, query, where, getDocs, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function Sidebar() {
     const { logout, user } = useAuth();
@@ -11,7 +16,11 @@ export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
     const { isCollapsed, toggleSidebar } = useSidebar();
-    const { hasCompletedDiagnostic } = useExam();
+    const { hasCompletedDiagnostic, selectedExamId, examName } = useExam();
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [resetInput, setResetInput] = useState('');
+    const [resetting, setResetting] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -19,6 +28,53 @@ export default function Sidebar() {
             navigate("/");
         } catch (error) {
             console.error("Failed to logout", error);
+        }
+    };
+
+    const handleReset = async () => {
+        if (resetInput !== 'RESET') return;
+        try {
+            setResetting(true);
+
+            // Abandon any in_progress runs for this exam
+            const userId = auth.currentUser!.uid;
+            const runsQuery = query(
+                collection(db, 'quizRuns', userId, 'runs'),
+                where('status', '==', 'in_progress'),
+                where('examId', '==', selectedExamId)
+            );
+            const runsSnap = await getDocs(runsQuery);
+            await Promise.all(runsSnap.docs.map(d =>
+                updateDoc(d.ref, { status: 'abandoned', endedAt: serverTimestamp() })
+            ));
+
+            const { httpsCallable, getFunctions } = await import('firebase/functions');
+            const functions = getFunctions();
+            const resetFn = httpsCallable(functions, 'resetExamProgress');
+            await resetFn({ examId: selectedExamId });
+
+            // Clear Thinking Traps localStorage to prevent stale insights
+            localStorage.removeItem('exam_coach_reinforcement');
+            localStorage.removeItem('exam_coach_last_reinforcement_shown');
+            localStorage.removeItem('exam_coach_suggestion_history');
+
+            // Clear Onboarding Flag so Intro Video plays again
+            localStorage.removeItem('ec_onboarding_ack');
+
+            // Clear study plan reinforcement ack keys
+            Object.keys(localStorage)
+                .filter(k => k.startsWith('ec_reinforcement_ack_'))
+                .forEach(k => localStorage.removeItem(k));
+
+            // Suppress Thinking Traps until a new run completes
+            localStorage.setItem('exam_coach_traps_suppressed', 'true');
+
+            // Simple refresh
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to reset progress.');
+            setResetting(false);
         }
     };
 
@@ -80,6 +136,30 @@ export default function Sidebar() {
                 })}
             </nav>
 
+            {/* Report a Problem */}
+            <div className={`px-4 pb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+                <button
+                    onClick={() => setShowReportModal(true)}
+                    title={isCollapsed ? 'Report a Problem' : ''}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition-colors ${isCollapsed ? 'justify-center' : ''}`}
+                >
+                    <Flag className="w-5 h-5" />
+                    {!isCollapsed && <span>Report a Problem</span>}
+                </button>
+            </div>
+
+            {/* Reset Progress */}
+            <div className={`px-4 pb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+                <button
+                    onClick={() => { setResetInput(''); setShowResetModal(true); }}
+                    title={isCollapsed ? 'Reset Progress' : ''}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors ${isCollapsed ? 'justify-center' : ''}`}
+                >
+                    <AlertTriangle className="w-5 h-5" />
+                    {!isCollapsed && <span>Reset Progress</span>}
+                </button>
+            </div>
+
             {/* User Profile / Logout */}
             <div className={`p-4 border-t border-slate-800 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
                 <div className={`flex items-center gap-3 mb-4 ${isCollapsed ? 'justify-center' : ''}`}>
@@ -106,6 +186,88 @@ export default function Sidebar() {
                     {!isCollapsed && "Log out"}
                 </button>
             </div>
+
+            {/* Report Issue Modal */}
+            <ReportIssueModal
+                isOpen={showReportModal}
+                onClose={() => setShowReportModal(false)}
+                context={quizReportStore.get() || undefined}
+            />
+
+            {/* Reset Confirmation Modal */}
+            {showResetModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-slate-800 rounded-2xl p-6 max-w-md w-full border border-red-900/50 shadow-2xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                <AlertTriangle className="w-5 h-5 text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-red-500 font-display">Reset All Progress</h3>
+                        </div>
+
+                        <p className="text-slate-300 text-sm mb-4">
+                            This will permanently delete all progress for <strong className="text-white">{examName}</strong>:
+                        </p>
+
+                        <ul className="text-sm text-slate-400 space-y-1.5 mb-5 pl-1">
+                            <li className="flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">&#x2022;</span>
+                                Diagnostic results
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">&#x2022;</span>
+                                All quiz history
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">&#x2022;</span>
+                                Domain mastery data
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">&#x2022;</span>
+                                Study plan for this exam
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="text-red-500 mt-0.5">&#x2022;</span>
+                                Smart review data
+                            </li>
+                        </ul>
+
+                        <p className="text-sm text-slate-400 mb-3">
+                            Type <strong className="text-white font-mono">RESET</strong> to confirm:
+                        </p>
+
+                        <input
+                            type="text"
+                            value={resetInput}
+                            onChange={(e) => setResetInput(e.target.value)}
+                            placeholder="Type RESET"
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-red-500/50 font-mono text-sm mb-4"
+                            autoFocus
+                        />
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowResetModal(false)}
+                                className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 bg-slate-700/50 hover:bg-slate-700 transition-colors"
+                                disabled={resetting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReset}
+                                disabled={resetInput !== 'RESET' || resetting}
+                                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                                    resetInput === 'RESET' && !resetting
+                                        ? 'bg-red-600 hover:bg-red-500 text-white'
+                                        : 'bg-slate-700/30 text-slate-600 cursor-not-allowed'
+                                }`}
+                            >
+                                {resetting ? 'Resetting...' : 'Reset All Progress'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </aside>
     );
 }

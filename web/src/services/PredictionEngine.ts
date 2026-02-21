@@ -1,6 +1,7 @@
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { getExamDomains } from './ExamMetadata';
+import { deriveMetrics } from '../utils/questionMetrics';
 
 export interface DomainReadiness {
     domain: string;
@@ -78,63 +79,11 @@ export const PredictionEngine = {
                 };
             }
 
-            // --- 1. Overall Stats ---
-            let totalCorrect = 0;
-            let totalQuestions = 0;
-            let mockCount = 0;
-
-            // Domain Aggregation
-            const domainStats: Record<string, { correct: number; total: number }> = {};
-
-            // Initialize with all expected domains for this exam
+            // --- 1. Derive all metrics via single shared function ---
             const expectedDomains = getExamDomains(examId);
-            expectedDomains.forEach(d => {
-                domainStats[d.name] = { correct: 0, total: 0 };
-            });
-
-            runs.forEach(run => {
-                // Skip diagnostics
-                if (run.mode === 'diagnostic' || run.quizType === 'diagnostic') return;
-
-                const answers = run.answers || [];
-                const total = answers.length;
-                const correct = answers.filter((a: { isCorrect: boolean }) => a.isCorrect).length;
-
-                // Skip runs with no valid question data
-                if (total === 0) return;
-
-                totalCorrect += correct;
-                totalQuestions += total;
-
-                if (run.mode === 'simulation' || run.quizType === 'simulation') mockCount++;
-
-                // Process per-answer domain data if available
-                answers.forEach((answer: { questionId?: string; domain?: string; isCorrect: boolean }) => {
-                    // Domain might be stored on the answer or in results
-                    const domain = answer.domain;
-                    if (!domain) return;
-
-                    if (!domainStats[domain]) domainStats[domain] = { correct: 0, total: 0 };
-                    domainStats[domain].total++;
-                    if (answer.isCorrect) domainStats[domain].correct++;
-                });
-            });
-
-            const overallAccuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
-
-            // --- 2. Recent Trend (Last 5) ---
-            const recentRuns = runs.slice(0, 5).filter(
-                (r: { mode?: string; quizType?: string }) => r.mode !== 'diagnostic' && r.quizType !== 'diagnostic'
-            );
-            let recentCorrect = 0;
-            let recentTotal = 0;
-            recentRuns.forEach((r: { answers?: { isCorrect: boolean }[] }) => {
-                const answers = r.answers || [];
-                const correct = answers.filter(a => a.isCorrect).length;
-                recentCorrect += correct;
-                recentTotal += answers.length;
-            });
-            const recentAccuracy = recentTotal > 0 ? (recentCorrect / recentTotal) * 100 : 0;
+            const metrics = deriveMetrics(runs, expectedDomains.map(d => d.name));
+            const { totalQuestions, overallAccuracy, mockCount,
+                    domainStats, recentAccuracy } = metrics;
 
             let trend: 'improving' | 'declining' | 'stable' = 'stable';
             if (recentAccuracy > overallAccuracy + 5) trend = 'improving';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import DashboardLink from '../components/DashboardLink';
 
 interface FaqItem {
     question: string;
@@ -197,6 +198,7 @@ export default function Faq() {
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 pb-24">
             <div className="max-w-3xl mx-auto px-6 py-12">
+                <DashboardLink />
 
                 {/* Header */}
                 <div className="mb-12">

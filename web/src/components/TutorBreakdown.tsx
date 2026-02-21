@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { PatternData } from './PatternInsightCard';
+import StructuredExplanation from './explanations/StructuredExplanation';
 export interface TutorResponse {
     verdict: string;
     comparison: {
@@ -156,16 +157,8 @@ export default function TutorBreakdown({ breakdown, loading, onExpandDepth, dept
                 )}
 
                 {/* 3. Exam Lens */}
-                <div className="bg-emerald-900/20 border border-emerald-500/30 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                        <span className="text-lg">🧠</span>
-                        <div>
-                            <h4 className="text-emerald-400 font-bold text-sm mb-1">Exam Lens</h4>
-                            <p className="text-emerald-100/80 text-sm">
-                                {breakdown.examLens}
-                            </p>
-                        </div>
-                    </div>
+                <div className="bg-slate-800/50 border border-white/5 rounded-2xl p-6">
+                    <StructuredExplanation explanation={breakdown.examLens} title="Exam Lens" />
                 </div>
 
                 {/* 4. Optional Depth */}

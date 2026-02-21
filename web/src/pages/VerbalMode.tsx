@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mic, Play, Square, Volume2, ArrowLeft, Settings, Check } from 'lucide-react';
+import { Mic, Play, Square, Volume2, Settings, Check } from 'lucide-react';
+import DashboardLink from '../components/DashboardLink';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import { SmartQuizService } from '../services/smartQuiz';
-import { doc, getDoc, addDoc, collection } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import type { Question } from '../hooks/useSimulator';
 import { useExam } from '../contexts/ExamContext';
 
@@ -85,6 +86,16 @@ export default function VerbalMode() {
             stopAll();
         };
     }, [stopAll]);
+
+    // Close voice selector on Escape
+    const handleEscape = useCallback((e: KeyboardEvent) => {
+        if (e.key === 'Escape' && showSettings) setShowSettings(false);
+    }, [showSettings]);
+
+    useEffect(() => {
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [handleEscape]);
 
     const loadQuestions = async () => {
         setStatus('LOADING');
@@ -215,25 +226,7 @@ export default function VerbalMode() {
 
         speak(`Session complete. You got ${finalStats.score} out of ${finalCount} correct. Great job.`, undefined, currentVoice);
 
-        // Save to Firestore
-        const user = auth.currentUser;
-        if (user) {
-            try {
-                const examId = localStorage.getItem('selectedExamId') || 'default-exam';
-                await addDoc(collection(db, 'quizAttempts'), {
-                    userId: user.uid,
-                    examId: examId,
-                    score: finalStats.score,
-                    totalQuestions: finalCount,
-                    timestamp: new Date(),
-                    mode: 'verbal', // Counts towards readiness
-                    timeSpent: finalCount * 60, // Estimate 1 min per Q
-                    details: finalStats.details
-                });
-            } catch (e) {
-                console.error("Failed to save session", e);
-            }
-        }
+        // Note: Verbal mode results are saved via QuizRunService (quizRuns collection)
     };
 
     const selectVoice = (uri: string) => {
@@ -249,11 +242,13 @@ export default function VerbalMode() {
 
     return (
         <div className="min-h-screen bg-black text-white flex flex-col items-center justify-between p-8 relative overflow-hidden">
+            {/* Back to Dashboard */}
+            <div className="w-full z-10">
+                <DashboardLink />
+            </div>
+
             {/* Header */}
             <div className="w-full flex justify-between items-center z-10">
-                <button onClick={() => navigate('/app')} className="p-4 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
-                    <ArrowLeft className="w-6 h-6" />
-                </button>
                 <div className="flex flex-col items-center">
                     <div className="flex items-center gap-2 text-indigo-400">
                         <Volume2 className="w-5 h-5" />
@@ -268,48 +263,14 @@ export default function VerbalMode() {
                     )}
                 </div>
 
-                {/* Voice Settings */}
-                <div className="relative">
-                    <button
-                        onClick={() => setShowSettings(!showSettings)}
-                        className="p-4 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
-                        title="Voice Settings"
-                    >
-                        <Settings className="w-6 h-6" />
-                    </button>
-
-                    {showSettings && (
-                        <>
-                            {/* Backdrop to close */}
-                            <div className="fixed inset-0 z-40" onClick={() => setShowSettings(false)} />
-
-                            <div className="absolute top-full right-0 mt-4 w-72 bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden z-50">
-                                <div className="p-4 border-b border-slate-700 bg-slate-800">
-                                    <h3 className="font-bold text-white text-sm uppercase tracking-wider">Select Voice</h3>
-                                </div>
-                                <div className="max-h-64 overflow-y-auto bg-slate-900/50">
-                                    {voices.length > 0 ? voices.map(voice => (
-                                        <button
-                                            key={voice.voiceURI}
-                                            onClick={() => selectVoice(voice.voiceURI)}
-                                            className={`w-full text-left p-3 px-4 flex items-center justify-between hover:bg-slate-700/50 transition-colors border-b border-slate-700/50 last:border-0 ${selectedVoiceURI === voice.voiceURI ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-300'}`}
-                                        >
-                                            <div className="flex flex-col overflow-hidden">
-                                                <span className="truncate text-sm font-medium">{voice.name}</span>
-                                                <span className="text-xs text-slate-500">{voice.lang}</span>
-                                            </div>
-                                            {selectedVoiceURI === voice.voiceURI && <Check className="w-4 h-4 flex-shrink-0 ml-2" />}
-                                        </button>
-                                    )) : (
-                                        <div className="p-4 text-center text-slate-500 text-sm">
-                                            No voices found.
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
+                {/* Voice Settings Toggle */}
+                <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className="p-4 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+                    title="Voice Settings"
+                >
+                    <Settings className="w-6 h-6" />
+                </button>
             </div>
 
             {/* Main Visual */}
@@ -427,6 +388,39 @@ export default function VerbalMode() {
             {/* Background Effects */}
             <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-black pointer-events-none -z-10" />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-600/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+
+            {/* Voice Selector Modal */}
+            {showSettings && (
+                <>
+                    <div className="fixed inset-0 bg-black/40 z-[999]" onClick={() => setShowSettings(false)} />
+                    <div className="fixed inset-0 z-[1000] flex items-start justify-end p-4 pointer-events-none">
+                        <div className="relative z-[1001] bg-slate-900 rounded-xl shadow-2xl w-80 max-h-[80vh] overflow-hidden pointer-events-auto mt-20 border border-slate-700">
+                            <div className="p-4 border-b border-slate-700 bg-slate-800">
+                                <h3 className="font-bold text-white text-sm uppercase tracking-wider">Select Voice</h3>
+                            </div>
+                            <div className="max-h-[calc(80vh-60px)] overflow-y-auto bg-slate-900/50">
+                                {voices.length > 0 ? voices.map(voice => (
+                                    <button
+                                        key={voice.voiceURI}
+                                        onClick={() => selectVoice(voice.voiceURI)}
+                                        className={`w-full text-left p-3 px-4 flex items-center justify-between hover:bg-slate-700/50 transition-colors border-b border-slate-700/50 last:border-0 ${selectedVoiceURI === voice.voiceURI ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-300'}`}
+                                    >
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className="truncate text-sm font-medium">{voice.name}</span>
+                                            <span className="text-xs text-slate-500">{voice.lang}</span>
+                                        </div>
+                                        {selectedVoiceURI === voice.voiceURI && <Check className="w-4 h-4 flex-shrink-0 ml-2" />}
+                                    </button>
+                                )) : (
+                                    <div className="p-4 text-center text-slate-500 text-sm">
+                                        No voices found.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
