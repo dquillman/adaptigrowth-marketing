@@ -1,12 +1,14 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { ArrowLeft, Play, History, Clock, FileText, Award, Lock } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
-
 import { useExam } from '../contexts/ExamContext';
+import { applyReadinessConfidence } from '../utils/readinessConfidence';
+import { getAnsweredCount } from '../utils/questionMetrics';
+import PrimaryButton from '../components/ui/PrimaryButton';
 
 interface SimulationAttempt {
     id: string;
@@ -25,6 +27,7 @@ export default function SimulatorIntro() {
     const [loading, setLoading] = useState(true);
     const activeExamId = localStorage.getItem('selectedExamId') || 'default-exam';
     const [readiness, setReadiness] = useState<any>(null);
+    const [userXp, setUserXp] = useState(0);
 
     useEffect(() => {
         const checkReadiness = async () => {
@@ -33,6 +36,19 @@ export default function SimulatorIntro() {
                 const { PredictionEngine } = await import('../services/PredictionEngine');
                 const report = await PredictionEngine.calculateReadiness(auth.currentUser.uid, activeExamId);
                 setReadiness(report);
+
+                // Fetch XP for confidence modifier
+                const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    let effectiveXp = 0;
+                    if (activeExamId && data.examXP && typeof data.examXP[activeExamId] === 'number') {
+                        effectiveXp = data.examXP[activeExamId];
+                    } else {
+                        effectiveXp = 0;
+                    }
+                    setUserXp(effectiveXp);
+                }
             } catch (err) {
                 console.error("Readiness check failed", err);
             }
@@ -42,18 +58,49 @@ export default function SimulatorIntro() {
             if (!auth.currentUser) return;
             try {
                 const q = query(
-                    collection(db, 'quizAttempts'),
-                    where('userId', '==', auth.currentUser.uid),
+                    collection(db, 'quizRuns', auth.currentUser.uid, 'runs'),
                     where('examId', '==', activeExamId),
                     where('mode', '==', 'simulation'),
-                    orderBy('timestamp', 'desc')
+                    where('status', '==', 'completed'),
+                    orderBy('completedAt', 'desc')
                 );
 
-                const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                })) as SimulationAttempt[];
+                let snapshot;
+                try {
+                    snapshot = await getDocs(q);
+                } catch {
+                    // Fallback if composite index missing
+                    const fallbackQ = query(
+                        collection(db, 'quizRuns', auth.currentUser!.uid, 'runs'),
+                        where('status', '==', 'completed')
+                    );
+                    const fallbackSnap = await getDocs(fallbackQ);
+                    const filtered = fallbackSnap.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter((r: any) => r.examId === activeExamId && r.mode === 'simulation')
+                        .sort((a: any, b: any) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0));
+                    setAttempts(filtered.map((r: any) => ({
+                        id: r.id,
+                        score: r.results?.score ?? 0,
+                        totalQuestions: getAnsweredCount(r),
+                        timestamp: r.completedAt,
+                        timeSpent: r.results?.timeSpent,
+                        mode: r.mode,
+                    })));
+                    return;
+                }
+
+                const data = snapshot.docs.map(doc => {
+                    const r = doc.data();
+                    return {
+                        id: doc.id,
+                        score: r.results?.score ?? 0,
+                        totalQuestions: getAnsweredCount(r),
+                        timestamp: r.completedAt,
+                        timeSpent: r.results?.timeSpent,
+                        mode: r.mode,
+                    };
+                }) as SimulationAttempt[];
                 setAttempts(data);
             } catch (error) {
                 console.error("Error fetching simulation history:", error);
@@ -68,9 +115,10 @@ export default function SimulatorIntro() {
 
     // ... (rest of history fetch)
 
-    // Gate Logic
-    const isBorderline = readiness && readiness.overallScore >= 50 && readiness.overallScore < 70;
-    const notReady = readiness && readiness.overallScore < 50;
+    // Gate Logic (uses RCM-adjusted score so XP confidence influences gating)
+    const displayedScore = readiness ? applyReadinessConfidence(readiness.overallScore, userXp) : null;
+    const isBorderline = displayedScore !== null && displayedScore >= 50 && displayedScore < 70;
+    const notReady = displayedScore !== null && displayedScore < 50;
 
     const formatTime = (seconds?: number) => {
         if (!seconds) return '--:--';
@@ -120,7 +168,7 @@ export default function SimulatorIntro() {
                                     {notReady ? 'High Risk of Failure Detected' : 'Readiness is Borderline'}
                                 </h3>
                                 <p className="text-slate-300 mb-4 leading-relaxed">
-                                    Your Smart Readiness Score is <strong>{readiness.overallScore}%</strong>.
+                                    Your Smart Readiness Score is <strong>{displayedScore}%</strong>.
                                     {notReady
                                         ? " A full exam right now is unlikely to give you useful feedback. We strongly recommend Verbal Mode or Domain Practice first."
                                         : " You may pass, but it will be close. Review your weakest domains before starting."}
@@ -184,25 +232,26 @@ export default function SimulatorIntro() {
                                     <span onClick={() => navigate('/app/pricing')} className="underline cursor-pointer hover:text-white">Upgrade to Pro</span> to access full exam simulators.
                                 </p>
                             </div>
-                        ) : (
+                        ) : notReady ? (
                             <button
                                 onClick={() => {
-                                    if (notReady) {
-                                        if (window.confirm("CRITICAL WARNING: Your readiness score indicates a high chance of failure. Are you sure you want to proceed? This may impact your confidence.")) {
-                                            navigate('/app/simulator/exam');
-                                        }
-                                    } else {
+                                    if (window.confirm("CRITICAL WARNING: Your readiness score indicates a high chance of failure. Are you sure you want to proceed? This may impact your confidence.")) {
                                         navigate('/app/simulator/exam');
                                     }
                                 }}
-                                className={`relative z-10 flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg shadow-lg transform hover:-translate-y-1 transition-all ${notReady
-                                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/25'
-                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25'
-                                    }`}
+                                className="relative z-10 flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-red-600/25 transform hover:-translate-y-1 transition-all bg-red-600 hover:bg-red-500 text-white"
                             >
                                 <Play className="w-5 h-5 fill-current" />
-                                {notReady ? 'Proceed Anyway (High Risk)' : 'Start New Exam'}
+                                Proceed Anyway (High Risk)
                             </button>
+                        ) : (
+                            <PrimaryButton
+                                onClick={() => navigate('/app/simulator/exam')}
+                                className="relative z-10 flex items-center gap-3 text-lg transform hover:-translate-y-1"
+                            >
+                                <Play className="w-5 h-5 fill-current" />
+                                Start New Exam
+                            </PrimaryButton>
                         )}
                     </div>
 

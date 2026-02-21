@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { DISPLAY_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, getDocs, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { XPService } from '../services/xpService';
 import ExamSelector from '../components/ExamSelector';
