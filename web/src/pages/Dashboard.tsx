@@ -8,25 +8,15 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, getDocs, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { XPService } from '../services/xpService';
-import LevelBadge from '../components/LevelBadge';
 import ExamSelector from '../components/ExamSelector';
-
-import LevelDetailModal from '../components/LevelDetailModal';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
 import { useExam } from '../contexts/ExamContext';
 import ReportIssueModal from '../components/ReportIssueModal';
 import { useTrial } from '../hooks/useTrial';
 import ThinkingTrapsCard from '../components/ThinkingTrapsCard';
-
-interface QuizAttempt {
-    id: string;
-    score: number;
-    totalQuestions: number;
-    domain: string;
-    timestamp: any; // Firestore Timestamp
-    timeSpent?: number;
-    averageTimePerQuestion?: number;
-}
+import TrendIndicatorCard from '../components/analytics/TrendIndicatorCard';
+import { getAnsweredCount, deriveMetrics, type RunMetrics } from '../utils/questionMetrics';
+import PrimaryButton from '../components/ui/PrimaryButton';
 
 export default function Dashboard() {
     const { isCollapsed } = useSidebar();
@@ -42,19 +32,14 @@ export default function Dashboard() {
 
     const [showStreakModal, setShowStreakModal] = useState(false);
 
-    const [recentActivity, setRecentActivity] = useState<QuizAttempt[]>([]);
+    const [recentActivity, setRecentActivity] = useState<RunMetrics[]>([]);
     const [activeRuns, setActiveRuns] = useState<any[]>([]);
     const [dailyProgress, setDailyProgress] = useState(0);
     const [dailyGoal, setDailyGoal] = useState(10);
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     const [newGoal, setNewGoal] = useState(10);
-    const [userXp, setUserXp] = useState(0);
-    const [userLevel, setUserLevel] = useState(1);
     const [userStreak, setUserStreak] = useState(0);
 
-
-
-    const [showLevelModal, setShowLevelModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
     const { trial } = useTrial();
@@ -63,7 +48,7 @@ export default function Dashboard() {
     useEffect(() => {
         if (contextDiagnostic === true) return;
         const done = recentActivity.some(
-            (a: any) => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
+            a => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
         );
         if (done) markDiagnosticComplete();
     }, [recentActivity, contextDiagnostic, markDiagnosticComplete]);
@@ -109,33 +94,51 @@ export default function Dashboard() {
                     });
                 }
 
-                // --- Recent Activity ---
+                // --- Recent Activity (from quizRuns) ---
                 if (selectedExamId) {
                     const activityQuery = query(
-                        collection(db, 'quizAttempts'),
-                        where('userId', '==', userId),
+                        collection(db, 'quizRuns', userId, 'runs'),
                         where('examId', '==', selectedExamId),
-                        orderBy('timestamp', 'desc'),
+                        where('status', '==', 'completed'),
+                        orderBy('completedAt', 'desc'),
                         limit(10)
                     );
 
-                    unsubscribeActivity = onSnapshot(activityQuery, (snapshot: QuerySnapshot<DocumentData>) => {
-                        const activities = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        })) as QuizAttempt[];
-                        setRecentActivity(activities);
+                    const handleActivitySnapshot = (snapshot: QuerySnapshot<DocumentData>) => {
+                        const rawRuns = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        (window as any).__RAW_RUNS__ = rawRuns;
+                        const { perRun } = deriveMetrics(rawRuns);
+                        (window as any).__DASHBOARD_RUNS__ = perRun;
+                        setRecentActivity(perRun);
+                    };
+
+                    unsubscribeActivity = onSnapshot(activityQuery, handleActivitySnapshot, (_err) => {
+                        // Fallback if composite index missing
+                        console.warn('[Dashboard] Composite index missing for activity query, using fallback');
+                        const fallbackQuery = query(
+                            collection(db, 'quizRuns', userId, 'runs'),
+                            where('status', '==', 'completed'),
+                            limit(100)
+                        );
+                        unsubscribeActivity = onSnapshot(fallbackQuery, (snap) => {
+                            const rawRuns = snap.docs
+                                .map(d => ({ id: d.id, ...d.data() }))
+                                .filter((r: any) => r.examId === selectedExamId)
+                                .sort((a: any, b: any) => (b.completedAt?.seconds || 0) - (a.completedAt?.seconds || 0))
+                                .slice(0, 10);
+                            const { perRun } = deriveMetrics(rawRuns);
+                            setRecentActivity(perRun);
+                        });
                     });
                 }
 
-                // --- Daily Progress (Today) ---
+                // --- Daily Progress (from quizRuns) ---
                 const todayStart = new Date();
                 todayStart.setHours(0, 0, 0, 0);
 
                 const todayQuery = query(
-                    collection(db, 'quizAttempts'),
-                    where('userId', '==', userId),
-                    where('timestamp', '>=', todayStart)
+                    collection(db, 'quizRuns', userId, 'runs'),
+                    where('completedAt', '>=', todayStart)
                 );
 
                 onSnapshot(todayQuery, (snapshot) => {
@@ -144,7 +147,7 @@ export default function Dashboard() {
                         const data = doc.data();
                         // Only count for CURRENT exam, EXCLUDE diagnostic (it's a baseline, not practice)
                         if (data.examId === selectedExamId && data.quizType !== 'diagnostic' && data.mode !== 'diagnostic') {
-                            count += data.totalQuestions || 0;
+                            count += getAnsweredCount(data);
                         }
                     });
                     setDailyProgress(count);
@@ -159,19 +162,6 @@ export default function Dashboard() {
                             setDailyGoal(data.dailyGoal);
                             setNewGoal(data.dailyGoal);
                         }
-
-                        // XP Logic: Exam Specific -> Global Fallback
-                        let effectiveXp = 0;
-                        if (selectedExamId && data.examXP && typeof data.examXP[selectedExamId] === 'number') {
-                            effectiveXp = data.examXP[selectedExamId];
-                        } else if (selectedExamId && (!data.examXP || !data.examXP[selectedExamId])) {
-                            effectiveXp = 0;
-                        } else {
-                            effectiveXp = data.xp || 0;
-                        }
-
-                        setUserXp(effectiveXp);
-                        setUserLevel(XPService.calculateLevel(effectiveXp));
 
                         if (data.streak !== undefined) {
                             setUserStreak(data.streak);
@@ -246,38 +236,8 @@ export default function Dashboard() {
         return Math.min(100, Math.round((mastered / total) * 100));
     };
 
-    const handleWeakestStart = async () => {
-        setLoading(true);
-        try {
-            // v15 Rule: Smart Practice targets the Diagnostic's weakest domain ONLY.
-            // No calculated mastery from general practice.
-            if (!auth.currentUser || !selectedExamId) return;
-
-            const { DiagnosticService } = await import('../services/DiagnosticService');
-            const run = await DiagnosticService.getLatestRun(auth.currentUser.uid, selectedExamId);
-
-            let targetDomain = null;
-
-            if (run) {
-                targetDomain = DiagnosticService.getWeakestDomain(run);
-            }
-
-            // Fallback if no diagnostic or no domain found: use first available exam domain or Mixed
-            if (!targetDomain) {
-                console.warn("No diagnostic weakest domain found for Smart Practice. Greeting fallback.");
-                targetDomain = (examDomains && examDomains.length > 0) ? examDomains[0] : 'Mixed';
-            }
-
-            console.log("Smart Practice targeting (Diagnostic):", targetDomain);
-            navigate('/app/quiz', { state: { filterDomain: targetDomain, mode: 'weakest' } });
-
-        } catch (error) {
-            console.error("Error starting smart practice:", error);
-            // Fallback
-            navigate('/app/quiz', { state: { filterDomain: 'Mixed', mode: 'weakest' } });
-        } finally {
-            setLoading(false);
-        }
+    const handleWeakestStart = () => {
+        navigate('/app/quiz', { state: { mode: 'smart' } });
     };
 
     if (loading || contextDiagnostic === null) {
@@ -290,13 +250,40 @@ export default function Dashboard() {
         return <Navigate to="/app/start-here" replace />;
     }
 
-    const resumableRuns = activeRuns.filter((r: any) => r.quizType !== 'diagnostic');
+    // INSTRUMENTATION: log raw activeRuns
+    console.log('[Dashboard] activeRuns count:', activeRuns.length);
+    activeRuns.forEach((r: any, i: number) => {
+        console.log(`[Dashboard] activeRun[${i}]:`, {
+            id: r.id, status: r.status, mode: r.mode, quizType: r.quizType,
+            answersLen: (r.answers || []).length,
+            snapshotQLen: r.snapshot?.questionIds?.length || 0,
+            completedAt: r.completedAt, createdAt: r.createdAt,
+        });
+    });
+
+    const resumableRuns = activeRuns.filter((r: any) => {
+        if (r.quizType === 'diagnostic') return false;
+        // Only show banner if the run has unanswered questions and no completedAt
+        const answered = (r.answers || []).filter((a: any) => a?.selectedOption !== undefined).length;
+        const total = r.snapshot?.questionIds?.length || 0;
+        return total > 0 && answered < total && !r.completedAt;
+    });
     const hasActiveRun = resumableRuns.length > 0;
+    console.log('[Dashboard] resumableRuns:', resumableRuns.map((r: any) => r.id));
 
     // Real-time diagnostic detection from activity snapshot (for UI toggle)
     const diagnosticDone = recentActivity.some(
-        (a: any) => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
+        a => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
     );
+
+    // INSTRUMENTATION: trace diagnostic state
+    console.log('[Dashboard] diagnosticDone (from recentActivity):', diagnosticDone);
+    console.log('[Dashboard] contextDiagnostic (from ExamContext/hasCompletedRun):', contextDiagnostic);
+    console.log('[Dashboard] recentActivity count:', recentActivity.length);
+    console.log('[Dashboard] recentActivity diagnostic entries:', recentActivity.filter(
+        a => a.mode === 'diagnostic' || a.quizType === 'diagnostic'
+    ).map(a => ({ id: a.id, mode: a.mode, quizType: a.quizType, score: a.score })));
+    console.log('[Dashboard] >>> BANNER WILL SHOW:', !diagnosticDone && !loading);
 
     return (
         <div className="min-h-screen flex bg-transparent relative">
@@ -309,12 +296,6 @@ export default function Dashboard() {
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         <div className="flex h-16 justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => setShowLevelModal(true)}
-                                    className="flex items-center justify-center hover:scale-105 transition-transform"
-                                >
-                                    <LevelBadge level={userLevel} xp={userXp} size="sm" />
-                                </button>
                                 <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </div>
                             <div className="flex items-center gap-4">
@@ -412,7 +393,7 @@ export default function Dashboard() {
                     {/* Main Content - Blurred if Expired */}
                     <div className={trial.status === 'expired' ? "opacity-10 pointer-events-none filter blur-sm select-none" : ""}>
                         {/* Onboarding / Welcome Section */}
-                        {!diagnosticDone && !loading ? (
+                        {contextDiagnostic === false && !loading ? (
                             <>
                                 {/* Step 1: Diagnostic Banner */}
                                 <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden">
@@ -499,13 +480,13 @@ export default function Dashboard() {
                                 </div>
 
                                 <div className="flex gap-4">
-                                    <button
+                                    <PrimaryButton
                                         onClick={handleWeakestStart}
-                                        className="inline-flex items-center justify-center rounded-xl bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-lg shadow-purple-500/30 hover:bg-purple-500 hover:shadow-purple-500/40 transition-all transform hover:-translate-y-0.5 border border-purple-400/20"
+                                        className="inline-flex items-center justify-center transform hover:-translate-y-0.5"
                                         title="Targets your weakest domains"
                                     >
                                         <span className="mr-2">⚡</span> Smart Practice
-                                    </button>
+                                    </PrimaryButton>
                                     <button
                                         onClick={() => navigate('/app/simulator')}
                                         className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
@@ -541,12 +522,32 @@ export default function Dashboard() {
                                     <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress</h3>
                                     <p className="text-slate-400 text-sm mt-1">Pick up where you left off.</p>
                                 </div>
-                                <button
-                                    onClick={() => navigate('/app/quiz', { state: { runId: resumableRuns[0].id, resume: true } })}
-                                    className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
-                                >
-                                    Resume
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={async () => {
+                                            if (!auth.currentUser) return;
+                                            const runId = resumableRuns[0]?.id;
+                                            if (!runId) return;
+                                            try {
+                                                const runRef = doc(db, 'quizRuns', auth.currentUser.uid, 'runs', runId);
+                                                await updateDoc(runRef, { status: 'abandoned', updatedAt: serverTimestamp() });
+                                                console.log('[Dashboard] Dismissed/abandoned run:', runId);
+                                            } catch (e) {
+                                                console.error('[Dashboard] Failed to dismiss run:', e);
+                                            }
+                                        }}
+                                        className="px-4 py-3 text-slate-400 hover:text-red-400 text-sm font-medium transition-colors"
+                                        title="Dismiss this quiz"
+                                    >
+                                        Dismiss
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/app/quiz', { state: { runId: resumableRuns[0].id, resume: true } })}
+                                        className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
+                                    >
+                                        Resume
+                                    </button>
+                                </div>
                             </div>
                         )}
 
@@ -586,6 +587,65 @@ export default function Dashboard() {
                                 );
                             })}
                         </div>
+                        <p className="text-xs text-slate-400 mt-2">These percentages reflect your lifetime mastery across all completed sessions for this exam.</p>
+
+                        {/* Rolling Trend Indicator */}
+                        <TrendIndicatorCard />
+
+                        {/* Daily Goal */}
+                        <div className="mt-8 bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
+                            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
+                            <div className="flex justify-between items-start mb-2 relative z-10">
+                                <h3 className="text-lg font-bold font-display">Daily Goal</h3>
+                                <button
+                                    onClick={() => setIsEditingGoal(!isEditingGoal)}
+                                    className="text-brand-200 hover:text-white transition-colors"
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {
+                                isEditingGoal ? (
+                                    <div className="mb-4 relative z-10">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="number"
+                                                value={newGoal}
+                                                onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
+                                                className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
+                                            />
+                                            <button
+                                                onClick={saveGoal}
+                                                className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
+                                            >
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-end gap-2 mb-4 relative z-10">
+                                            <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
+                                            <span className="text-brand-200 mb-1 font-medium">questions</span>
+                                        </div>
+                                        <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
+                                            <div
+                                                className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
+                                                style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
+                                            ></div>
+                                        </div>
+                                    </>
+                                )
+                            }
+                            <p className="text-sm text-brand-100/80 relative z-10">
+                                {dailyProgress >= dailyGoal
+                                    ? "Goal reached! You're crushing it! 🚀"
+                                    : "Keep it up! Consistency is key to passing your exam."}
+                            </p>
+                        </div>
 
                         {/* Stats & Activity */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
@@ -599,7 +659,7 @@ export default function Dashboard() {
                                         ) : (
                                             (() => {
                                                 let diagShown = false;
-                                                return recentActivity.filter((a: any) => {
+                                                return recentActivity.filter(a => {
                                                     if (a.mode === 'diagnostic' || a.quizType === 'diagnostic') {
                                                         if (diagShown) return false;
                                                         diagShown = true;
@@ -607,14 +667,13 @@ export default function Dashboard() {
                                                     return true;
                                                 });
                                             })().map((attempt) => {
-                                                const isActive = (attempt as any).mode === 'smart' && (attempt as any).completed !== true;
                                                 const MODE_LABEL: Record<string, string> = {
                                                     diagnostic: "Diagnostic Quiz",
                                                     smart: "Smart Practice Quiz",
                                                     daily: "Daily Practice",
                                                     mock: "Mock Exam",
                                                 };
-                                                const label = MODE_LABEL[(attempt as any).mode] ?? "Smart Practice Quiz";
+                                                const label = MODE_LABEL[attempt.mode || ''] ?? "Smart Practice Quiz";
                                                 return (
                                                     <div key={attempt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-700/30 border border-slate-700/50 hover:bg-slate-700/50 transition-colors">
                                                         <div className="flex items-center gap-4">
@@ -636,20 +695,13 @@ export default function Dashboard() {
                                                                 <p className="text-sm text-slate-500">{attempt.totalQuestions} Questions • {attempt.domain}</p>
                                                             </div>
                                                         </div>
-                                                        {isActive ? (
-                                                            <button
-                                                                onClick={() => navigate('/app/quiz', { state: { runId: attempt.id } })}
-                                                                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-lg text-sm shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
-                                                            >
-                                                                Resume
-                                                            </button>
-                                                        ) : ((attempt as any).mode === 'diagnostic' || (attempt as any).quizType === 'diagnostic') ? (
+                                                        {(attempt.mode === 'diagnostic' || attempt.quizType === 'diagnostic') ? (
                                                             <span className="px-3 py-1 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20 text-sm font-medium">
                                                                 Baseline captured
                                                             </span>
                                                         ) : (
                                                             <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
-                                                                {Math.round((attempt.score / attempt.totalQuestions) * 100)}%
+                                                                {attempt.accuracy}%
                                                             </span>
                                                         )}
                                                     </div>
@@ -660,134 +712,14 @@ export default function Dashboard() {
                                 </div>
                             </div>
 
-                            {/* Right Column: Goal + Traps */}
-                            <div className="space-y-6">
-                                {/* Daily Goal */}
-                                <div className="bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
-                                    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
-                                    <div className="flex justify-between items-start mb-2 relative z-10">
-                                        <h3 className="text-lg font-bold font-display">Daily Goal</h3>
-                                        <button
-                                            onClick={() => setIsEditingGoal(!isEditingGoal)}
-                                            className="text-brand-200 hover:text-white transition-colors"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                    </div>
-
-                                    {
-                                        isEditingGoal ? (
-                                            <div className="mb-4 relative z-10">
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="number"
-                                                        value={newGoal}
-                                                        onChange={(e) => setNewGoal(parseInt(e.target.value) || 0)}
-                                                        className="w-full bg-black/20 border border-brand-400/30 rounded-lg px-3 py-2 text-white placeholder-brand-300/50 focus:outline-none focus:border-brand-400"
-                                                    />
-                                                    <button
-                                                        onClick={saveGoal}
-                                                        className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
-                                                    >
-                                                        Save
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="flex items-end gap-2 mb-4 relative z-10">
-                                                    <span className="text-4xl font-bold">{dailyProgress}/{dailyGoal}</span>
-                                                    <span className="text-brand-200 mb-1 font-medium">questions</span>
-                                                </div>
-                                                <div className="w-full bg-black/20 rounded-full h-2 mb-4 backdrop-blur-sm relative z-10">
-                                                    <div
-                                                        className="bg-accent-400 h-2 rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)] transition-all duration-1000"
-                                                        style={{ width: `${Math.min((dailyProgress / dailyGoal) * 100, 100)}%` }}
-                                                    ></div>
-                                                </div>
-                                            </>
-                                        )
-                                    }
-                                    <p className="text-sm text-brand-100/80 relative z-10">
-                                        {dailyProgress >= dailyGoal
-                                            ? "Goal reached! You're crushing it! 🚀"
-                                            : "Keep it up! Consistency is key to passing your exam."}
-                                    </p>
-                                </div>
-
-                                {/* Thinking Traps Card */}
-                                <ThinkingTrapsCard />
-                            </div>
+                            {/* Thinking Traps Card */}
+                            <ThinkingTrapsCard />
                         </div>
                     </div>
                 </main>
 
 
 
-
-                {/* Danger Zone */}
-                <div className="mt-8 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
-                    <div className="border border-red-900/30 bg-red-900/10 rounded-2xl p-6">
-                        <h3 className="text-xl font-bold text-red-500 font-display mb-2">Danger Zone</h3>
-                        <p className="text-slate-400 text-sm mb-4">
-                            These actions are irreversible.
-                        </p>
-                        <button
-                            onClick={async () => {
-                                if (window.confirm('Are you SURE? This will delete all your mastery rings and quiz history for this exam.')) {
-                                    try {
-                                        setLoading(true);
-
-                                        // Abandon any in_progress runs for this exam
-                                        const userId = auth.currentUser!.uid;
-                                        const runsQuery = query(
-                                            collection(db, 'quizRuns', userId, 'runs'),
-                                            where('status', '==', 'in_progress'),
-                                            where('examId', '==', selectedExamId)
-                                        );
-                                        const runsSnap = await getDocs(runsQuery);
-                                        await Promise.all(runsSnap.docs.map(d =>
-                                            updateDoc(d.ref, { status: 'abandoned', endedAt: serverTimestamp() })
-                                        ));
-
-                                        const { httpsCallable, getFunctions } = await import('firebase/functions');
-                                        const functions = getFunctions();
-                                        const resetFn = httpsCallable(functions, 'resetExamProgress');
-                                        await resetFn({ examId: selectedExamId });
-
-                                        // Clear Thinking Traps localStorage to prevent stale insights
-                                        localStorage.removeItem('exam_coach_reinforcement');
-                                        localStorage.removeItem('exam_coach_last_reinforcement_shown');
-                                        localStorage.removeItem('exam_coach_suggestion_history');
-
-                                        // Clear Onboarding Flag so Intro Video plays again
-                                        localStorage.removeItem('ec_onboarding_ack');
-
-                                        // Clear study plan reinforcement ack keys
-                                        Object.keys(localStorage)
-                                            .filter(k => k.startsWith('ec_reinforcement_ack_'))
-                                            .forEach(k => localStorage.removeItem(k));
-
-                                        // Suppress Thinking Traps until a new run completes
-                                        localStorage.setItem('exam_coach_traps_suppressed', 'true');
-
-                                        // Simple refresh
-                                        window.location.reload();
-                                    } catch (e) {
-                                        console.error(e);
-                                        alert('Failed to reset progress.');
-                                        setLoading(false);
-                                    }
-                                }
-                            }}
-                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/50 rounded-lg text-sm font-bold transition-colors"
-                        >
-                            Reset All Progress for {examName}
-                        </button>
-                    </div>
-                </div>
 
                 {/* Streak Modal */}
                 {showStreakModal && (
@@ -809,28 +741,15 @@ export default function Dashboard() {
                                 <p className="text-slate-400 mb-6">
                                     You're on fire! Consistency is the #1 predictor of exam success. Keep showing up every day.
                                 </p>
-                                <button
+                                <PrimaryButton
                                     onClick={() => setShowStreakModal(false)}
-                                    className="w-full bg-brand-600 text-white py-3 rounded-xl font-medium hover:bg-brand-500 transition-colors"
+                                    fullWidth
                                 >
                                     Awesome!
-                                </button>
+                                </PrimaryButton>
                             </div>
                         </div>
                     </div>
-                )}
-
-                {/* Level Details Modal */}
-                {showLevelModal && (
-                    <LevelDetailModal
-                        isOpen={showLevelModal}
-                        onClose={() => setShowLevelModal(false)}
-                        level={userLevel}
-                        currentXp={userXp}
-                        nextLevelXp={XPService.calculateNextLevelXp(userLevel)}
-                        prevLevelXp={Math.pow(userLevel - 1, 2) * 100}
-                        examName={examName}
-                    />
                 )}
 
                 <ReportIssueModal
