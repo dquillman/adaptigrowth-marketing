@@ -194,12 +194,18 @@ export const QuizRunService = {
                     updatePayload.answers = cleanAnswers;
                 }
 
-                // Derive score and domainResults from persisted answers, not React state
+                // Derive score and domainResults from persisted answers, not React state.
+                // If stored answers lack the domain field (old runs), fall back to the
+                // caller-supplied domainResults which was derived from React state.
                 const correctCount = cleanAnswers.filter((a: any) => a.isCorrect).length;
+                const derivedFromAnswers = deriveDomainResultsFromAnswers(cleanAnswers);
+                const finalDomainResults = Object.keys(derivedFromAnswers).length > 0
+                    ? derivedFromAnswers
+                    : (results.domainResults || {});
                 updatePayload.results = {
                     ...results,
                     score: correctCount,
-                    domainResults: deriveDomainResultsFromAnswers(cleanAnswers),
+                    domainResults: finalDomainResults,
                 };
             }
 

@@ -2,6 +2,23 @@ import { db } from '../firebase';
 import { collection, addDoc, query, where, getDocs, Timestamp, orderBy, limit, doc, updateDoc, getDoc } from 'firebase/firestore';
 import type { StudyPlan, DailyTask } from '../types/StudyPlan';
 import { getExamDomains } from './ExamMetadata';
+import { deriveDomainResultsFromAnswers } from './QuizRunService';
+
+/** Maps a raw Firestore document snapshot to a typed StudyPlan. */
+function mapFirestorePlan(id: string, data: Record<string, any>): StudyPlan {
+    return {
+        ...data,
+        id,
+        anchorDomain: data.anchorDomain as string | undefined,
+        startDate: (data.startDate as Timestamp).toDate(),
+        examDate: (data.examDate as Timestamp).toDate(),
+        createdAt: (data.createdAt as Timestamp).toDate(),
+        tasks: (data.tasks || []).map((t: any) => ({
+            ...t,
+            date: (t.date as Timestamp).toDate()
+        }))
+    } as StudyPlan;
+}
 
 export const StudyPlanService = {
     /**
@@ -128,8 +145,10 @@ export const StudyPlanService = {
         }
     },
 
-    archiveCurrentPlan: async (userId: string) => {
+    archiveCurrentPlan: async (userId: string, examId?: string) => {
         try {
+            // Query by userId + status only — no composite index required.
+            // examId filtering is done client-side to avoid needing an additional index.
             const q = query(
                 collection(db, 'study_plans'),
                 where("userId", "==", userId),
@@ -137,11 +156,15 @@ export const StudyPlanService = {
             );
             const snapshot = await getDocs(q);
 
-            const promises = snapshot.docs.map(d =>
-                updateDoc(doc(db, 'study_plans', d.id), { status: 'archived' })
-            );
+            const docsToArchive = examId
+                ? snapshot.docs.filter(d => d.data().examId === examId)
+                : snapshot.docs;
 
-            await Promise.all(promises);
+            await Promise.all(
+                docsToArchive.map(d =>
+                    updateDoc(doc(db, 'study_plans', d.id), { status: 'archived' })
+                )
+            );
         } catch (error) {
             console.error("Error archiving plan:", error);
             throw error;
@@ -169,18 +192,8 @@ export const StudyPlanService = {
 
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
-                const docData = querySnapshot.docs[0].data();
-                return {
-                    id: querySnapshot.docs[0].id,
-                    ...docData,
-                    startDate: (docData.startDate as Timestamp).toDate(),
-                    examDate: (docData.examDate as Timestamp).toDate(),
-                    createdAt: (docData.createdAt as Timestamp).toDate(),
-                    tasks: docData.tasks.map((t: any) => ({
-                        ...t,
-                        date: (t.date as Timestamp).toDate()
-                    }))
-                } as StudyPlan;
+                const d = querySnapshot.docs[0];
+                return mapFirestorePlan(d.id, d.data());
             }
             return null;
         } catch (error) {
@@ -214,11 +227,16 @@ export const StudyPlanService = {
     },
 
     /**
-     * Recalculates the study plan based on current performance data.
-     * - Fetches userMastery data to determine current weakest domain
-     * - Preserves all past and today's tasks
-     * - Regenerates future tasks with new anchor domain
-     * Returns the new anchor domain for confirmation message.
+     * Recalculates the study plan anchor domain using a performance-first model.
+     *
+     * Priority order:
+     *   1. Real quiz history (non-diagnostic, completed) — primary signal.
+     *      Minimum sample of 5 total answered questions required to trust the data.
+     *      - Domains with < 5 answers → "under-measured": rotate exposure (fewest answers first)
+     *      - All domains ≥ 5 answers → pick lowest accuracy domain
+     *   2. Completed diagnostic run — fallback when quiz history is insufficient.
+     *
+     * Preserves past tasks, regenerates today+future tasks locked to chosen domain.
      */
     recalculatePlanFromProgress: async (
         userId: string,
@@ -226,66 +244,192 @@ export const StudyPlanService = {
         existingPlan: StudyPlan,
         examName?: string,
         domainNames?: string[]
-    ): Promise<{ success: boolean; newAnchorDomain: string | null; error?: string }> => {
+    ): Promise<{ success: boolean; domain?: string; reason?: 'underMeasured' | 'lowestAccuracy'; plan?: StudyPlan; error?: string }> => {
         try {
-            // 1. Single canonical check: resolve weakest domain from latest COMPLETED diagnostic (v15)
-            // Diagnostics are stored in quizRuns (QuizRunService), not the diagnostics collection.
-            const { DiagnosticService } = await import('./DiagnosticService');
             const runsRef = collection(db, 'quizRuns', userId, 'runs');
-            const diagQuery = query(
-                runsRef,
-                where('examId', '==', examId),
-                where('mode', '==', 'diagnostic'),
-                where('status', '==', 'completed'),
-                orderBy('completedAt', 'desc'),
-                limit(5)
-            );
-            console.log('[PLAN-DEBUG] querying quizRuns/', userId, '/runs WHERE examId=', examId, 'mode=diagnostic status=completed');
-            const diagSnap = await getDocs(diagQuery);
-            console.log('[PLAN-DEBUG] results:', diagSnap.size, 'docs');
-            // Find first completed diagnostic with valid domainResults
-            let newAnchorDomain: string | null = null;
-            for (const d of diagSnap.docs) {
-                const data = d.data();
-                console.log('[PLAN-DEBUG] run', d.id, '→ results.domainResults=', JSON.stringify(data.results?.domainResults));
-                newAnchorDomain = DiagnosticService.getWeakestDomain(data);
-                console.log('[PLAN-DEBUG] getWeakestDomain →', newAnchorDomain);
-                if (newAnchorDomain) break;
+            const MIN_SAMPLE = 5;
+
+            // ── Step 1: Fetch completed quiz runs ─────────────────────────────────────
+            // Query only on status='completed' — no composite index required.
+            // NOTE: quizType is stored under meta.quizType in the current schema, not at
+            // the top-level quizType field, so the != filter must be done in JS.
+            // examId and quizType exclusion are both applied client-side below.
+            let totalQuizAnswers = 0;
+            const domainStats: Record<string, { totalAnswered: number; totalCorrect: number }> = {};
+
+            try {
+                const quizQuery = query(
+                    runsRef,
+                    where('status', '==', 'completed'),
+                    limit(50)
+                );
+                const quizSnap = await getDocs(quizQuery);
+
+                // Filter client-side: correct exam, exclude diagnostics (meta.quizType field)
+                const filteredRuns = quizSnap.docs
+                    .map(d => d.data())
+                    .filter(run =>
+                        run.examId === examId &&
+                        run.meta?.quizType !== 'diagnostic'
+                    );
+
+                // ── Step 2: Aggregate domain performance across all quiz runs ─────────
+                for (const run of filteredRuns) {
+                    const answers: any[] = run.answers || [];
+                    for (const a of answers) {
+                        if (!a.domain) continue; // skip answers without domain tag
+                        if (!domainStats[a.domain]) {
+                            domainStats[a.domain] = { totalAnswered: 0, totalCorrect: 0 };
+                        }
+                        domainStats[a.domain].totalAnswered++;
+                        if (a.isCorrect) domainStats[a.domain].totalCorrect++;
+                    }
+                }
+
+                totalQuizAnswers = Object.values(domainStats).reduce(
+                    (sum, s) => sum + s.totalAnswered, 0
+                );
+            } catch (quizErr: any) {
+                // Network error — fall through to diagnostic fallback.
+                console.warn('[PLAN] quiz run query failed, will use diagnostic fallback:', quizErr?.code);
             }
+
+            console.log('[PLAN] totalQuizAnswers:', totalQuizAnswers);
+            console.log('[PLAN] domainStats:', JSON.stringify(domainStats));
+
+            // ── Step 3: Apply Minimum Sample Rule ────────────────────────────────────
+            let newAnchorDomain: string | null = null;
+            let reason: 'underMeasured' | 'lowestAccuracy' | undefined;
+            let fallbackToDiagnostic = false;
+
+            if (totalQuizAnswers >= MIN_SAMPLE) {
+                const knownDomains = getExamDomains(examId, examName, domainNames);
+                const knownDomainNames = knownDomains.map(d => d.name);
+
+                // Domains that haven't reached the minimum sample threshold yet
+                const underMeasured = knownDomainNames
+                    .filter(d => (domainStats[d]?.totalAnswered ?? 0) < MIN_SAMPLE)
+                    .sort((a, b) => {
+                        // Fewest answers first → ensures broadest domain coverage
+                        const diff = (domainStats[a]?.totalAnswered ?? 0) - (domainStats[b]?.totalAnswered ?? 0);
+                        return diff !== 0 ? diff : a.localeCompare(b); // alphabetical tie-break
+                    });
+
+                if (underMeasured.length > 0) {
+                    // Rotate exposure: focus on least-seen domain first
+                    newAnchorDomain = underMeasured[0];
+                    reason = 'underMeasured';
+                } else {
+                    // All domains adequately sampled — target weakest by accuracy
+                    const ranked = Object.entries(domainStats)
+                        .filter(([d]) => knownDomainNames.includes(d))
+                        .map(([d, s]) => ({
+                            domain: d,
+                            accuracy: s.totalAnswered > 0 ? s.totalCorrect / s.totalAnswered : 0
+                        }))
+                        .sort((a, b) => {
+                            const diff = a.accuracy - b.accuracy;
+                            return diff !== 0 ? diff : a.domain.localeCompare(b.domain);
+                        });
+
+                    newAnchorDomain = ranked[0]?.domain ?? null;
+                    reason = 'lowestAccuracy';
+                }
+            } else {
+                fallbackToDiagnostic = true;
+            }
+
+            console.log('[PLAN] fallbackToDiagnostic:', fallbackToDiagnostic);
+
+            // ── Step 4: Diagnostic fallback (only when quiz data is insufficient) ────
+            if (fallbackToDiagnostic) {
+                const { DiagnosticService } = await import('./DiagnosticService');
+
+                const diagQuery = query(
+                    runsRef,
+                    where('quizType', '==', 'diagnostic'),
+                    where('status', '==', 'completed'),
+                    limit(10)
+                );
+                const diagSnap = await getDocs(diagQuery);
+
+                // Filter by examId client-side, most recent first
+                const examDiagDocs = diagSnap.docs
+                    .filter(d => d.data().examId === examId)
+                    .sort((a, b) => (b.data().completedAt?.seconds ?? 0) - (a.data().completedAt?.seconds ?? 0));
+
+                for (const d of examDiagDocs) {
+                    const data = d.data();
+                    newAnchorDomain = DiagnosticService.getWeakestDomain(data);
+
+                    // Re-derive from raw answers when domainResults is empty (old runs)
+                    if (!newAnchorDomain && Array.isArray(data.answers) && data.answers.length > 0) {
+                        const answersWithDomain = (data.answers as any[]).filter(
+                            a => a.domain && a.selectedOption !== undefined
+                        );
+                        if (answersWithDomain.length > 0) {
+                            const rederived = deriveDomainResultsFromAnswers(answersWithDomain);
+                            newAnchorDomain = DiagnosticService.getWeakestDomain({
+                                results: { domainResults: rederived }
+                            });
+                        }
+                    }
+
+                    if (newAnchorDomain) break;
+                }
+            }
+
+            // ── Step 5: Safety fallback — guarantees a domain whenever quiz data exists ─
+            // Triggered only if all prior branches left newAnchorDomain null but domainStats
+            // is non-empty (e.g. knownDomainNames filter excluded all recorded domains).
+            if (!newAnchorDomain && Object.keys(domainStats).length > 0) {
+                const safetyRanked = Object.entries(domainStats)
+                    .map(([d, s]) => ({
+                        domain: d,
+                        accuracy: s.totalAnswered > 0 ? s.totalCorrect / s.totalAnswered : 0,
+                        totalAnswered: s.totalAnswered
+                    }))
+                    .sort((a, b) => {
+                        const diff = a.accuracy - b.accuracy;
+                        return diff !== 0 ? diff : a.totalAnswered - b.totalAnswered;
+                    });
+                newAnchorDomain = safetyRanked[0]?.domain ?? null;
+                reason = 'lowestAccuracy';
+                console.log('[PLAN] safetyFallbackTriggered:', newAnchorDomain);
+            }
+
+            console.log('[PLAN] chosenDomain:', newAnchorDomain);
 
             if (!newAnchorDomain) {
-                console.log('[PLAN-DEBUG] BLOCKED — no valid diagnostic found for uid=', userId, 'examId=', examId);
-                return { success: false, newAnchorDomain: null, error: 'No diagnostic results found. Please complete a diagnostic first.' };
+                return {
+                    success: false,
+                    error: 'Not enough progress yet. Complete a quiz or run a diagnostic to start your plan.'
+                };
             }
 
-            // 3. Separate past/today tasks from future tasks
+            // ── Preserve past tasks and completed tasks from today ────────────────────
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            // FIX: v15 Sync Rule - Dropping "Today's" INCOMPLETE tasks so they regenerate with new anchor.
-            // Only preserve:
-            // 1. Tasks stricty in the past (< today)
-            // 2. Tasks for today that are ALREADY COMPLETED (so we don't lose progress)
             const preservedTasks = existingPlan.tasks.filter(t => {
                 const taskDate = new Date(t.date);
                 taskDate.setHours(0, 0, 0, 0);
-
-                if (taskDate.getTime() < today.getTime()) return true; // Past
-                if (taskDate.getTime() === today.getTime() && t.completed) return true; // Today + Completed
-                return false; // Drop Today's Incomplete (will be regenerated with new focus)
+                if (taskDate.getTime() < today.getTime()) return true;           // past
+                if (taskDate.getTime() === today.getTime() && t.completed) return true; // today + done
+                return false; // today incomplete + future → regenerate with new anchor
             });
 
-            // 4. Generate new future tasks — v15: ALL tasks locked to diagnostic weakest domain
+            // ── Generate future tasks locked to chosen anchor domain ──────────────────
             const domains = getExamDomains(examId, examName, domainNames);
             const anchorDomain = domains.find(d => d.name === newAnchorDomain) || domains[0];
 
             const futureTasks: DailyTask[] = [];
             const currentDate = new Date(today);
-
             let dayIndex = 0;
+
             while (currentDate < existingPlan.examDate) {
-                // Skip Saturdays (mock exam days)
                 if (currentDate.getDay() === 6) {
+                    // Saturdays → full mock exam
                     futureTasks.push({
                         id: `recalc-${dayIndex}-mock`,
                         date: new Date(currentDate),
@@ -302,7 +446,6 @@ export const StudyPlanService = {
 
                 const topic = anchorDomain.topics[Math.floor(Math.random() * anchorDomain.topics.length)];
 
-                // Reading task — v15: anchor domain only
                 futureTasks.push({
                     id: `recalc-${dayIndex}-read`,
                     date: new Date(currentDate),
@@ -313,7 +456,6 @@ export const StudyPlanService = {
                     durationMinutes: 30
                 });
 
-                // Quiz task — v15: anchor domain only, no Smart Quiz rotation
                 futureTasks.push({
                     id: `recalc-${dayIndex}-quiz`,
                     date: new Date(currentDate),
@@ -328,25 +470,39 @@ export const StudyPlanService = {
                 dayIndex++;
             }
 
-            // 5. Merge preserved + future tasks
-            const mergedTasks = [...preservedTasks, ...futureTasks];
-
-            // 6. Update the plan in Firestore
+            // ── Persist updated plan ──────────────────────────────────────────────────
             if (!existingPlan.id) {
-                return { success: false, newAnchorDomain: null, error: 'Plan ID not found.' };
+                return { success: false, error: 'Plan ID not found.' };
             }
 
             const planRef = doc(db, 'study_plans', existingPlan.id);
             await updateDoc(planRef, {
-                tasks: mergedTasks,
+                tasks: [...preservedTasks, ...futureTasks],
                 anchorDomain: newAnchorDomain,
                 lastRecalculatedAt: new Date()
             });
 
-            return { success: true, newAnchorDomain };
+            // Read the document back by ID — not by query — so we always get exactly
+            // the document we updated, regardless of how many active plan docs exist.
+            // This also verifies the write and primes the local document cache.
+            const verifySnap = await getDoc(planRef);
+            if (verifySnap.exists() && !verifySnap.data().anchorDomain) {
+                console.warn('[PLAN] anchorDomain missing after updateDoc — re-applying:', newAnchorDomain);
+                await updateDoc(planRef, { anchorDomain: newAnchorDomain });
+            }
+
+            // Build the plan from the verified snapshot and return it directly.
+            // The caller can use this instead of calling getCurrentPlan(), eliminating
+            // the document-mismatch risk from a sorted query returning a different doc.
+            const freshPlan = verifySnap.exists()
+                ? mapFirestorePlan(existingPlan.id, verifySnap.data())
+                : undefined;
+
+            return { success: true, domain: newAnchorDomain ?? undefined, reason, plan: freshPlan };
+
         } catch (error: any) {
-            console.error('[PLAN-DEBUG] EXCEPTION in recalculatePlanFromProgress:', error?.code, error?.message, error);
-            return { success: false, newAnchorDomain: null, error: 'Failed to update plan. Please try again.' };
+            console.error('[PLAN] EXCEPTION in recalculatePlanFromProgress:', error?.code, error?.message, error);
+            return { success: false, error: 'Failed to update plan. Please try again.' };
         }
     }
 };

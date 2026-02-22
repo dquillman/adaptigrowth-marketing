@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw, Zap } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle, BookOpen, Brain, Clock, X, RefreshCw } from 'lucide-react';
 import DashboardLink from '../../components/DashboardLink';
 import { useAuth } from '../../App';
 import { StudyPlanService } from '../../services/StudyPlanService';
@@ -26,15 +26,15 @@ export default function StudySchedule() {
 
     // Recalculation state
     const [recalculating, setRecalculating] = useState(false);
-    const [recalcToast, setRecalcToast] = useState<{ show: boolean; domain: string | null; error?: string }>({ show: false, domain: null });
-
-    // Injected reinforcement task state (post-diagnostic/mock)
-    const [injectedTask, setInjectedTask] = useState<InjectedTask | null>(null);
+    const [recalcToast, setRecalcToast] = useState<{ show: boolean; domain: string | null; reason?: 'underMeasured' | 'lowestAccuracy'; error?: string }>({ show: false, domain: null });
 
     // Readiness state for mock exam gating (v15 trust fix)
-    const [readinessScore, setReadinessScore] = useState<number | null>(null);
-    const [readinessPreliminary, setReadinessPreliminary] = useState(false);
+    const [, setReadinessScore] = useState<number | null>(null);
+    const [, setReadinessPreliminary] = useState(false);
     const [readinessLoaded, setReadinessLoaded] = useState(false);
+
+    // Injected reinforcement task state (post-diagnostic/mock)
+    const [, setInjectedTask] = useState<InjectedTask | null>(null);
 
     // Diagnostic context from navigation (used only for one-time exam date prompt)
     const fromDiagnostic = location.state?.source === 'diagnostic';
@@ -65,7 +65,7 @@ export default function StudySchedule() {
 
 
     // Use the global Exam context
-    const { selectedExamId, examName } = useExam();
+    const { selectedExamId, examName, loading: examLoading } = useExam();
 
     // v15: Reinforcement derived from plan.anchorDomain (single source of truth).
     // No independent diagnostic query — the plan IS the canonical domain source.
@@ -83,17 +83,6 @@ export default function StudySchedule() {
             source: 'diagnostic'
         });
     }, [user, plan]);
-
-    // Handle completing the injected reinforcement task
-    const handleReinforcementComplete = () => {
-        if (!injectedTask || !plan) return;
-
-        // Mark as acknowledged in localStorage (keyed to plan + domain)
-        const ackKey = `ec_reinforcement_ack_${plan.id}_${plan.anchorDomain}`;
-        localStorage.setItem(ackKey, new Date().toISOString());
-
-        setInjectedTask(null);
-    };
 
     // Check readiness BEFORE Today's Mission renders (v15 trust fix)
     // Score thresholds: <50 High Risk, 50-69 Borderline, >=70 Ready
@@ -148,43 +137,13 @@ export default function StudySchedule() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Sort tasks
-    const sortedTasks = [...plan.tasks].sort((a, b) => a.date.getTime() - b.date.getTime());
+    // Sort tasks — used by deepenTask
+    const sortedTasks: DailyTask[] = [...plan.tasks].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    const todaysTasksRaw = sortedTasks.filter(t => {
-        const d = new Date(t.date);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() === today.getTime();
-    });
-
-    // v15 trust fix: Gate mock exams based on readiness
-    // HIGHEST PRIORITY: If preliminary (remaining questions > 0), suppress entirely
-    // Then score thresholds: <50 suppress, 50-69 never first, >=70 normal
-    const todaysTasks = (() => {
-        if (readinessPreliminary) {
-            return todaysTasksRaw.filter(t => t.activityType !== 'mock-exam');
-        }
-        const score = readinessScore ?? 100;
-        if (score < 50) {
-            return todaysTasksRaw.filter(t => t.activityType !== 'mock-exam');
-        }
-        if (score < 70) {
-            return [...todaysTasksRaw].sort((a, b) => {
-                const aIsMock = a.activityType === 'mock-exam';
-                const bIsMock = b.activityType === 'mock-exam';
-                if (aIsMock && !bIsMock) return 1;
-                if (!aIsMock && bIsMock) return -1;
-                return 0;
-            });
-        }
-        return todaysTasksRaw;
-    })();
-
-    const upcomingTasks = sortedTasks.filter(t => {
-        const d = new Date(t.date);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime() > today.getTime();
-    }); // Show next 10
+    // First reading task aligned with the anchor domain — used for Deepen Understanding section
+    const deepenTask = sortedTasks.find(
+        t => t.activityType === 'reading' && t.domain === plan.anchorDomain
+    );
 
     const handleToggleComplete = async (taskId: string, currentStatus: boolean) => {
         if (!plan || !user) return;
@@ -233,13 +192,18 @@ export default function StudySchedule() {
                 []
             );
 
-            if (result.success && result.newAnchorDomain) {
-                // Refresh plan from Firestore
-                const updatedPlan = await StudyPlanService.getCurrentPlan(user.uid, selectedExamId);
-                if (updatedPlan) {
-                    setPlan(updatedPlan);
+            if (result.success && result.domain) {
+                // result.plan is built from getDoc(planRef) inside recalculatePlanFromProgress —
+                // always the exact document that was updated, bypassing query-mismatch risk.
+                // Fall back to getCurrentPlan only if result.plan is unexpectedly absent.
+                const freshPlan = result.plan
+                    ?? await StudyPlanService.getCurrentPlan(user.uid, selectedExamId);
+                if (freshPlan) {
+                    setPlan({ ...freshPlan, anchorDomain: result.domain });
+                } else {
+                    setPlan(prev => prev ? { ...prev, anchorDomain: result.domain! } : prev);
                 }
-                setRecalcToast({ show: true, domain: result.newAnchorDomain });
+                setRecalcToast({ show: true, domain: result.domain, reason: result.reason });
                 // Auto-hide toast after 5 seconds
                 setTimeout(() => setRecalcToast({ show: false, domain: null }), 5000);
             } else {
@@ -277,15 +241,21 @@ export default function StudySchedule() {
                     <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-sm">
                         {plan.weeklyHours} hours / week
                     </div>
-                    <button
-                        onClick={handleRecalculatePlan}
-                        disabled={recalculating}
-                        className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-indigo-500 hover:border-indigo-400 flex items-center gap-2"
-                        title="Adjusts your plan based on your current quiz performance"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
-                        {recalculating ? 'Updating...' : 'Update Plan Based on My Progress'}
-                    </button>
+                    {!selectedExamId || examLoading ? (
+                        <span className="px-4 py-2 rounded-lg text-sm text-slate-500 border border-slate-700 cursor-not-allowed">
+                            Please select an exam.
+                        </span>
+                    ) : (
+                        <button
+                            onClick={handleRecalculatePlan}
+                            disabled={recalculating}
+                            className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-indigo-500 hover:border-indigo-400 flex items-center gap-2"
+                            title="Adjusts your plan based on your current quiz performance"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
+                            {recalculating ? 'Updating...' : 'Update Plan Based on My Progress'}
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate('/app/planner/setup', {
                             state: {
@@ -307,7 +277,7 @@ export default function StudySchedule() {
             {plan.anchorDomain && (
                 <div className="mb-6 bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-4">
                     <p className="text-indigo-200 text-sm">
-                        <span className="font-semibold">&#10003; This study plan is based on your diagnostic results.</span>
+                        <span className="font-semibold">&#10003; Your study plan automatically adapts based on your performance.</span>
                         <span className="block mt-1 text-indigo-300">
                             Your plan focuses on <strong className="text-white">{plan.anchorDomain}</strong>, your biggest opportunity for improvement.
                         </span>
@@ -315,27 +285,6 @@ export default function StudySchedule() {
                 </div>
             )}
 
-            {/* Recommended Next Step — v15: reads plan.anchorDomain (single source of truth) */}
-            {plan.anchorDomain && (
-                <div className="mb-6 bg-purple-900/20 border border-purple-500/30 rounded-xl p-4">
-                    <div className="flex items-center justify-between gap-4">
-                        <div>
-                            <p className="text-purple-300 text-sm font-semibold">
-                                Recommended: Domain Quiz ({plan.anchorDomain})
-                            </p>
-                            <p className="text-slate-400 text-xs mt-1">
-                                This domain showed the most opportunity in your diagnostic. Other quiz types are available in the sidebar.
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => navigate('/app/quiz', { state: { mode: 'weakest', filterDomain: plan.anchorDomain } })}
-                            className="shrink-0 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
-                        >
-                            Start Domain Quiz
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {/* Exam Date Prompt Modal */}
             {showExamDatePrompt && (
@@ -389,74 +338,73 @@ export default function StudySchedule() {
                 </h2>
 
                 <div className="grid gap-4">
-                    {/* Injected Reinforcement Task - appears FIRST */}
-                    {injectedTask && (
+                    {plan?.anchorDomain ? (
                         <div className="bg-gradient-to-r from-amber-900/40 to-slate-800 border-2 border-amber-500/50 rounded-xl p-4 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none"></div>
+
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-                                    <Zap className="w-6 h-6 text-amber-400" />
-                                </div>
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        <span className="bg-amber-600/20 text-amber-300 text-xs font-semibold px-2 py-1 rounded">
                                             PRIORITY
                                         </span>
                                         <span className="text-xs text-slate-400">~20 min</span>
                                     </div>
-                                    <h3 className="font-bold text-white">Focused Reinforcement: {injectedTask.domain}</h3>
+
+                                    <h3 className="font-bold text-white">
+                                        Focused Reinforcement: {plan.anchorDomain}
+                                    </h3>
+
                                     <p className="text-xs text-slate-400 mt-1">
-                                        Based on your recent {injectedTask.source === 'diagnostic' ? 'diagnostic' : 'mock exam'} results
+                                        This is currently your highest-impact domain for improvement.
+                                        Strengthening this area will raise your overall performance fastest.
                                     </p>
                                 </div>
+
                                 <button
-                                    onClick={() => {
+                                    onClick={() =>
                                         navigate('/app/quiz', {
                                             state: {
                                                 mode: 'weakest',
-                                                filterDomain: injectedTask.domain,
+                                                filterDomain: plan.anchorDomain,
                                                 source: 'reinforcement'
                                             }
-                                        });
-                                        handleReinforcementComplete();
-                                    }}
+                                        })
+                                    }
                                     className="shrink-0 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
                                 >
-                                    Start
+                                    Start Domain Quiz
                                 </button>
                             </div>
                         </div>
-                    )}
-
-                    {/* Regular Today's Tasks */}
-                    {todaysTasks.length === 0 && !injectedTask ? (
-                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
-                            <CheckCircle className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                            <p>No tasks scheduled for today. Enjoy your break!</p>
-                        </div>
                     ) : (
-                        todaysTasks.map(task => (
-                            <TaskCard
-                                key={task.id}
-                                task={task}
-                                onToggleComplete={() => handleToggleComplete(task.id, task.completed)}
-                                onStartMock={() => setShowExamConfig(true)}
-                            />
-                        ))
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
+                            <p>No tasks available yet.</p>
+                        </div>
                     )}
                 </div>
             </section>
 
-            {/* Upcoming */}
+            {/* Deepen Understanding */}
             <section>
                 <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <span className="w-2 h-8 bg-slate-600 rounded-full"></span>
-                    Upcoming
+                    Deepen Understanding
                 </h2>
-                <div className="grid gap-4 opacity-75">
-                    {upcomingTasks.map(task => (
-                        <TaskCard key={task.id} task={task} isUpcoming />
-                    ))}
+                <div className="grid gap-4">
+                    {deepenTask ? (
+                        <TaskCard
+                            key={deepenTask.id}
+                            task={deepenTask}
+                            onToggleComplete={() => handleToggleComplete(deepenTask.id, deepenTask.completed)}
+                            onStartMock={() => setShowExamConfig(true)}
+                        />
+                    ) : (
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
+                            <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                            <p>No reading tasks available yet.</p>
+                        </div>
+                    )}
                 </div>
             </section>
 
@@ -473,7 +421,11 @@ export default function StudySchedule() {
                             <CheckCircle className="w-5 h-5" />
                         )}
                         <span className="font-medium">
-                            {recalcToast.error || `Based on your most recent diagnostic, your weakest domain is ${recalcToast.domain}. Your plan was updated to focus there.`}
+                            {recalcToast.error || (
+                                recalcToast.reason === 'underMeasured'
+                                    ? `Plan updated. We're strengthening your coverage in ${recalcToast.domain}.`
+                                    : `Plan updated. ${recalcToast.domain} is currently your weakest domain based on recent performance.`
+                            )}
                         </span>
                     </div>
                 </div>

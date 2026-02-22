@@ -48,10 +48,10 @@ export default function SetupPlanner() {
             // Use context ID consistently
             const examId = selectedExamId || 'default-exam';
 
-            // If editing, archive the old active plan first
-            if (editMode) {
-                await StudyPlanService.archiveCurrentPlan(user.uid);
-            }
+            // Always archive any existing active plans for this exam before creating a new one.
+            // Previously guarded by editMode — but fresh plan creation also creates a second
+            // active document, causing getCurrentPlan() to return the wrong doc after recalculate.
+            await StudyPlanService.archiveCurrentPlan(user.uid, examId);
 
             const plan = StudyPlanService.generatePlan(
                 user.uid,

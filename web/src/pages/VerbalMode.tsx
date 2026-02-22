@@ -25,7 +25,7 @@ interface SessionStats {
 
 export default function VerbalMode() {
     const navigate = useNavigate();
-    const { examName } = useExam();
+    const { examName, selectedExamId } = useExam();
     const [status, setStatus] = useState<ModeState>('SETUP');
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -99,7 +99,7 @@ export default function VerbalMode() {
 
     const loadQuestions = async () => {
         setStatus('LOADING');
-        const examId = localStorage.getItem('selectedExamId') || 'default-exam';
+        const examId = selectedExamId;
 
         try {
             const ids = await SmartQuizService.generateSimulationExam(examId, targetQuestionCount);

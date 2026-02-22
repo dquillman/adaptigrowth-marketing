@@ -95,7 +95,7 @@ export default function Quiz() {
     }, [location.state]);
 
     // Global context fallback
-    const { selectedExamId, examName, bankVersion, examDomains } = useExam();
+    const { selectedExamId, examName, bankVersion, examDomains, loading: examContextLoading } = useExam();
 
     const [activeExamId, setActiveExamId] = useState<string>('');
     const [reinforcementMessage, setReinforcementMessage] = useState<string | null>(null);
@@ -139,7 +139,10 @@ export default function Quiz() {
 
     useEffect(() => {
         const fetchSmartQuestions = async () => {
-            if (!activeExamId) return;
+            // Wait for ExamContext to finish resolving before creating diagnostic runs.
+            // This ensures activeExamId is the fully-resolved exam ID and examDomains
+            // are populated for domain-balanced question selection.
+            if (!activeExamId || examContextLoading) return;
 
             try {
                 const user = auth.currentUser;
@@ -453,7 +456,7 @@ export default function Quiz() {
         };
 
         fetchSmartQuestions();
-    }, [activeExamId]);
+    }, [activeExamId, examContextLoading]);
 
     const handleOptionSelect = (index: number) => {
         if (showExplanation) return;

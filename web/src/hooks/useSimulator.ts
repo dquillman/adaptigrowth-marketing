@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { SmartQuizService } from '../services/smartQuiz';
 import { XPService } from '../services/xpService';
+import { useExam } from '../contexts/ExamContext';
 
 export interface Question {
     id: string;
@@ -19,6 +20,7 @@ export interface Question {
 export const useSimulator = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { selectedExamId } = useExam();
     const [loading, setLoading] = useState(true);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -26,13 +28,12 @@ export const useSimulator = () => {
     const [flagged, setFlagged] = useState<Record<number, boolean>>({});
     const [timeLeft, setTimeLeft] = useState(3600); // Default 60 mins
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [currentExamId, setCurrentExamId] = useState<string>('default-exam');
+    const [currentExamId, setCurrentExamId] = useState<string>(selectedExamId);
 
     useEffect(() => {
         const loadExam = async () => {
             const user = auth.currentUser;
-            const examId = localStorage.getItem('selectedExamId') || 'default-exam';
-            setCurrentExamId(examId);
+            setCurrentExamId(selectedExamId);
 
             if (!user) {
                 navigate('/login');
@@ -65,7 +66,7 @@ export const useSimulator = () => {
 
                 // Note: The SmartQuizService might need to handle fetching 180 unique questions.
                 // If the DB is small, this might return duplicates or fewer questions.
-                const ids = await SmartQuizService.generateSimulationExam(examId, questionCount);
+                const ids = await SmartQuizService.generateSimulationExam(selectedExamId, questionCount);
 
                 if (ids.length === 0) {
                     alert("No questions found for this exam.");

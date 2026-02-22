@@ -22,10 +22,9 @@ interface SimulationAttempt {
 export default function SimulatorIntro() {
     const { checkPermission } = useSubscription();
     const navigate = useNavigate();
-    const { examName } = useExam();
+    const { examName, selectedExamId: activeExamId } = useExam();
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
-    const activeExamId = localStorage.getItem('selectedExamId') || 'default-exam';
     const [readiness, setReadiness] = useState<any>(null);
     const [userXp, setUserXp] = useState(0);
 
