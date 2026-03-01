@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from '../firebase';
 import { useSubscription } from '../contexts/SubscriptionContext';
 
 export interface TrialUIState {
@@ -39,23 +39,10 @@ export function useTrial() {
 
         try {
             setActionLoading(true);
-            const now = new Date();
-            const endDate = new Date();
-            endDate.setDate(now.getDate() + 14); // 14 Days
-
-            const userRef = doc(db, 'users', auth.currentUser.uid);
-
-            // New Schema: Top-level fields
-            await updateDoc(userRef, {
-                plan: 'pro',
-                trial: true,
-                trialEndsAt: Timestamp.fromDate(endDate),
-                trialLengthDays: 14,
-                trialConsumed: true,
-                accessLevel: 'pro'
-            });
-
-            return true;
+            const startTrialFn = httpsCallable(functions, 'startTrial');
+            const result = await startTrialFn({});
+            const data = result.data as { success: boolean; trialEndsAt: string };
+            return data.success === true;
         } catch (err) {
             console.error("Failed to start trial:", err);
             return false;

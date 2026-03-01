@@ -7,6 +7,7 @@ import { ArrowLeft, Play, History, Clock, FileText, Award, Lock } from 'lucide-r
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useExam } from '../contexts/ExamContext';
 import { applyReadinessConfidence } from '../utils/readinessConfidence';
+import { getMockEligibility } from '../utils/mockEligibility';
 import { getAnsweredCount } from '../utils/questionMetrics';
 import PrimaryButton from '../components/ui/PrimaryButton';
 
@@ -20,9 +21,9 @@ interface SimulationAttempt {
 }
 
 export default function SimulatorIntro() {
-    const { checkPermission } = useSubscription();
+    const { isPro } = useSubscription();
     const navigate = useNavigate();
-    const { examName, selectedExamId: activeExamId } = useExam();
+    const { examName, selectedExamId: activeExamId, hasCompletedDiagnostic } = useExam();
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
     const [readiness, setReadiness] = useState<any>(null);
@@ -117,7 +118,7 @@ export default function SimulatorIntro() {
     // Gate Logic (uses RCM-adjusted score so XP confidence influences gating)
     const displayedScore = readiness ? applyReadinessConfidence(readiness.overallScore, userXp) : null;
     const isBorderline = displayedScore !== null && displayedScore >= 50 && displayedScore < 70;
-    const notReady = displayedScore !== null && displayedScore < 50;
+    const eligibility = getMockEligibility({ hasCompletedDiagnostic: hasCompletedDiagnostic ?? false, readiness: displayedScore, isPro });
 
     const formatTime = (seconds?: number) => {
         if (!seconds) return '--:--';
@@ -156,19 +157,19 @@ export default function SimulatorIntro() {
                 </div>
 
                 {/* Readiness Gate Banner */}
-                {readiness && (notReady || isBorderline) && (
-                    <div className={`mb-8 p-6 rounded-2xl border ${notReady ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                {readiness && (eligibility.reason === 'low-readiness' || isBorderline) && (
+                    <div className={`mb-8 p-6 rounded-2xl border ${eligibility.reason === 'low-readiness' ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
                         <div className="flex items-start gap-4">
-                            <div className={`p-3 rounded-full ${notReady ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                            <div className={`p-3 rounded-full ${eligibility.reason === 'low-readiness' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             </div>
                             <div>
-                                <h3 className={`text-lg font-bold mb-1 ${notReady ? 'text-red-400' : 'text-yellow-400'}`}>
-                                    {notReady ? 'High Risk of Failure Detected' : 'Readiness is Borderline'}
+                                <h3 className={`text-lg font-bold mb-1 ${eligibility.reason === 'low-readiness' ? 'text-red-400' : 'text-yellow-400'}`}>
+                                    {eligibility.reason === 'low-readiness' ? 'High Risk of Failure Detected' : 'Readiness is Borderline'}
                                 </h3>
                                 <p className="text-slate-300 mb-4 leading-relaxed">
                                     Your Smart Readiness Score is <strong>{displayedScore}%</strong>.
-                                    {notReady
+                                    {eligibility.reason === 'low-readiness'
                                         ? " A full exam right now is unlikely to give you useful feedback. We strongly recommend Verbal Mode or Domain Practice first."
                                         : " You may pass, but it will be close. Review your weakest domains before starting."}
                                 </p>
@@ -193,7 +194,7 @@ export default function SimulatorIntro() {
 
                 {/* Main Action Card */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    <div className={`lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border ${notReady ? 'border-red-500/20' : 'border-indigo-500/30'} rounded-2xl p-8 relative overflow-hidden shadow-2xl transition-all`}>
+                    <div className={`lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border ${eligibility.reason === 'low-readiness' ? 'border-red-500/20' : 'border-indigo-500/30'} rounded-2xl p-8 relative overflow-hidden shadow-2xl transition-all`}>
                         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
                         <h2 className="text-3xl font-bold text-white mb-4 relative z-10">Realistic Mock Exam</h2>
@@ -218,7 +219,7 @@ export default function SimulatorIntro() {
                             Results from this mode will <strong>not</strong> affect your Mastery Rings.
                         </p>
 
-                        {!checkPermission('simulator') ? (
+                        {eligibility.reason === 'not-pro' ? (
                             <div className="relative z-10">
                                 <button
                                     disabled
@@ -231,7 +232,7 @@ export default function SimulatorIntro() {
                                     <span onClick={() => navigate('/app/pricing')} className="underline cursor-pointer hover:text-white">Upgrade to Pro</span> to access full exam simulators.
                                 </p>
                             </div>
-                        ) : notReady ? (
+                        ) : eligibility.reason === 'low-readiness' ? (
                             <button
                                 onClick={() => {
                                     if (window.confirm("CRITICAL WARNING: Your readiness score indicates a high chance of failure. Are you sure you want to proceed? This may impact your confidence.")) {

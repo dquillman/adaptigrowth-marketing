@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from "firebase-functions";
 import OpenAI from "openai";
+import { requirePro } from './guards';
 
 // Lazy init OpenAI
 let openai: OpenAI;
@@ -127,6 +128,7 @@ export const generateTutorBreakdown = functions.https.onCall(async (data: TutorP
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
     }
+    await requirePro(context);
 
     // 0. Force Debug / Entry Logging
     console.log("generateTutorBreakdown invoked", {
@@ -265,6 +267,7 @@ IMPORTANT: Return valid JSON.
 
 export const generateTutorDeepDive = functions.https.onCall(async (data: { context: TutorResponse, style: 'simple' | 'memory' }, context) => {
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+    await requirePro(context);
 
     // Check for API key
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-deploy') {

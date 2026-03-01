@@ -32,14 +32,20 @@ function calculatePointBiserial(attempts: any[]): number {
 }
 
 export const evaluateQuestionQuality = functions.https.onCall(async (_data, context) => {
-    // 1. Auth Check (Admin only in prod)
+    // 1. Auth Check (Admin only)
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+
+    // Admin authorization check
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Admin role required');
+    }
 
     // const sevenDaysAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 7 * 24 * 60 * 60 * 1000); // Unused
 
 
     try {
-        const db = admin.firestore();
         // 2. Fetch Questions that need evaluation
         // Optimization: In a real system, query for questions with new attempts since lastEvaluated.
         // For this phase, we'll scan all, or limit to a batch.

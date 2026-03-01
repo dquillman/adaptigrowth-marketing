@@ -50,6 +50,21 @@ const sampleQuestions = [
         domain: "Business Environment",
         examId: "default-exam",
         difficulty: "Easy"
+    },
+    {
+        type: "emv",
+        stem: "A project manager is evaluating two strategies for a critical component. Outsource manufacturing has a 60% probability of saving $50,000. Building an in-house factory has a 30% probability of saving $120,000. Which strategy has the higher expected monetary value?",
+        options: ["Outsource manufacturing", "Build in-house factory"],
+        correctAnswer: 1,
+        explanation: "Note: When comparing strategies using EMV, always multiply each option's probability by its monetary impact. The option with the highest EMV represents the best expected outcome based on the available data. This is a core PMI decision-analysis technique from the PMBOK Guide.",
+        domain: "Process",
+        examId: "default-exam",
+        scenarios: [
+            { label: "Outsource manufacturing", probability: 0.6, impact: 50000 },
+            { label: "Build in-house factory", probability: 0.3, impact: 120000 }
+        ],
+        correctLabel: "Build in-house factory",
+        difficulty: "Medium"
     }
 ];
 

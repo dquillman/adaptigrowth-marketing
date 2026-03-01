@@ -25,13 +25,16 @@ interface ExamHealthReport {
 export const analyzeExamHealth = functions.https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
-    // In a real scenario, check for admin custom claims
-    // if (!context.auth.token.admin) ...
+    // Admin authorization check
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (userDoc.data()?.role !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Admin role required');
+    }
 
     const examId = data.examId || 'default-exam';
 
     try {
-        const db = admin.firestore();
         // 1. Fetch Recent "Pro" Attempts (Last 100)
         // We only use Pro data for quality auditing as requested
         const attemptsSnap = await db.collection('quizAttempts')

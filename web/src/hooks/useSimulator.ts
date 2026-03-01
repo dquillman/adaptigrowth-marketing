@@ -15,6 +15,13 @@ export interface Question {
     domain: string;
     examId?: string;
     imageUrl?: string;
+    type?: 'mcq' | 'emv';
+    scenarios?: {
+        label: string;
+        probability: number;
+        impact: number;
+    }[];
+    correctLabel?: string;
 }
 
 export const useSimulator = () => {

@@ -4,13 +4,17 @@ exports.analyzeExamHealth = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 exports.analyzeExamHealth = functions.https.onCall(async (data, context) => {
+    var _a;
     if (!context.auth)
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
-    // In a real scenario, check for admin custom claims
-    // if (!context.auth.token.admin) ...
+    // Admin authorization check
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(context.auth.uid).get();
+    if (((_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.role) !== 'admin') {
+        throw new functions.https.HttpsError('permission-denied', 'Admin role required');
+    }
     const examId = data.examId || 'default-exam';
     try {
-        const db = admin.firestore();
         // 1. Fetch Recent "Pro" Attempts (Last 100)
         // We only use Pro data for quality auditing as requested
         const attemptsSnap = await db.collection('quizAttempts')

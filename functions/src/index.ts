@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import OpenAI from "openai";
+import { requirePro } from './guards';
 
 console.log("Global Index Execution Started");
 admin.initializeApp();
@@ -280,6 +281,7 @@ export const generateQuestions = functions
         if (!context.auth) {
             throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
         }
+        await requirePro(context);
         const topic = data.topic || "Project Management";
         // Increase cap to 50 per request, but warn about timeouts in UI if possible
         const count = Math.min(data.count || 5, 50);
@@ -410,6 +412,7 @@ export const batchGenerateQuestions = functions
         if (!context.auth) {
             throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
         }
+        await requirePro(context);
 
         const examId = data.examId;
         const targetCount = Math.min(data.targetCount || 100, 100);
@@ -1504,3 +1507,5 @@ export * from './tester_management';
 export * from './tutor';
 export * from './diagnostics';
 export * from './generateSmartQuizReview';
+export { validateQuizStart } from './validateQuizStart';
+export { startTrial } from './startTrialCallable';

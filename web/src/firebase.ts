@@ -27,6 +27,7 @@ let storage: FirebaseStorage;
 try {
     app = initializeApp(firebaseConfig);
     console.log('Firebase App initialized');
+    console.log('🔥 EC Firebase Project (runtime):', app.options.projectId);
 
     db = getFirestore(app);
     console.log('Firestore initialized');

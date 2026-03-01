@@ -4,6 +4,7 @@ exports.getWeakestPatterns = exports.generateTutorDeepDive = exports.generateTut
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 const openai_1 = require("openai");
+const guards_1 = require("./guards");
 // Lazy init OpenAI
 let openai;
 const getOpenAI = () => {
@@ -88,6 +89,7 @@ exports.generateTutorBreakdown = functions.https.onCall(async (data, context) =>
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
     }
+    await (0, guards_1.requirePro)(context);
     // 0. Force Debug / Entry Logging
     console.log("generateTutorBreakdown invoked", {
         uid: context.auth.uid,
@@ -206,6 +208,7 @@ IMPORTANT: Return valid JSON.
 exports.generateTutorDeepDive = functions.https.onCall(async (data, context) => {
     if (!context.auth)
         throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+    await (0, guards_1.requirePro)(context);
     // Check for API key
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-deploy') {
         throw new functions.https.HttpsError('failed-precondition', 'Tutor Service is not configured (Missing API Key).');

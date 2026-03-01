@@ -14,10 +14,11 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupTimedOutSessions = exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopyVariants = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = exports.createUserProfile = void 0;
+exports.startTrial = exports.validateQuizStart = exports.cleanupTimedOutSessions = exports.seedExamSources = exports.markSourceReviewed = exports.triggerExamUpdateCheck = exports.checkForExamUpdates = exports.getMarketingAnalytics = exports.generateMarketingCopyVariants = exports.generateMarketingCopy = exports.logVisitorEvent = exports.evaluateQuestionQuality = exports.analyzeExamHealth = exports.cancelSubscription = exports.getSubscriptionDetails = exports.stripeWebhook = exports.createPortalSession = exports.createCheckoutSession = exports.deleteUser = exports.resetExamProgress = exports.getGlobalStats = exports.getAdminUserList = exports.resetUserProgress = exports.deleteExamQuestions = exports.batchGenerateQuestions = exports.generateQuestions = exports.getAdaptiveQuestions = exports.createUserProfile = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const openai_1 = require("openai");
+const guards_1 = require("./guards");
 console.log("Global Index Execution Started");
 admin.initializeApp();
 console.log("Admin Initialized");
@@ -259,6 +260,7 @@ exports.generateQuestions = functions
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
+    await (0, guards_1.requirePro)(context);
     const topic = data.topic || "Project Management";
     // Increase cap to 50 per request, but warn about timeouts in UI if possible
     const count = Math.min(data.count || 5, 50);
@@ -377,6 +379,7 @@ exports.batchGenerateQuestions = functions
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
+    await (0, guards_1.requirePro)(context);
     const examId = data.examId;
     const targetCount = Math.min(data.targetCount || 100, 100);
     if (!examId) {
@@ -1327,4 +1330,8 @@ __exportStar(require("./tester_management"), exports);
 __exportStar(require("./tutor"), exports);
 __exportStar(require("./diagnostics"), exports);
 __exportStar(require("./generateSmartQuizReview"), exports);
+var validateQuizStart_1 = require("./validateQuizStart");
+Object.defineProperty(exports, "validateQuizStart", { enumerable: true, get: function () { return validateQuizStart_1.validateQuizStart; } });
+var startTrialCallable_1 = require("./startTrialCallable");
+Object.defineProperty(exports, "startTrial", { enumerable: true, get: function () { return startTrialCallable_1.startTrial; } });
 //# sourceMappingURL=index.js.map

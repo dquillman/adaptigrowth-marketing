@@ -1,31 +1,31 @@
 ﻿import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState, createContext, useContext, type ReactNode } from "react";
+import { useEffect, useState, createContext, useContext, lazy, Suspense, type ReactNode } from "react";
 import { onAuthStateChanged, type User, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { APP_VERSION, DISPLAY_VERSION } from "./version";
 import { isValidVersion, evaluateVersion } from "./utils/versionCheck";
-// Pages
-import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
-import ExamList from "./pages/ExamList";
-import Quiz from "./pages/Quiz";
-import About from "./pages/About";
-import Help from "./pages/Help";
-import Pricing from "./pages/Pricing";
-import Success from "./pages/Success";
-import SimulatorIntro from "./pages/SimulatorIntro";
-import Simulator from "./pages/Simulator";
-import SimulatorResults from "./pages/SimulatorResults";
-import Stats from "./pages/Stats";
-import SetupPlanner from "./pages/planner/SetupPlanner";
-import StudySchedule from "./pages/planner/StudySchedule";
-import VerbalMode from "./pages/VerbalMode";
-import ReadinessReportPage from "./pages/ReadinessReport";
-import DiagnosticsPage from "./pages/DiagnosticsPage";
-import Faq from "./pages/Faq";
-import StartHere from "./pages/StartHere";
+// Pages (lazy-loaded for code splitting)
+const Landing = lazy(() => import("./pages/Landing"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Login = lazy(() => import("./pages/Login"));
+const ExamList = lazy(() => import("./pages/ExamList"));
+const Quiz = lazy(() => import("./pages/Quiz"));
+const About = lazy(() => import("./pages/About"));
+const Help = lazy(() => import("./pages/Help"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const Success = lazy(() => import("./pages/Success"));
+const SimulatorIntro = lazy(() => import("./pages/SimulatorIntro"));
+const Simulator = lazy(() => import("./pages/Simulator"));
+const SimulatorResults = lazy(() => import("./pages/SimulatorResults"));
+const Stats = lazy(() => import("./pages/Stats"));
+const SetupPlanner = lazy(() => import("./pages/planner/SetupPlanner"));
+const StudySchedule = lazy(() => import("./pages/planner/StudySchedule"));
+const VerbalMode = lazy(() => import("./pages/VerbalMode"));
+const ReadinessReportPage = lazy(() => import("./pages/ReadinessReport"));
+const DiagnosticsPage = lazy(() => import("./pages/DiagnosticsPage"));
+const Faq = lazy(() => import("./pages/Faq"));
+const StartHere = lazy(() => import("./pages/StartHere"));
 
 // --- Auth Context ---
 interface AuthContextType {
@@ -236,6 +236,7 @@ function PublicOnly() {
 }
 
 import Sidebar from "./components/Sidebar";
+import MockExamGuard from "./components/MockExamGuard";
 
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
 import { SubscriptionProvider } from "./contexts/SubscriptionContext";
@@ -326,6 +327,11 @@ function App() {
         <ExamProvider>
           <SubscriptionProvider>
             <SmartQuizReviewProvider>
+            <Suspense fallback={
+              <div className="flex h-screen items-center justify-center bg-slate-900 text-white">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+              </div>
+            }>
             <Routes>
               {/* Public Routes (Accessible to everyone) */}
               <Route path="/" element={<Landing />} />
@@ -348,9 +354,11 @@ function App() {
                   <Route path="pricing" element={<Pricing />} />
                   <Route path="success" element={<Success />} />
                   <Route path="help" element={<Help />} />
-                  <Route path="simulator" element={<SimulatorIntro />} />
-                  <Route path="simulator/exam" element={<Simulator />} />
-                  <Route path="simulator/results" element={<SimulatorResults />} />
+                  <Route element={<MockExamGuard />}>
+                    <Route path="simulator" element={<SimulatorIntro />} />
+                    <Route path="simulator/exam" element={<Simulator />} />
+                    <Route path="simulator/results" element={<SimulatorResults />} />
+                  </Route>
                   <Route path="stats" element={<Stats />} />
                   <Route path="planner" element={<StudySchedule />} />
                   <Route path="planner/setup" element={<SetupPlanner />} />
@@ -366,6 +374,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             <GlobalSmartQuizReviewModal />
+            </Suspense>
             </SmartQuizReviewProvider>
           </SubscriptionProvider>
         </ExamProvider>

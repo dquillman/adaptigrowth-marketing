@@ -19,6 +19,8 @@ import { useSmartQuizReview } from '../contexts/SmartQuizReviewContext';
 import QuestionProvenanceBadge from '../components/QuestionProvenanceBadge';
 import { quizReportStore } from '../utils/quizReportStore';
 import StructuredExplanation from '../components/explanations/StructuredExplanation';
+import EmvCalculation from '../components/explanations/EmvCalculation';
+import { DOMAIN_CITATIONS } from '../utils/domainCitations';
 
 interface Question {
     id: string;
@@ -30,6 +32,13 @@ interface Question {
     examId?: string;
     imageUrl?: string; // New field for AI image
     difficulty?: number; // 1-10
+    type?: 'mcq' | 'emv';
+    scenarios?: {
+        label: string;
+        probability: number;
+        impact: number;
+    }[];
+    correctLabel?: string;
 }
 
 export default function Quiz() {
@@ -61,6 +70,8 @@ export default function Quiz() {
 
     const { isPro, canTakeQuiz, incrementDailyCount } = useSubscription();
     const [showUpsell, setShowUpsell] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
     const copy = useMarketingCopy();
 
     // Measurement Metrics
@@ -147,6 +158,26 @@ export default function Quiz() {
             try {
                 const user = auth.currentUser;
                 if (!user) return;
+
+                // Server-side daily quiz quota validation (fail-closed)
+                let validationData: { allowed: boolean; reason?: string };
+                try {
+                    const validateQuizStartFn = httpsCallable(functions, 'validateQuizStart');
+                    const validationResult = await validateQuizStartFn({});
+                    validationData = validationResult.data as { allowed: boolean; reason?: string };
+                } catch (err) {
+                    console.error('Server-side quiz validation failed:', err);
+                    setValidationError('Unable to verify usage limits. Please try again.');
+                    setLoading(false);
+                    return;
+                }
+
+                if (!validationData.allowed) {
+                    console.log('Server denied quiz start:', validationData);
+                    setShowUpsell(true);
+                    setLoading(false);
+                    return;
+                }
 
                 console.log("Fetching questions and progress for:", activeExamId);
                 setLoading(true);
@@ -429,6 +460,77 @@ export default function Quiz() {
                     }
                 }
 
+                // --- First-Exposure Guarantee (subtype-level) ---
+                // For each non-standard question subtype, ensure the user sees at least
+                // one instance if they have never encountered that subtype before.
+                // Generic: works for 'emv' and any future subtypes.
+                const subtypes = new Set(
+                    allQuestions
+                        .filter(q => q.type && q.type !== 'mcq')
+                        .map(q => q.type!)
+                );
+
+                for (const subtype of subtypes) {
+                    // Already have one in the session?
+                    if (selected.some(q => q.type === subtype)) continue;
+
+                    // Has the user ever seen this subtype?
+                    const seenSubtype = allQuestions
+                        .filter(q => q.type === subtype)
+                        .some(q => progressMap.has(q.id));
+                    if (seenSubtype) continue;
+
+                    // Find a candidate of this subtype — prefer unseen, pick randomly,
+                    // avoid repeating the same question from the previous session.
+                    const lastServedKey = `lastServed_${subtype}`;
+                    const lastServedId = localStorage.getItem(lastServedKey);
+
+                    const subtypePool = allQuestions.filter(
+                        q => q.type === subtype && !selectedIds.has(q.id)
+                    );
+                    if (subtypePool.length === 0) continue;
+
+                    const unseen = subtypePool.filter(q => !progressMap.has(q.id));
+                    let pickFrom = unseen.length > 0 ? unseen : subtypePool;
+
+                    // Exclude last-served if alternatives exist
+                    if (lastServedId && pickFrom.length > 1) {
+                        pickFrom = pickFrom.filter(q => q.id !== lastServedId);
+                    }
+
+                    const candidate = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+
+                    // Remove one question to keep session size constant
+                    if (selected.length >= TARGET_SIZE) {
+                        let removeIdx = -1;
+
+                        // Prefer removing a "new" non-subtype question (lowest priority)
+                        for (let i = selected.length - 1; i >= 0; i--) {
+                            if (!progressMap.has(selected[i].id) && selected[i].type !== subtype) {
+                                removeIdx = i;
+                                break;
+                            }
+                        }
+
+                        // Fallback: remove last question in array
+                        if (removeIdx === -1) {
+                            removeIdx = selected.length - 1;
+                        }
+
+                        selectedIds.delete(selected[removeIdx].id);
+                        selected.splice(removeIdx, 1);
+                    }
+
+                    selected.push(candidate);
+                    selectedIds.add(candidate.id);
+                    localStorage.setItem(lastServedKey, candidate.id);
+                    console.log(`First-exposure: injected ${subtype} question ${candidate.id}`);
+                }
+
+                if (selected.length !== TARGET_SIZE) {
+                    console.warn("Session size mismatch:", selected.length);
+                }
+
                 selected = selected.sort(() => 0.5 - Math.random());
                 console.log("Selected Smart Questions:", selected.length, selected.map(q => q.domain));
                 setQuestions(selected);
@@ -456,7 +558,7 @@ export default function Quiz() {
         };
 
         fetchSmartQuestions();
-    }, [activeExamId, examContextLoading]);
+    }, [activeExamId, examContextLoading, retryCount]);
 
     const handleOptionSelect = (index: number) => {
         if (showExplanation) return;
@@ -558,41 +660,57 @@ export default function Quiz() {
         try {
             const docSnap = await getDoc(progressRef);
             let currentConsecutive = 0;
-            let status = 'new';
+            let existingData: any = null;
 
             if (docSnap.exists()) {
-                const data = docSnap.data();
-                currentConsecutive = data.consecutiveCorrect || 0;
-                status = data.status || 'new';
+                existingData = docSnap.data();
+                currentConsecutive = existingData.consecutiveCorrect || 0;
             }
 
-            // Logic: 
-            // Correct -> Increment consecutive. If >= Threshold, mark Mastered.
-            // Incorrect -> Reset consecutive to 0. Status = 'learning'.
-
             const newConsecutive = isCorrect ? currentConsecutive + 1 : 0;
-            let newStatus = status;
 
-            const MASTERY_THRESHOLD = 2; // Keep in sync or move to state
+            // ---- NEW MASTERY MODEL ----
 
-            if (!isCorrect) {
-                newStatus = 'learning';
-            } else if (newConsecutive >= MASTERY_THRESHOLD) {
+            // Existing values from Firestore doc (if any)
+            const oldTotalAttempts = existingData?.totalAttempts ?? 0;
+            const oldCorrectCount = existingData?.correctCount ?? 0;
+            const oldRecentAttempts = existingData?.recentAttempts ?? [];
+
+            // Update counters
+            const newTotalAttempts = oldTotalAttempts + 1;
+            const newCorrectCount = oldCorrectCount + (isCorrect ? 1 : 0);
+
+            // Maintain rolling window of last 3 attempts
+            const newRecentAttempts = [...oldRecentAttempts, isCorrect].slice(-3);
+
+            // Calculate accuracy
+            const accuracy = newCorrectCount / newTotalAttempts;
+            const recentCorrectCount = newRecentAttempts.filter(Boolean).length;
+
+            // Determine mastery
+            let newStatus = 'learning';
+
+            if (
+                newTotalAttempts >= 5 &&
+                accuracy >= 0.75 &&
+                recentCorrectCount >= 2
+            ) {
                 newStatus = 'mastered';
-            } else {
-                newStatus = 'learning';
             }
 
             await setDoc(progressRef, {
                 questionId,
                 status: newStatus,
                 consecutiveCorrect: newConsecutive,
+                totalAttempts: newTotalAttempts,
+                correctCount: newCorrectCount,
+                recentAttempts: newRecentAttempts,
                 lastAttempted: new Date(),
                 examId: questions[currentQuestionIndex].examId || 'unknown',
-                domain: questions[currentQuestionIndex].domain || 'General' // Save domain for dashboard aggregation
+                domain: questions[currentQuestionIndex].domain || 'General'
             }, { merge: true });
 
-            console.log(`Updated progress for ${questionId}: ${newStatus} (${newConsecutive})`);
+            console.log(`Updated progress for ${questionId}: ${newStatus} (attempts: ${newTotalAttempts}, accuracy: ${(accuracy * 100).toFixed(0)}%, recent: ${newRecentAttempts})`);
 
         } catch (error) {
             console.error("Error updating question progress:", error);
@@ -908,6 +1026,22 @@ export default function Quiz() {
 
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center">Loading quiz...</div>;
+    }
+
+    if (validationError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
+                    <p className="text-slate-300 text-lg mb-4">{validationError}</p>
+                    <button
+                        onClick={() => { setValidationError(null); setLoading(true); setRetryCount(c => c + 1); }}
+                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     if (questions.length === 0) {
@@ -1527,43 +1661,58 @@ export default function Quiz() {
                             </div>
 
                             {showExplanation && explanationExpanded && (
-                                <div className="mt-6">
-                                    <div className="bg-blue-900/20 rounded-lg border border-blue-500/30 text-blue-200 p-4 mb-4">
-                                        <p className="font-bold mb-1 text-blue-100">Let’s walk through the thinking behind this question.</p>
-                                    </div>
+                                <div className="mt-8 pt-6 border-t border-slate-700">
+                                    <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-lg p-8 md:p-10">
+                                        {currentQuestion.type === "emv" && currentQuestion.scenarios && (
+                                            <EmvCalculation scenarios={currentQuestion.scenarios} />
+                                        )}
 
-                                    {!tutorBreakdown && !loadingBreakdown ? (
-                                        <div className="text-center p-4">
-                                            <button
-                                                onClick={() => fetchTutorBreakdown(currentQuestion, selectedOption!)}
-                                                className="text-brand-400 hover:text-brand-300 underline"
-                                            >
-                                                {isPMPExam(currentQuestion.examId) ? 'View PMI Doctrine Explanation' : 'Load Coach Breakdown'}
-                                            </button>
-                                            <div className="mt-4 p-4 text-left">
-                                                <StructuredExplanation explanation={currentQuestion.explanation} title="Standard Explanation" />
+                                        <div className="bg-blue-900/20 rounded-lg border border-blue-500/30 text-blue-200 p-4 mb-4">
+                                            <p className="text-xl md:text-2xl font-bold text-white mb-1">Let’s walk through the thinking behind this question.</p>
+                                        </div>
+
+                                        {!tutorBreakdown && !loadingBreakdown ? (
+                                            <div className="text-center p-4">
+                                                <button
+                                                    onClick={() => fetchTutorBreakdown(currentQuestion, selectedOption!)}
+                                                    className="text-brand-400 hover:text-brand-300 underline"
+                                                >
+                                                    {isPMPExam(currentQuestion.examId) ? "View PMI Doctrine Explanation" : "Load Coach Breakdown"}
+                                                </button>
+                                                <div className="mt-4 p-4 text-left leading-relaxed text-base md:text-lg text-slate-200">
+                                                    <StructuredExplanation explanation={currentQuestion.explanation} title="Standard Explanation" />
+                                                </div>
+                                            </div>
+                                        ) : isPMPExam(currentQuestion.examId) && tutorBreakdown ? (
+                                            /* PMP Doctrine Explanation */
+                                            <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/50 overflow-hidden">
+                                                <div className="px-6 py-3 border-b border-slate-700/50">
+                                                    <h3 className="text-xl md:text-2xl font-bold text-white font-display">PMI Decision Doctrine</h3>
+                                                </div>
+                                                <div className="p-6 leading-relaxed text-base md:text-lg text-slate-200">
+                                                    <StructuredExplanation explanation={tutorBreakdown.examLens} />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            /* Legacy Coach Breakdown for non-PMP exams */
+                                            <TutorBreakdown
+                                                breakdown={tutorBreakdown}
+                                                loading={loadingBreakdown}
+                                                onExpandDepth={handleExpandDepth}
+                                                depthContent={depthContent}
+                                                depthLoading={depthLoading}
+                                            />
+                                        )}
+
+                                        <div className="mt-6 border-t border-slate-700/50 pt-4">
+                                            <div className="text-sm md:text-base font-semibold text-slate-200 tracking-wide">
+                                                📘 Reference
+                                            </div>
+                                            <div className="mt-1 text-sm md:text-base text-slate-400 italic">
+                                                {DOMAIN_CITATIONS[currentQuestion.domain] ?? "PMBOK® Guide – 7th Edition"}
                                             </div>
                                         </div>
-                                    ) : isPMPExam(currentQuestion.examId) && tutorBreakdown ? (
-                                        /* PMP Doctrine Explanation */
-                                        <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                            <div className="px-6 py-3 border-b border-slate-700/50">
-                                                <h3 className="text-slate-200 font-bold font-display text-lg">PMI Decision Doctrine</h3>
-                                            </div>
-                                            <div className="p-6">
-                                                <StructuredExplanation explanation={tutorBreakdown.examLens} />
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        /* Legacy Coach Breakdown for non-PMP exams */
-                                        <TutorBreakdown
-                                            breakdown={tutorBreakdown}
-                                            loading={loadingBreakdown}
-                                            onExpandDepth={handleExpandDepth}
-                                            depthContent={depthContent}
-                                            depthLoading={depthLoading}
-                                        />
-                                    )}
+                                    </div>
                                 </div>
                             )}
                         </div>

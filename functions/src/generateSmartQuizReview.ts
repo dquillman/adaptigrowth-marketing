@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import OpenAI from "openai";
+import { requirePro } from './guards';
 
 // Lazy init OpenAI (same pattern as tutor.ts)
 let openai: OpenAI;
@@ -28,6 +29,7 @@ export const generateSmartQuizReview = functions.https.onCall(async (data: Smart
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
     }
+    await requirePro(context);
 
     const { total, correct, percent, weakest_domain, thinking_traps } = data;
 

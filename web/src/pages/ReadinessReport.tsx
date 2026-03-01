@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../App';
 import DashboardLink from '../components/DashboardLink';
 import { PredictionEngine, type ReadinessReport } from '../services/PredictionEngine';
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2, Lock, Loader } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, BarChart2, Lock, Loader, Info } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -387,6 +387,19 @@ export default function ReadinessReportPage() {
                     </div>
                 </div>
 
+                {/* Mock Exam CTA */}
+                <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 text-center">
+                    <button
+                        onClick={() => navigate('/app/simulator')}
+                        className="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl py-4 px-8 text-lg shadow-lg shadow-brand-500/25 transition-all hover:-translate-y-0.5"
+                    >
+                        Take Full Mock Exam
+                    </button>
+                    <p className="text-slate-400 text-sm mt-3">
+                        Simulate the full exam experience under timed conditions.
+                    </p>
+                </div>
+
                 {/* What This Means — Interpretive summary */}
                 {!report.isPreliminary && report.overallScore !== null && (
                     <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-6">
@@ -442,10 +455,23 @@ export default function ReadinessReportPage() {
                 )}
 
                 {/* Domain Breakdown */}
-                <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
-                    <div className="p-6 border-b border-slate-700">
+                <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-visible relative">
+                    <div className="p-6 border-b border-slate-700 flex items-center gap-2">
                         <h3 className="font-bold text-white">Domain Breakdown</h3>
+
+                        <div className="relative group cursor-pointer">
+                            <Info className="w-4 h-4 text-slate-400 hover:text-slate-200 transition-colors" />
+                            <div className="absolute left-0 bottom-full mb-2 w-72 bg-slate-900 border border-slate-600 rounded-lg p-3 text-xs text-slate-300 leading-relaxed shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-50">
+                                Rankings reflect your overall performance across attempts, not just your most recent result.
+                                <div className="absolute left-4 top-full w-2 h-2 bg-slate-900 border-r border-b border-slate-600 rotate-45 -mt-1"></div>
+                            </div>
+                        </div>
                     </div>
+                    {report.isPreliminary && (
+                        <div className="px-6 pb-4 text-xs text-amber-400">
+                            Low data — rankings may stabilize as you answer more questions.
+                        </div>
+                    )}
                     <div className="divide-y divide-slate-700">
                         {report.domainBreakdown.map((domain) => (
                             <div key={domain.domain} className="p-6 hover:bg-slate-750 transition-colors">

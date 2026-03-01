@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateSmartQuizReview = void 0;
 const functions = require("firebase-functions");
 const openai_1 = require("openai");
+const guards_1 = require("./guards");
 // Lazy init OpenAI (same pattern as tutor.ts)
 let openai;
 const getOpenAI = () => {
@@ -22,6 +23,7 @@ exports.generateSmartQuizReview = functions.https.onCall(async (data, context) =
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in.");
     }
+    await (0, guards_1.requirePro)(context);
     const { total, correct, percent, weakest_domain, thinking_traps } = data;
     if (total == null || correct == null || percent == null || !weakest_domain) {
         throw new functions.https.HttpsError("invalid-argument", "Required fields: total, correct, percent, weakest_domain.");

@@ -11,6 +11,8 @@ import { XPService } from '../services/xpService';
 import ExamSelector from '../components/ExamSelector';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
 import { useExam } from '../contexts/ExamContext';
+
+
 import ReportIssueModal from '../components/ReportIssueModal';
 import { useTrial } from '../hooks/useTrial';
 import ThinkingTrapsCard from '../components/ThinkingTrapsCard';
@@ -236,10 +238,6 @@ export default function Dashboard() {
         return Math.min(100, Math.round((mastered / total) * 100));
     };
 
-    const handleWeakestStart = () => {
-        navigate('/app/quiz', { state: { mode: 'smart' } });
-    };
-
     if (loading || contextDiagnostic === null) {
         return <div className="min-h-screen flex items-center justify-center text-white">Loading dashboard...</div>;
     }
@@ -434,7 +432,7 @@ export default function Dashboard() {
                                 </div>
 
                                 {/* Gated Actions Preview */}
-                                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="mt-6 grid grid-cols-1 gap-4">
                                     {/* Gated: Targeted Practice */}
                                     <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/50 opacity-60">
                                         <div className="flex items-start gap-3">
@@ -452,66 +450,12 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Gated: Mock Exam */}
-                                    <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/50 opacity-60">
-                                        <div className="flex items-start gap-3">
-                                            <div className="w-10 h-10 rounded-lg bg-slate-600/20 flex items-center justify-center text-slate-400 flex-shrink-0">
-                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            </div>
-                                            <div>
-                                                <h4 className="font-bold text-slate-300 flex items-center gap-2">
-                                                    Mock Exam
-                                                    <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">After Diagnostic</span>
-                                                </h4>
-                                                <p className="text-slate-500 text-sm mt-1">
-                                                    Full-length timed simulation. Most effective after you complete the diagnostic.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                             </>
                         ) : (
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                <div>
-                                    <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
-                                    <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
-                                </div>
-
-                                <div className="flex gap-4">
-                                    <PrimaryButton
-                                        onClick={handleWeakestStart}
-                                        className="inline-flex items-center justify-center transform hover:-translate-y-0.5"
-                                        title="Targets your weakest domains"
-                                    >
-                                        <span className="mr-2">⚡</span> Smart Practice
-                                    </PrimaryButton>
-                                    <button
-                                        onClick={() => navigate('/app/simulator')}
-                                        className="inline-flex items-center justify-center rounded-xl bg-slate-800 border border-slate-600 px-6 py-3 text-base font-medium text-white shadow-lg hover:bg-slate-700 transition-all transform hover:-translate-y-0.5 group"
-                                        title="Full length timed exam simulation"
-                                    >
-                                        <span className="mr-2 group-hover:scale-110 transition-transform">⏱️</span> Mock Exam
-                                    </button>
-                                    {/* 'Start Trial' button on dashboard is handled by TrialModal now, 
-                                        or do we also keep a button if they closed the modal?
-                                        The prompt says: "Never show 'trial pending' or 'eligible'"
-                                        The button below was: {trial.status === 'none' && ( ... )}
-                                        We should probably REMOVE this button if we want to be strict,
-                                        BUT if the modal is snoozed, they need a way to trigger it?
-                                        The prompt says: "Never show 'trial pending' or 'eligible'". This implies we shouldn't have a persistent button?
-                                        Actually, "Never show 'trial pending' or 'eligible'" specifically likely refers to banners.
-                                        However, if we rely on the modal popping up, maybe we don't need the button.
-                                        BUT replacing the button is safer to avoid removing functionality if modal is dismissed.
-                                        I will remove it to be compliant with "Never show trial pending or eligible" rule strictly.
-                                        Wait, if they hit "Not now", they might want to start it later.
-                                        I'll comment it out or leave it but update it to use `startTrial` action.
-                                        Actually the prompt says: "Never show 'trial pending' or 'eligible'" under "Dashboard Trial Messaging (UX Upgrade)".
-                                        This strongly suggests hiding the "Start Trial" button.
-                                        I will remove it.
-                                    */}
-                                </div>
+                            <div>
+                                <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
+                                <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
                             </div>
                         )}
 
@@ -571,12 +515,14 @@ export default function Dashboard() {
 
                                         <div className="mt-4 text-center">
                                             <h3 className="text-lg font-bold text-white group-hover:text-brand-300 transition-colors">{domain}</h3>
-                                            <p className="text-sm font-medium text-slate-400 mt-1">
-                                                <span className="text-white font-bold">{mastered}</span>
-                                                <span className="mx-1 text-slate-600">/</span>
-                                                <span className="text-slate-500">{total}</span>
-                                                <span className="ml-1 text-xs uppercase tracking-wide opacity-70">Mastered</span>
-                                            </p>
+                                            <div className="mt-1">
+                                                <div className="text-sm md:text-base font-medium text-slate-200">
+                                                    {mastered} of {total} questions mastered
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-1">
+                                                    Mastered: 75% accuracy, 5+ attempts, 2 of last 3 correct
+                                                </div>
+                                            </div>
                                             <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
                                                 <span className="text-xs font-bold text-brand-400 uppercase tracking-widest border border-brand-500/30 px-4 py-1.5 rounded-full bg-brand-500/10 shadow-[0_0_10px_rgba(99,102,241,0.3)]">
                                                     Practice Domain
