@@ -1593,7 +1593,7 @@ export default function Quiz() {
                                     className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-700 group-hover:scale-105 transform"
                                 />
                                 <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10">
-                                    <span className="text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
+                                    <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1">
                                         <svg className="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
                                         AI Scene
                                     </span>
@@ -1603,14 +1603,14 @@ export default function Quiz() {
 
                         {/* Pre-Quiz Reinforcement Banner (Only on Q1) */}
                         {reinforcementMessage && currentQuestionIndex === 0 && (
-                            <div className="px-8 pt-6 pb-0 animate-in slide-in-from-top-2 duration-700">
+                            <div className="px-4 sm:px-8 pt-6 pb-0 animate-in slide-in-from-top-2 duration-700">
                                 <p className="text-slate-500 text-xs italic text-center">
                                     {reinforcementMessage}
                                 </p>
                             </div>
                         )}
 
-                        <div className="p-8 md:p-10">
+                        <div className="p-4 sm:p-6 md:p-10">
                             {questionProgressMap.has(currentQuestion.id) && (
                                 <p className="text-xs text-slate-500 mb-2 tracking-wide uppercase">Mastery check</p>
                             )}
@@ -1662,7 +1662,7 @@ export default function Quiz() {
 
                             {showExplanation && explanationExpanded && (
                                 <div className="mt-8 pt-6 border-t border-slate-700">
-                                    <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-lg p-8 md:p-10">
+                                    <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-lg p-4 sm:p-6 md:p-10">
                                         {currentQuestion.type === "emv" && currentQuestion.scenarios && (
                                             <EmvCalculation scenarios={currentQuestion.scenarios} />
                                         )}
@@ -1717,26 +1717,26 @@ export default function Quiz() {
                             )}
                         </div>
 
-                        <div className="bg-slate-900/30 px-8 py-4 border-t border-slate-700/50 flex justify-end">
+                        <div className="bg-slate-900/30 px-4 sm:px-8 py-4 border-t border-slate-700/50 flex justify-end">
                             {!showExplanation ? (
                                 <button
                                     onClick={handleSubmit}
                                     disabled={selectedOption === null}
-                                    className="bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                    className="w-full sm:w-auto bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                 >
                                     Submit Answer
                                 </button>
                             ) : (
-                                <div className="flex gap-4">
+                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
                                     <button
                                         onClick={() => setExplanationExpanded(!explanationExpanded)}
-                                        className="bg-blue-600/20 text-blue-300 border border-blue-500/30 px-6 py-3 rounded-xl font-medium hover:bg-blue-600/30 transition-all"
+                                        className="w-full sm:w-auto bg-blue-600/20 text-blue-300 border border-blue-500/30 px-6 py-3 rounded-xl font-medium hover:bg-blue-600/30 transition-all"
                                     >
                                         {explanationExpanded ? 'Hide Explanation' : 'Show Explanation'}
                                     </button>
                                     <button
                                         onClick={handleNext}
-                                        className="bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
+                                        className="w-full sm:w-auto bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5"
                                     >
                                         {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
                                     </button>

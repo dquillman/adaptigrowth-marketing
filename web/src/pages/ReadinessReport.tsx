@@ -148,20 +148,20 @@ export default function ReadinessReportPage() {
     const offset = circumference - ((displayedScore ?? 0) / 100) * circumference;
 
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-100 p-8 pb-24">
-            <div className="max-w-4xl mx-auto space-y-8">
+        <div className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-8 pb-24">
+            <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
                 <DashboardLink />
 
                 {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Exam Readiness</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Exam Readiness</h1>
                     {examName && <span className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-1 block">{examName}</span>}
                     <p className="text-slate-400">AI-powered prediction based on your recent performance.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Main Score Card */}
-                    <div className="md:col-span-2 bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-xl relative overflow-hidden">
+                    <div className="md:col-span-2 bg-slate-800 rounded-2xl p-5 md:p-8 border border-slate-700 shadow-xl relative overflow-hidden">
 
                         {!checkPermission('analytics') && (
                             <div className="absolute inset-0 z-20 bg-slate-800/60 backdrop-blur-md flex flex-col items-center justify-center text-center p-6">
@@ -181,9 +181,9 @@ export default function ReadinessReportPage() {
                             </div>
                         )}
 
-                        <div className={`flex flex-col md:flex-row items-center gap-8 ${!checkPermission('analytics') ? 'blur-sm opacity-50 pointer-events-none' : ''}`}>
+                        <div className={`flex flex-col md:flex-row items-center gap-4 md:gap-8 ${!checkPermission('analytics') ? 'blur-sm opacity-50 pointer-events-none' : ''}`}>
                             {/* Radial Chart OR Building State */}
-                            <div className="relative w-48 h-48 flex-shrink-0">
+                            <div className="relative w-36 h-36 md:w-48 md:h-48 flex-shrink-0">
                                 {report.isPreliminary ? (
                                     /* Building State - Insufficient Evidence */
                                     <div className="w-full h-full flex flex-col items-center justify-center text-center bg-slate-900/50 rounded-full border-2 border-dashed border-slate-600">

@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../App';
 import { useLocation } from 'react-router-dom';
 import { APP_VERSION } from '../version';
+import { useExam } from '../contexts/ExamContext';
 
 interface ReportIssueModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface ReportIssueModalProps {
 export default function ReportIssueModal({ isOpen, onClose, context }: ReportIssueModalProps) {
     const { user } = useAuth();
     const location = useLocation();
+    const { selectedExamId } = useExam();
 
     const [type, setType] = useState<'bug' | 'content' | 'other'>('bug');
     const [description, setDescription] = useState('');
@@ -43,6 +45,38 @@ export default function ReportIssueModal({ isOpen, onClose, context }: ReportIss
                 attachmentUrl = await getDownloadURL(storageRef);
             }
 
+            const environment = window.location.hostname.includes('staging')
+                ? 'staging'
+                : 'prod';
+
+            const ua = navigator.userAgent;
+
+            const deviceType = /Mobi|Android/i.test(ua)
+                ? 'mobile'
+                : /iPad|Tablet/i.test(ua)
+                ? 'tablet'
+                : 'desktop';
+
+            const os = /Windows/i.test(ua)
+                ? 'Windows'
+                : /Mac/i.test(ua) && !/iPhone|iPad|iPod/i.test(ua)
+                ? 'macOS'
+                : /iPhone|iPad|iPod/i.test(ua)
+                ? 'iOS'
+                : /Android/i.test(ua)
+                ? 'Android'
+                : 'Unknown';
+
+            const browser = /Edg/i.test(ua)
+                ? 'Edge'
+                : /Chrome/i.test(ua) && !/Edg/i.test(ua)
+                ? 'Chrome'
+                : /Safari/i.test(ua) && !/Chrome/i.test(ua)
+                ? 'Safari'
+                : /Firefox/i.test(ua)
+                ? 'Firefox'
+                : 'Unknown';
+
             await addDoc(collection(db, 'issues'), {
                 userId: user?.uid || 'anonymous',
                 userEmail: user?.email || 'anonymous',
@@ -53,7 +87,16 @@ export default function ReportIssueModal({ isOpen, onClose, context }: ReportIss
                 status: 'new',
                 version: APP_VERSION,
                 attachmentUrl,
-                ...(context || {})
+                ...(context || {}),
+                appVersion: APP_VERSION,
+                environment,
+                route: location.pathname,
+                examId: selectedExamId ?? null,
+                userAgent: ua,
+                submittedFrom: 'exam-coach',
+                deviceType,
+                os,
+                browser,
             });
 
             setSuccess(true);

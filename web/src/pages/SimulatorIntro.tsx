@@ -158,31 +158,31 @@ export default function SimulatorIntro() {
 
                 {/* Readiness Gate Banner */}
                 {readiness && (eligibility.reason === 'low-readiness' || isBorderline) && (
-                    <div className={`mb-8 p-6 rounded-2xl border ${eligibility.reason === 'low-readiness' ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
-                        <div className="flex items-start gap-4">
-                            <div className={`p-3 rounded-full ${eligibility.reason === 'low-readiness' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <div className={`mb-6 md:mb-8 p-4 md:p-6 rounded-2xl border ${eligibility.reason === 'low-readiness' ? 'bg-red-500/10 border-red-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                        <div className="flex items-start gap-3 md:gap-4">
+                            <div className={`p-2 md:p-3 rounded-full flex-shrink-0 ${eligibility.reason === 'low-readiness' ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}`}>
+                                <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                             </div>
                             <div>
-                                <h3 className={`text-lg font-bold mb-1 ${eligibility.reason === 'low-readiness' ? 'text-red-400' : 'text-yellow-400'}`}>
+                                <h3 className={`text-base md:text-lg font-bold mb-1 ${eligibility.reason === 'low-readiness' ? 'text-red-400' : 'text-yellow-400'}`}>
                                     {eligibility.reason === 'low-readiness' ? 'High Risk of Failure Detected' : 'Readiness is Borderline'}
                                 </h3>
-                                <p className="text-slate-300 mb-4 leading-relaxed">
+                                <p className="text-slate-300 text-sm md:text-base mb-4 leading-relaxed">
                                     Your Smart Readiness Score is <strong>{displayedScore}%</strong>.
                                     {eligibility.reason === 'low-readiness'
                                         ? " A full exam right now is unlikely to give you useful feedback. We strongly recommend Verbal Mode or Domain Practice first."
                                         : " You may pass, but it will be close. Review your weakest domains before starting."}
                                 </p>
-                                <div className="flex gap-4">
+                                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                                     <button
                                         onClick={() => navigate('/app/verbal')}
-                                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium text-sm border border-slate-600 transition-colors"
+                                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-3 rounded-lg font-medium text-sm border border-slate-600 transition-colors"
                                     >
                                         Go to Verbal Mode
                                     </button>
                                     <button
                                         onClick={() => navigate('/app')}
-                                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg font-medium text-sm border border-slate-600 transition-colors"
+                                        className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-3 rounded-lg font-medium text-sm border border-slate-600 transition-colors"
                                     >
                                         Practice Weakest Domain
                                     </button>
@@ -193,11 +193,11 @@ export default function SimulatorIntro() {
                 )}
 
                 {/* Main Action Card */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    <div className={`lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border ${eligibility.reason === 'low-readiness' ? 'border-red-500/20' : 'border-indigo-500/30'} rounded-2xl p-8 relative overflow-hidden shadow-2xl transition-all`}>
-                        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8 mb-8 lg:mb-12">
+                    <div className={`lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border ${eligibility.reason === 'low-readiness' ? 'border-red-500/20' : 'border-indigo-500/30'} rounded-2xl p-5 md:p-8 relative overflow-hidden shadow-2xl transition-all`}>
+                        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-32 h-32 md:w-64 md:h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-                        <h2 className="text-3xl font-bold text-white mb-4 relative z-10">Realistic Mock Exam</h2>
+                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 relative z-10">Realistic Mock Exam</h2>
                         <div className="flex flex-wrap gap-4 mb-8 text-slate-300 relative z-10">
                             {/* ... stats ... */}
                             <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700">

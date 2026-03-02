@@ -284,35 +284,35 @@ export default function Dashboard() {
     console.log('[Dashboard] >>> BANNER WILL SHOW:', !diagnosticDone && !loading);
 
     return (
-        <div className="min-h-screen flex bg-transparent relative">
+        <div className="min-h-screen flex bg-transparent relative overflow-x-hidden">
             <Sidebar />
-            <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-sm font-mono font-semibold text-white/50 pointer-events-none z-50">
+            <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs md:text-sm font-mono font-semibold text-white/50 pointer-events-none z-50">
                 ExamCoach v{DISPLAY_VERSION}
             </div>
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col transition-all duration-300`}>
+            <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col transition-all duration-300`}>
                 <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         <div className="flex h-16 justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <h1 className="text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
+                                <h1 className="text-lg md:text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 md:gap-4">
                                 <ExamSelector />
 
-                                <Link to="/app/help" className="text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors flex items-center gap-1">
+                                <Link to="/app/help" className="hidden md:flex text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors items-center gap-1">
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     Guide
                                 </Link>
-                                <Link to="/about" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                                <Link to="/about" className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors">
                                     About
                                 </Link>
                                 <button
                                     onClick={() => setShowReportModal(true)}
-                                    className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                    className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors"
                                 >
                                     Report a Problem
                                 </button>
-                                <Link to="/app/pricing" className="text-sm font-bold text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 px-3 py-1 rounded-full bg-brand-500/10">
+                                <Link to="/app/pricing" className="text-xs md:text-sm font-bold text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 px-3 py-1.5 rounded-full bg-brand-500/10">
                                     Upgrade
                                 </Link>
                                 <button
@@ -323,7 +323,7 @@ export default function Dashboard() {
                                 </button>
                                 <button
                                     onClick={() => signOut(auth)}
-                                    className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                    className="text-xs md:text-sm font-medium text-slate-400 hover:text-white transition-colors"
                                 >
                                     Sign Out
                                 </button>
@@ -332,10 +332,10 @@ export default function Dashboard() {
                     </div >
                 </nav >
 
-                <main className="mx-auto max-w-7xl py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+                <main className="mx-auto max-w-7xl py-4 md:py-8 px-4 sm:px-6 lg:px-8 space-y-6 md:space-y-8">
                     {/* Trial Banner */}
                     {trial.status === 'active' && (
-                        <div className={`rounded-xl p-4 flex items-center justify-between border shadow-lg ${trial.daysRemaining <= 2
+                        <div className={`rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border shadow-lg ${trial.daysRemaining <= 2
                             ? 'bg-gradient-to-r from-amber-600 to-orange-700 border-amber-400/30'
                             : 'bg-gradient-to-r from-indigo-600 to-indigo-800 border-indigo-400/30'
                             }`}>
@@ -362,7 +362,7 @@ export default function Dashboard() {
                                     </p>
                                 </div>
                             </div>
-                            <Link to="/app/pricing" className="px-5 py-2.5 bg-white text-indigo-900 font-bold rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-md whitespace-nowrap">
+                            <Link to="/app/pricing" className="w-full md:w-auto text-center px-5 py-3 bg-white text-indigo-900 font-bold rounded-lg text-sm hover:bg-indigo-50 transition-colors shadow-md whitespace-nowrap">
                                 Upgrade Now
                             </Link>
                         </div>
@@ -372,7 +372,7 @@ export default function Dashboard() {
                     {trial.status === 'expired' && (
                         <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
                             <div className="relative z-10">
-                                <h3 className="text-2xl font-bold text-white mb-2 font-display">🔒 Your 14-day Pro trial has ended</h3>
+                                <h3 className="text-xl md:text-2xl font-bold text-white mb-2 font-display">🔒 Your 14-day Pro trial has ended</h3>
                                 <p className="text-slate-400 mb-6 max-w-lg mx-auto">
                                     We hope you enjoyed your practice sessions! To continue studying and access your detailed analytics, please upgrade your plan.
                                 </p>
@@ -394,15 +394,15 @@ export default function Dashboard() {
                         {contextDiagnostic === false && !loading ? (
                             <>
                                 {/* Step 1: Diagnostic Banner */}
-                                <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-8 shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                <div className="bg-gradient-to-r from-brand-600 to-indigo-700 rounded-2xl p-5 md:p-8 shadow-2xl shadow-brand-900/40 border border-brand-500/30 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 md:w-64 md:h-64 bg-white/10 rounded-full blur-3xl -mr-8 md:-mr-16 -mt-8 md:-mt-16 pointer-events-none"></div>
                                     <div className="relative z-10">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold uppercase tracking-wider mb-4 shadow-sm">
                                             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
                                             Step 1 of 1
                                         </div>
-                                        <h2 className="text-3xl font-bold text-white font-display mb-3 tracking-tight">Start with a short diagnostic</h2>
-                                        <p className="text-indigo-100 text-lg leading-relaxed mb-4">
+                                        <h2 className="text-2xl md:text-3xl font-bold text-white font-display mb-3 tracking-tight">Start with a short diagnostic</h2>
+                                        <p className="text-indigo-100 text-base md:text-lg leading-relaxed mb-4">
                                             Before we begin, I need to understand how you think. This quick assessment helps me personalize your entire study plan.
                                         </p>
                                         <ul className="text-indigo-200 text-sm space-y-2 mb-6">
@@ -454,14 +454,14 @@ export default function Dashboard() {
                             </>
                         ) : (
                             <div>
-                                <h2 className="text-3xl font-bold text-white font-display">Welcome back!</h2>
+                                <h2 className="text-2xl md:text-3xl font-bold text-white font-display">Welcome back!</h2>
                                 <p className="text-slate-400 mt-1">Consistency is key. Keep up your daily practice to master the <strong>{examName}</strong>.</p>
                             </div>
                         )}
 
                         {/* Resume Active Run */}
                         {hasActiveRun && (
-                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 mt-6 flex items-center justify-between">
+                            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 md:p-6 mt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                                 <div>
                                     <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress</h3>
                                     <p className="text-slate-400 text-sm mt-1">Pick up where you left off.</p>
@@ -496,7 +496,7 @@ export default function Dashboard() {
                         )}
 
                         {/* Mastery Rings Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-6 md:mt-8">
                             {examDomains.map((domain, index) => {
                                 const colors = ['#C084FC', '#F472B6', '#34D399']; // Neon Purple, Neon Pink, Neon Green
                                 const color = colors[index % colors.length];
@@ -565,7 +565,7 @@ export default function Dashboard() {
                                             />
                                             <button
                                                 onClick={saveGoal}
-                                                className="bg-brand-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-400 transition-colors"
+                                                className="bg-brand-500 text-white px-4 py-3 rounded-lg font-medium hover:bg-brand-400 transition-colors"
                                             >
                                                 Save
                                             </button>
@@ -594,11 +594,11 @@ export default function Dashboard() {
                         </div>
 
                         {/* Stats & Activity */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8 mt-6 md:mt-8">
                             {/* Recent Activity */}
                             <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6">
                                 <h3 className="text-lg font-bold text-white mb-4 font-display">Recent Activity</h3>
-                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
+                                <div className="space-y-3 max-h-64 md:max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
                                     <div className="space-y-3">
                                         {recentActivity.length === 0 ? (
                                             <p className="text-slate-400 text-sm">No recent activity. Take a quiz to see your progress!</p>

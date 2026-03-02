@@ -117,7 +117,7 @@ export default function RollingTrendChart({
             <div className="w-full h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
                 <div
                     ref={containerRef}
-                    className={`${compact ? 'min-w-[400px]' : 'min-w-[600px]'} w-full h-full bg-slate-800/20 relative`}
+                    className={`${compact ? 'min-w-[280px] sm:min-w-[400px]' : 'min-w-[300px] sm:min-w-[400px] md:min-w-[600px]'} w-full h-full bg-slate-800/20 relative`}
                     style={{ minHeight: '100%' }}
                 >
                     {isChartReady && (

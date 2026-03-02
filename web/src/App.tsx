@@ -249,20 +249,20 @@ import IdentityIndicator from "./components/IdentityIndicator";
 function AppLayout() {
   const { isCollapsed } = useSidebar();
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex relative">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex relative overflow-x-hidden">
       <TrialModal />
       {/* Global Identity & Version Label */}
-      <div className="absolute top-4 right-8 flex flex-col items-end gap-2 pointer-events-none z-50">
+      <div className="absolute top-4 right-4 md:right-8 flex flex-col items-end gap-2 pointer-events-none z-50">
         <div className="pointer-events-auto">
           <IdentityIndicator />
         </div>
-        <div className="text-sm font-mono font-semibold text-white/40 px-2">
+        <div className="text-xs md:text-sm font-mono font-semibold text-white/40 px-2">
           v{DISPLAY_VERSION}
         </div>
       </div>
 
       <Sidebar />
-      <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} p-8 transition-all duration-300`}>
+      <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} p-4 md:p-8 transition-all duration-300`}>
         <Outlet />
       </div>
     </div>
