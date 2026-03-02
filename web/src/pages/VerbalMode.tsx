@@ -283,7 +283,7 @@ export default function VerbalMode() {
 
                         <div className="mb-8">
                             <label className="block text-slate-500 text-sm font-bold mb-4 uppercase tracking-wider">How many questions?</label>
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                                 {[5, 10, 20, 50].map(count => (
                                     <button
                                         key={count}

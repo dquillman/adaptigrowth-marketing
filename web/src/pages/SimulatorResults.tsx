@@ -108,7 +108,7 @@ export default function SimulatorResults() {
 
                     <div className="col-span-1 md:col-span-2 space-y-6">
                         {/* Summary Stats */}
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
                                     <CheckCircle className="w-6 h-6" />

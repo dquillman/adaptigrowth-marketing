@@ -78,7 +78,7 @@ export default function DiagnosticsPage() {
                         {result && (
                             <div className="p-4 bg-emerald-900/30 border border-emerald-500/50 rounded-lg text-emerald-200">
                                 <strong className="block mb-1 text-emerald-100">Test Passed ✅</strong>
-                                <div className="grid grid-cols-2 gap-4 mt-2 font-mono text-sm">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 font-mono text-sm">
                                     <div>
                                         <span className="text-emerald-400/70 block text-xs uppercase">Latency</span>
                                         {result.latency}ms
