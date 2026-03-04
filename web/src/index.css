@@ -68,3 +68,17 @@ body::after,
   content: none !important;
   background: none !important;
 }
+
+/* EC-028/EC-009: Safe area for mobile nav and notch devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* EC-030: Accessibility — reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

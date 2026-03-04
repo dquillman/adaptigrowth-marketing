@@ -236,6 +236,7 @@ function PublicOnly() {
 }
 
 import Sidebar from "./components/Sidebar";
+import MobileNav from "./components/MobileNav";
 import MockExamGuard from "./components/MockExamGuard";
 
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
@@ -262,7 +263,8 @@ function AppLayout() {
       </div>
 
       <Sidebar />
-      <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} p-4 md:p-8 transition-all duration-300`}>
+      <MobileNav />
+      <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} p-4 md:p-8 pb-20 md:pb-8 transition-all duration-300`}>
         <Outlet />
       </div>
     </div>

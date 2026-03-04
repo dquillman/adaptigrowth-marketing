@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { X, Check, Star } from 'lucide-react';
+import { useEffect } from 'react';
+import { ConversionIntentService } from '../services/ConversionIntentService';
 
 interface SubscriptionUpsellModalProps {
     isOpen: boolean;
@@ -12,6 +14,16 @@ import { useMarketingCopy } from '../hooks/useMarketingCopy';
 export default function SubscriptionUpsellModal({ isOpen, onClose, reason = 'pro_feature' }: SubscriptionUpsellModalProps) {
     const navigate = useNavigate();
     const copy = useMarketingCopy();
+
+    // EC-111: Track when the upsell modal is shown
+    useEffect(() => {
+        if (isOpen) {
+            ConversionIntentService.emit('upsell_modal_shown', { feature: reason });
+            if (reason === 'daily_limit') {
+                ConversionIntentService.emit('limit_reached');
+            }
+        }
+    }, [isOpen, reason]);
 
     if (!isOpen) return null;
 
@@ -68,7 +80,10 @@ export default function SubscriptionUpsellModal({ isOpen, onClose, reason = 'pro
 
                     <div className="space-y-3">
                         <button
-                            onClick={() => navigate('/app/pricing')}
+                            onClick={() => {
+                                ConversionIntentService.emit('upsell_modal_cta', { feature: reason });
+                                navigate('/app/pricing');
+                            }}
                             className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-purple-500/25"
                         >
                             Upgrade to Pro

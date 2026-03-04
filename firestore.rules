@@ -200,6 +200,22 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ===== FRICTION EVENTS (EC-130) =====
+
+    match /friction_events/{eventId} {
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+    }
+
+    // ===== CONVERSION INTENT (EC-111) =====
+
+    match /conversion_intent/{eventId} {
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+    }
+
     // ===== CONVERSION EVENTS =====
 
     match /conversion_events/{event} {

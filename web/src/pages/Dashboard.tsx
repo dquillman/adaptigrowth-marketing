@@ -1,6 +1,7 @@
 ﻿import { signOut } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import Sidebar from '../components/Sidebar';
+import MobileNav from '../components/MobileNav';
 import { Link } from 'react-router-dom';
 import { DISPLAY_VERSION } from '../version';
 import MasteryRing from '../components/MasteryRing';
@@ -286,10 +287,11 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen flex bg-transparent relative overflow-x-hidden">
             <Sidebar />
+            <MobileNav />
             <div className="absolute top-0 right-0 w-full text-right pr-4 py-1 text-xs md:text-sm font-mono font-semibold text-white/50 pointer-events-none z-50">
                 ExamCoach v{DISPLAY_VERSION}
             </div>
-            <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col transition-all duration-300`}>
+            <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col pb-20 md:pb-0 transition-all duration-300`}>
                 <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         <div className="flex h-16 justify-between items-center">

@@ -1,5 +1,5 @@
 import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import TutorBreakdown, { type TutorResponse } from '../components/TutorBreakdown';
@@ -21,6 +21,7 @@ import { quizReportStore } from '../utils/quizReportStore';
 import StructuredExplanation from '../components/explanations/StructuredExplanation';
 import EmvCalculation from '../components/explanations/EmvCalculation';
 import { DOMAIN_CITATIONS } from '../utils/domainCitations';
+import { FrictionEventService } from '../services/FrictionEventService';
 
 interface Question {
     id: string;
@@ -46,6 +47,7 @@ export default function Quiz() {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [selectedOption, setSelectedOption] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
+    const loadStartRef = useRef(Date.now());
     const [showExplanation, setShowExplanation] = useState(false);
     const [explanationExpanded, setExplanationExpanded] = useState(false); // New: Track manual expansion
     const [tutorBreakdown, setTutorBreakdown] = useState<TutorResponse | null>(null);
@@ -168,12 +170,14 @@ export default function Quiz() {
                 } catch (err) {
                     console.error('Server-side quiz validation failed:', err);
                     setValidationError('Unable to verify usage limits. Please try again.');
+                    FrictionEventService.emit(user.uid, 'validation_blocked', { errorMessage: 'Server validation failed' });
                     setLoading(false);
                     return;
                 }
 
                 if (!validationData.allowed) {
                     console.log('Server denied quiz start:', validationData);
+                    FrictionEventService.emit(user.uid, 'paywall_hit', { page: 'quiz', quizType: location.state?.mode || 'standard' });
                     setShowUpsell(true);
                     setLoading(false);
                     return;
@@ -552,8 +556,15 @@ export default function Quiz() {
 
             } catch (error) {
                 console.error("Error fetching smart questions:", error);
+                const uid = auth.currentUser?.uid;
+                if (uid) FrictionEventService.emit(uid, 'error_shown', { page: 'quiz', errorMessage: String(error) });
             } finally {
                 setLoading(false);
+                // EC-130: Log slow loads (> 5s)
+                const loadMs = Date.now() - loadStartRef.current;
+                if (loadMs > 5000 && auth.currentUser) {
+                    FrictionEventService.emit(auth.currentUser.uid, 'slow_load', { page: 'quiz', loadTimeMs: loadMs });
+                }
             }
         };
 
@@ -1431,9 +1442,11 @@ export default function Quiz() {
                             <button
                                 onClick={async () => {
                                     if (window.confirm("Exit Diagnostic? Your progress will not be saved.")) {
+                                        const uid = auth.currentUser!.uid;
+                                        FrictionEventService.emit(uid, 'quiz_abandon', { quizType: 'diagnostic', questionIndex: currentQuestionIndex, totalQuestions: questions.length });
                                         if (activeRunId) {
                                             const { QuizRunService } = await import('../services/QuizRunService');
-                                            await QuizRunService.completeRun(auth.currentUser!.uid, activeRunId, {
+                                            await QuizRunService.completeRun(uid, activeRunId, {
                                                 abort: true,
                                                 score: score
                                             });
@@ -1452,6 +1465,7 @@ export default function Quiz() {
                             <button
                                 onClick={async () => {
                                     if (window.confirm("Quit and save your progress so far?")) {
+                                        if (auth.currentUser) FrictionEventService.emit(auth.currentUser.uid, 'quiz_abandon', { quizType: quizType || 'standard', questionIndex: currentQuestionIndex, totalQuestions: questions.length });
                                         triggerSmartQuizReview(true);
                                         if (activeRunId) {
                                             // Unified Mode: Pause — navigate (modal survives in App.tsx)
@@ -1623,6 +1637,7 @@ export default function Quiz() {
                                     let borderClass = 'border-slate-700 hover:border-brand-500/50 hover:bg-slate-700/50';
                                     let textClass = 'text-slate-300';
                                     let dotClass = 'border-slate-500 group-hover:border-brand-400';
+                                    let resultIcon = '';
 
                                     if (selectedOption === i) {
                                         borderClass = 'border-brand-500 bg-brand-500/10 shadow-lg shadow-brand-500/10';
@@ -1635,10 +1650,13 @@ export default function Quiz() {
                                             borderClass = 'border-emerald-500 bg-emerald-500/10';
                                             textClass = 'text-emerald-300 font-medium';
                                             dotClass = 'border-emerald-500 bg-emerald-500';
+                                            resultIcon = '✓';
                                         } else if (selectedOption === i) {
-                                            borderClass = 'border-red-500 bg-red-500/10';
-                                            textClass = 'text-red-300 font-medium';
-                                            dotClass = 'border-red-500 bg-red-500';
+                                            // Gentle incorrect styling — no flash, just a subdued border
+                                            borderClass = 'border-red-500/60 bg-red-500/5';
+                                            textClass = 'text-red-300/80 font-medium';
+                                            dotClass = 'border-red-500/60 bg-red-500/40';
+                                            resultIcon = '✗';
                                         }
                                     }
 
@@ -1647,12 +1665,16 @@ export default function Quiz() {
                                             key={i}
                                             onClick={() => handleOptionSelect(i)}
                                             disabled={showExplanation}
-                                            className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4 group ${borderClass}`}
+                                            className={`w-full text-left p-4 rounded-xl border-2 transition-colors duration-500 ease-in-out flex items-center gap-4 group motion-reduce:transition-none ${borderClass}`}
                                         >
-                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${dotClass}`}>
-                                                {selectedOption === i && <div className="w-2 h-2 bg-white rounded-full" />}
+                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-500 ease-in-out ${dotClass}`}>
+                                                {showExplanation && resultIcon ? (
+                                                    <span className="text-xs font-bold text-white">{resultIcon}</span>
+                                                ) : (
+                                                    selectedOption === i && <div className="w-2 h-2 bg-white rounded-full" />
+                                                )}
                                             </div>
-                                            <span className={`text-base ${textClass}`}>
+                                            <span className={`text-base transition-colors duration-500 ease-in-out ${textClass}`}>
                                                 {opt}
                                             </span>
                                         </button>

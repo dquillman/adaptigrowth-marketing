@@ -1,4 +1,4 @@
-import { useState } from 'react'; // Removed unused useEffect
+import { useState, useEffect } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 // Removed unused doc, onSnapshot, auth, db (except if needed for redirect, but window.location used here)
 import { Check, ArrowLeft } from 'lucide-react';
@@ -11,11 +11,17 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 // const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
 import { useMarketingCopy } from '../hooks/useMarketingCopy';
+import { ConversionIntentService } from '../services/ConversionIntentService';
 
 export default function Pricing() {
     const [loading, setLoading] = useState(false);
     const { entitlement } = useSubscription();  // Use Context
     const isPro = entitlement.plan === 'pro';   // Only true if actually PAID Pro. Trial is not 'pro' plan.
+
+    // EC-111: Track pricing page view as conversion intent
+    useEffect(() => {
+        if (!isPro) ConversionIntentService.emit('pricing_view');
+    }, [isPro]);
 
     const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
     const [isSubModalOpen, setIsSubModalOpen] = useState(false);
