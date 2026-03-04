@@ -20,8 +20,14 @@ import QuestionProvenanceBadge from '../components/QuestionProvenanceBadge';
 import { quizReportStore } from '../utils/quizReportStore';
 import StructuredExplanation from '../components/explanations/StructuredExplanation';
 import EmvCalculation from '../components/explanations/EmvCalculation';
+import MatchingQuestion, { shuffleMatchPairs } from '../components/MatchingQuestion';
 import { DOMAIN_CITATIONS } from '../utils/domainCitations';
 import { FrictionEventService } from '../services/FrictionEventService';
+
+interface MatchPairData {
+    term: string;
+    definition: string;
+}
 
 interface Question {
     id: string;
@@ -33,13 +39,14 @@ interface Question {
     examId?: string;
     imageUrl?: string; // New field for AI image
     difficulty?: number; // 1-10
-    type?: 'mcq' | 'emv';
+    type?: 'mcq' | 'emv' | 'matching';
     scenarios?: {
         label: string;
         probability: number;
         impact: number;
     }[];
     correctLabel?: string;
+    matchPairs?: MatchPairData[]; // EC-119: drag-and-drop matching pairs
 }
 
 export default function Quiz() {
@@ -63,6 +70,13 @@ export default function Quiz() {
     // Mastery Transparency State
     const [showMasteryInfo, setShowMasteryInfo] = useState(false);
     const [questionProgressMap, setQuestionProgressMap] = useState<Map<string, any>>(new Map());
+
+    // EC-119: Matching question state
+    const [matchingState, setMatchingState] = useState<{
+        shuffledDefinitions: string[];
+        correctOrder: number[];
+        currentOrder: number[];
+    } | null>(null);
 
     // Smart Quiz Review (app-level context)
     const smartReview = useSmartQuizReview();
@@ -571,6 +585,17 @@ export default function Quiz() {
         fetchSmartQuestions();
     }, [activeExamId, examContextLoading, retryCount]);
 
+    // EC-119: Initialize matching question state when question changes
+    useEffect(() => {
+        const q = questions[currentQuestionIndex];
+        if (q?.type === 'matching' && q.matchPairs) {
+            const { shuffledDefinitions, correctOrder, initialOrder } = shuffleMatchPairs(q.matchPairs);
+            setMatchingState({ shuffledDefinitions, correctOrder, currentOrder: initialOrder });
+        } else {
+            setMatchingState(null);
+        }
+    }, [currentQuestionIndex, questions]);
+
     const handleOptionSelect = (index: number) => {
         if (showExplanation) return;
         setSelectedOption(index);
@@ -584,14 +609,19 @@ export default function Quiz() {
     }, [currentQuestionIndex, loading]);
 
     const handleSubmit = () => {
-        if (selectedOption === null) return;
+        const currentQuestion = questions[currentQuestionIndex];
+
+        // EC-119: Matching questions use matchingState instead of selectedOption
+        const isMatching = currentQuestion.type === 'matching' && matchingState;
+        if (!isMatching && selectedOption === null) return;
 
         const endTime = Date.now();
         const duration = (endTime - questionStartTime) / 1000; // in seconds
         setQuestionDurations([...questionDurations, duration]);
 
-        const currentQuestion = questions[currentQuestionIndex];
-        const isCorrect = selectedOption === currentQuestion.correctAnswer;
+        const isCorrect = isMatching
+            ? matchingState!.currentOrder.every((v, i) => v === matchingState!.correctOrder[i])
+            : selectedOption === currentQuestion.correctAnswer;
 
         if (isCorrect) {
             setScore(prev => prev + 1);
@@ -960,7 +990,9 @@ export default function Quiz() {
     const handleNext = async () => {
         // Save details for the JUST FINISHED question
         const currentQuestion = questions[currentQuestionIndex];
-        const isCorrect = selectedOption === currentQuestion.correctAnswer;
+        const isCorrect = currentQuestion.type === 'matching' && matchingState
+            ? matchingState.currentOrder.every((v, i) => v === matchingState.correctOrder[i])
+            : selectedOption === currentQuestion.correctAnswer;
 
         setQuizDetails(prev => [...prev, {
             questionId: currentQuestion.id,
@@ -998,6 +1030,7 @@ export default function Quiz() {
             setExplanationExpanded(false);
             setTutorBreakdown(null);
             setDepthContent(null);
+            setMatchingState(null); // Reset for next question (initialized via effect)
         } else {
             // End of quiz. We need to save this last question's details immediately before saving results.
             // But state updates are async. 
@@ -1478,12 +1511,14 @@ export default function Quiz() {
 
                                             if (showExplanation) {
                                                 const currentQuestion = questions[currentQuestionIndex];
-                                                const isCorrect = selectedOption === currentQuestion.correctAnswer;
+                                                const isCorrect = currentQuestion.type === 'matching' && matchingState
+                                                    ? matchingState.currentOrder.every((v, i) => v === matchingState.correctOrder[i])
+                                                    : selectedOption === currentQuestion.correctAnswer;
 
                                                 finalDetails = [...quizDetails, {
                                                     questionId: currentQuestion.id,
-                                                    selectedOption,
-                                                    correctOption: currentQuestion.correctAnswer,
+                                                    selectedOption: currentQuestion.type === 'matching' ? null : selectedOption,
+                                                    correctOption: currentQuestion.type === 'matching' ? null : currentQuestion.correctAnswer,
                                                     isCorrect,
                                                     domain: currentQuestion.domain,
                                                     explanationViewed: explanationExpanded,
@@ -1632,6 +1667,17 @@ export default function Quiz() {
                                 {currentQuestion.stem}
                             </h2>
 
+                            {/* EC-119: Matching questions use drag-and-drop, MCQ uses radio options */}
+                            {currentQuestion.type === 'matching' && currentQuestion.matchPairs && matchingState ? (
+                                <MatchingQuestion
+                                    pairs={currentQuestion.matchPairs}
+                                    locked={showExplanation}
+                                    correctOrder={matchingState.correctOrder}
+                                    shuffledDefinitions={matchingState.shuffledDefinitions}
+                                    currentOrder={matchingState.currentOrder}
+                                    onReorder={(newOrder) => setMatchingState(prev => prev ? { ...prev, currentOrder: newOrder } : prev)}
+                                />
+                            ) : (
                             <div className="space-y-3">
                                 {currentQuestion.options.map((opt, i) => {
                                     let borderClass = 'border-slate-700 hover:border-brand-500/50 hover:bg-slate-700/50';
@@ -1681,6 +1727,7 @@ export default function Quiz() {
                                     );
                                 })}
                             </div>
+                            )}
 
                             {showExplanation && explanationExpanded && (
                                 <div className="mt-8 pt-6 border-t border-slate-700">
@@ -1743,10 +1790,10 @@ export default function Quiz() {
                             {!showExplanation ? (
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={selectedOption === null}
+                                    disabled={currentQuestion.type === 'matching' ? !matchingState : selectedOption === null}
                                     className="w-full sm:w-auto bg-brand-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-brand-500/30 hover:bg-brand-500 hover:shadow-brand-500/40 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                 >
-                                    Submit Answer
+                                    {currentQuestion.type === 'matching' ? 'Check Matches' : 'Submit Answer'}
                                 </button>
                             ) : (
                                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
