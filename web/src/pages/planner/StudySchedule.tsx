@@ -220,7 +220,7 @@ export default function StudySchedule() {
     };
 
     return (
-        <div className="p-6 md:p-10 max-w-6xl mx-auto text-slate-100">
+        <div className="p-4 md:p-10 max-w-6xl mx-auto text-slate-100">
             {/* Back to Dashboard */}
             <DashboardLink />
 
@@ -231,29 +231,29 @@ export default function StudySchedule() {
 
             <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold font-display text-white mb-2">My {examName || ''} Plan</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold font-display text-white mb-2">My {examName || ''} Plan</h1>
                     <p className="text-slate-400 flex items-center gap-2">
                         <CalendarIcon className="w-4 h-4" />
                         Target Exam Date: <span className="text-emerald-400 font-bold">{plan.examDate.toLocaleDateString()}</span>
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-sm">
-                        {plan.weeklyHours} hours / week
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                    <div className="bg-slate-800 px-3 md:px-4 py-2 rounded-lg border border-slate-700 text-sm">
+                        {plan.weeklyHours} hrs / week
                     </div>
                     {!selectedExamId || examLoading ? (
-                        <span className="px-4 py-2 rounded-lg text-sm text-slate-500 border border-slate-700 cursor-not-allowed">
+                        <span className="px-3 md:px-4 py-2 rounded-lg text-sm text-slate-500 border border-slate-700 cursor-not-allowed">
                             Please select an exam.
                         </span>
                     ) : (
                         <button
                             onClick={handleRecalculatePlan}
                             disabled={recalculating}
-                            className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-indigo-500 hover:border-indigo-400 flex items-center gap-2"
+                            className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-600/50 px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-indigo-500 hover:border-indigo-400 flex items-center gap-2"
                             title="Adjusts your plan based on your current quiz performance"
                         >
                             <RefreshCw className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
-                            {recalculating ? 'Updating...' : 'Update Plan Based on My Progress'}
+                            {recalculating ? 'Updating...' : 'Update Plan'}
                         </button>
                     )}
                     <button
@@ -266,7 +266,7 @@ export default function StudySchedule() {
                                 }
                             }
                         })}
-                        className="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-slate-600 hover:border-slate-500"
+                        className="bg-slate-700 hover:bg-slate-600 px-3 md:px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-slate-600 hover:border-slate-500"
                     >
                         Edit Settings
                     </button>
@@ -342,8 +342,8 @@ export default function StudySchedule() {
                         <div className="bg-gradient-to-r from-amber-900/40 to-slate-800 border-2 border-amber-500/50 rounded-xl p-4 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none"></div>
 
-                            <div className="flex items-center gap-4">
-                                <div className="flex-1">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="bg-amber-600/20 text-amber-300 text-xs font-semibold px-2 py-1 rounded">
                                             PRIORITY

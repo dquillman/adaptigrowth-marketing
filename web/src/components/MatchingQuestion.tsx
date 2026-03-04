@@ -1,12 +1,11 @@
 import { useState, useCallback } from 'react';
-import { GripVertical, Check, X, ArrowRight } from 'lucide-react';
+import { Check, X, ArrowRight, ArrowUpDown } from 'lucide-react';
 
 /**
- * EC-119: Drag-and-Drop Matching Question
+ * EC-119: Matching Question (tap-to-swap)
  *
- * Presents a set of terms on the left and definitions/descriptions on the right.
- * Users drag right-side items to reorder them to match the left-side terms.
- * On mobile, tap-to-swap is used instead of drag for accessibility.
+ * Presents terms on the left and shuffled definitions on the right.
+ * Users tap two right-side items to swap them into the correct positions.
  */
 
 export interface MatchPair {
@@ -16,10 +15,10 @@ export interface MatchPair {
 
 interface MatchingQuestionProps {
     pairs: MatchPair[];
-    locked: boolean;               // true after submit (showExplanation)
-    correctOrder: number[];        // correct mapping: correctOrder[i] = index into shuffled definitions
-    shuffledDefinitions: string[]; // pre-shuffled definitions
-    currentOrder: number[];        // current user ordering
+    locked: boolean;
+    correctOrder: number[];
+    shuffledDefinitions: string[];
+    currentOrder: number[];
     onReorder: (newOrder: number[]) => void;
 }
 
@@ -31,46 +30,23 @@ export default function MatchingQuestion({
     currentOrder,
     onReorder,
 }: MatchingQuestionProps) {
-    const [dragIdx, setDragIdx] = useState<number | null>(null);
-    const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-    const [tapSelected, setTapSelected] = useState<number | null>(null);
-
-    const handleDragStart = useCallback((idx: number) => {
-        if (locked) return;
-        setDragIdx(idx);
-    }, [locked]);
-
-    const handleDragOver = useCallback((e: React.DragEvent, idx: number) => {
-        e.preventDefault();
-        setDragOverIdx(idx);
-    }, []);
-
-    const handleDrop = useCallback((targetIdx: number) => {
-        if (dragIdx === null || dragIdx === targetIdx || locked) return;
-        const newOrder = [...currentOrder];
-        const temp = newOrder[dragIdx];
-        newOrder[dragIdx] = newOrder[targetIdx];
-        newOrder[targetIdx] = temp;
-        onReorder(newOrder);
-        setDragIdx(null);
-        setDragOverIdx(null);
-    }, [dragIdx, currentOrder, onReorder, locked]);
+    const [selected, setSelected] = useState<number | null>(null);
 
     const handleTap = useCallback((idx: number) => {
         if (locked) return;
-        if (tapSelected === null) {
-            setTapSelected(idx);
+        if (selected === null) {
+            setSelected(idx);
         } else {
-            if (tapSelected !== idx) {
+            if (selected !== idx) {
                 const newOrder = [...currentOrder];
-                const temp = newOrder[tapSelected];
-                newOrder[tapSelected] = newOrder[idx];
+                const temp = newOrder[selected];
+                newOrder[selected] = newOrder[idx];
                 newOrder[idx] = temp;
                 onReorder(newOrder);
             }
-            setTapSelected(null);
+            setSelected(null);
         }
-    }, [tapSelected, currentOrder, onReorder, locked]);
+    }, [selected, currentOrder, onReorder, locked]);
 
     return (
         <div className="space-y-3">
@@ -78,7 +54,9 @@ export default function MatchingQuestion({
             <p className="text-sm text-slate-400 mb-4">
                 {locked
                     ? 'Review the correct matches below.'
-                    : 'Match each term to its description. Drag to reorder, or tap two items to swap.'}
+                    : selected !== null
+                        ? 'Now tap another definition to swap them.'
+                        : 'Tap a definition to select it, then tap another to swap.'}
             </p>
 
             {pairs.map((pair, i) => {
@@ -86,19 +64,21 @@ export default function MatchingQuestion({
                 const definition = shuffledDefinitions[defIdx];
                 const isCorrectMatch = locked && defIdx === correctOrder[i];
                 const isWrongMatch = locked && defIdx !== correctOrder[i];
-                const isDragging = dragIdx === i;
-                const isDragOver = dragOverIdx === i && dragIdx !== i;
-                const isTapHighlight = tapSelected === i;
+                const isSelected = selected === i;
+                const isSwapTarget = selected !== null && selected !== i && !locked;
 
                 let rightBorder = 'border-slate-700';
                 let rightBg = 'bg-slate-800/40';
-                if (isTapHighlight && !locked) {
+                let ringClass = '';
+
+                if (isSelected) {
                     rightBorder = 'border-brand-500';
                     rightBg = 'bg-brand-500/10';
+                    ringClass = 'ring-2 ring-brand-500/40';
                 }
-                if (isDragOver && !locked) {
-                    rightBorder = 'border-brand-400';
-                    rightBg = 'bg-brand-400/10';
+                if (isSwapTarget) {
+                    rightBorder = 'border-slate-600 hover:border-brand-400';
+                    rightBg = 'hover:bg-brand-400/5';
                 }
                 if (isCorrectMatch) {
                     rightBorder = 'border-emerald-500/60';
@@ -126,20 +106,17 @@ export default function MatchingQuestion({
                             <ArrowRight className="w-4 h-4 text-slate-600" />
                         </div>
 
-                        {/* Right: Definition (draggable / tappable) */}
+                        {/* Right: Definition (tappable) */}
                         <div
-                            draggable={!locked}
-                            onDragStart={() => handleDragStart(i)}
-                            onDragOver={(e) => handleDragOver(e, i)}
-                            onDrop={() => handleDrop(i)}
-                            onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                             onClick={() => handleTap(i)}
-                            className={`flex-1 p-3 sm:p-4 rounded-xl border-2 transition-colors duration-300 flex items-center gap-3 ${
-                                locked ? '' : 'cursor-grab active:cursor-grabbing'
-                            } ${isDragging ? 'opacity-50' : ''} ${rightBorder} ${rightBg}`}
+                            className={`flex-1 p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 select-none ${
+                                locked ? '' : 'cursor-pointer'
+                            } ${rightBorder} ${rightBg} ${ringClass}`}
                         >
                             {!locked && (
-                                <GripVertical className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                                <ArrowUpDown className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                                    isSelected ? 'text-brand-400' : 'text-slate-500'
+                                }`} />
                             )}
                             {locked && isCorrectMatch && (
                                 <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -150,6 +127,7 @@ export default function MatchingQuestion({
                             <span className={`text-sm sm:text-base ${
                                 isCorrectMatch ? 'text-emerald-300' :
                                 isWrongMatch ? 'text-red-300/80' :
+                                isSelected ? 'text-brand-300' :
                                 'text-slate-300'
                             }`}>
                                 {definition}
@@ -180,15 +158,12 @@ export default function MatchingQuestion({
 
 /**
  * Utility: shuffle definitions and compute the correct order mapping.
- * Returns { shuffledDefinitions, correctOrder } where correctOrder[i] is the
- * index into shuffledDefinitions that should be at position i for a correct answer.
  */
 export function shuffleMatchPairs(pairs: MatchPair[]): {
     shuffledDefinitions: string[];
     correctOrder: number[];
     initialOrder: number[];
 } {
-    // Create indices and shuffle them
     const indices = pairs.map((_, i) => i);
     // Fisher-Yates shuffle
     for (let i = indices.length - 1; i > 0; i--) {
@@ -198,12 +173,10 @@ export function shuffleMatchPairs(pairs: MatchPair[]): {
 
     const shuffledDefinitions = indices.map(i => pairs[i].definition);
 
-    // correctOrder[i] = position in shuffledDefinitions that contains pairs[i].definition
     const correctOrder = pairs.map((_, i) => {
         return indices.indexOf(i);
     });
 
-    // initialOrder starts as [0, 1, 2, ...] — user hasn't reordered yet
     const initialOrder = shuffledDefinitions.map((_, i) => i);
 
     return { shuffledDefinitions, correctOrder, initialOrder };

@@ -109,9 +109,7 @@ export default function Dashboard() {
 
                     const handleActivitySnapshot = (snapshot: QuerySnapshot<DocumentData>) => {
                         const rawRuns = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                        (window as any).__RAW_RUNS__ = rawRuns;
                         const { perRun } = deriveMetrics(rawRuns);
-                        (window as any).__DASHBOARD_RUNS__ = perRun;
                         setRecentActivity(perRun);
                     };
 
@@ -249,17 +247,6 @@ export default function Dashboard() {
         return <Navigate to="/app/start-here" replace />;
     }
 
-    // INSTRUMENTATION: log raw activeRuns
-    console.log('[Dashboard] activeRuns count:', activeRuns.length);
-    activeRuns.forEach((r: any, i: number) => {
-        console.log(`[Dashboard] activeRun[${i}]:`, {
-            id: r.id, status: r.status, mode: r.mode, quizType: r.quizType,
-            answersLen: (r.answers || []).length,
-            snapshotQLen: r.snapshot?.questionIds?.length || 0,
-            completedAt: r.completedAt, createdAt: r.createdAt,
-        });
-    });
-
     const resumableRuns = activeRuns.filter((r: any) => {
         if (r.quizType === 'diagnostic') return false;
         // Only show banner if the run has unanswered questions and no completedAt
@@ -268,21 +255,11 @@ export default function Dashboard() {
         return total > 0 && answered < total && !r.completedAt;
     });
     const hasActiveRun = resumableRuns.length > 0;
-    console.log('[Dashboard] resumableRuns:', resumableRuns.map((r: any) => r.id));
 
     // Real-time diagnostic detection from activity snapshot (for UI toggle)
     const diagnosticDone = recentActivity.some(
         a => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
     );
-
-    // INSTRUMENTATION: trace diagnostic state
-    console.log('[Dashboard] diagnosticDone (from recentActivity):', diagnosticDone);
-    console.log('[Dashboard] contextDiagnostic (from ExamContext/hasCompletedRun):', contextDiagnostic);
-    console.log('[Dashboard] recentActivity count:', recentActivity.length);
-    console.log('[Dashboard] recentActivity diagnostic entries:', recentActivity.filter(
-        a => a.mode === 'diagnostic' || a.quizType === 'diagnostic'
-    ).map(a => ({ id: a.id, mode: a.mode, quizType: a.quizType, score: a.score })));
-    console.log('[Dashboard] >>> BANNER WILL SHOW:', !diagnosticDone && !loading);
 
     return (
         <div className="min-h-screen flex bg-transparent relative overflow-x-hidden">
@@ -294,9 +271,9 @@ export default function Dashboard() {
             <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col pb-20 md:pb-0 transition-all duration-300`}>
                 <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="flex h-16 justify-between items-center">
+                        <div className="flex min-h-[4rem] py-2 justify-between items-center">
                             <div className="flex items-center gap-3">
-                                <h1 className="text-lg md:text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
+                                <h1 className="text-sm md:text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
                             </div>
                             <div className="flex items-center gap-2 md:gap-4">
                                 <ExamSelector />
@@ -325,7 +302,7 @@ export default function Dashboard() {
                                 </button>
                                 <button
                                     onClick={() => signOut(auth)}
-                                    className="text-xs md:text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                                    className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors"
                                 >
                                     Sign Out
                                 </button>
@@ -477,7 +454,6 @@ export default function Dashboard() {
                                             try {
                                                 const runRef = doc(db, 'quizRuns', auth.currentUser.uid, 'runs', runId);
                                                 await updateDoc(runRef, { status: 'abandoned', updatedAt: serverTimestamp() });
-                                                console.log('[Dashboard] Dismissed/abandoned run:', runId);
                                             } catch (e) {
                                                 console.error('[Dashboard] Failed to dismiss run:', e);
                                             }

@@ -32,8 +32,8 @@ interface MatchPairData {
 interface Question {
     id: string;
     stem: string;
-    options: string[];
-    correctAnswer: number;
+    options?: string[];
+    correctAnswer?: number;
     explanation: string;
     domain: string;
     examId?: string;
@@ -762,6 +762,9 @@ export default function Quiz() {
     const isPMPExam = (examId?: string) => examId === '7qmPagj9A6RpkC0CwGkY' || examId?.toLowerCase().startsWith('pmp');
 
     const fetchTutorBreakdown = async (question: Question, selectedOptIdx: number) => {
+        // Matching questions don't use the tutor breakdown flow
+        if (question.type === 'matching') return;
+
         setLoadingBreakdown(true);
         try {
             // PMP Guard: Use stored doctrine explanation directly, skip AI generation
@@ -1679,7 +1682,7 @@ export default function Quiz() {
                                 />
                             ) : (
                             <div className="space-y-3">
-                                {currentQuestion.options.map((opt, i) => {
+                                {(currentQuestion.options || []).map((opt, i) => {
                                     let borderClass = 'border-slate-700 hover:border-brand-500/50 hover:bg-slate-700/50';
                                     let textClass = 'text-slate-300';
                                     let dotClass = 'border-slate-500 group-hover:border-brand-400';
