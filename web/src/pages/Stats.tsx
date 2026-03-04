@@ -1,6 +1,7 @@
 import DashboardLink from '../components/DashboardLink';
 import SpeedAccuracyChart from '../components/analytics/SpeedAccuracyChart';
 import RollingTrendChart from '../components/analytics/RollingTrendChart';
+import UsageHeatmap from '../components/analytics/UsageHeatmap';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { Lock, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -136,6 +137,9 @@ export default function Stats() {
                     <p className="text-slate-400 mt-1">Deep dive into your performance metrics.</p>
                 </div>
             </div>
+
+            {/* EC-109: Usage Heatmap */}
+            <UsageHeatmap examId={selectedExamId} />
 
             {/* Rolling Performance Trend Section */}
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-4 md:p-6">
