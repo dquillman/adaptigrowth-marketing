@@ -28,7 +28,7 @@ export const PredictionEngine = {
      * - 30% Recent Performance (Last 5 attempts)
      * - 10% Consistency (Variance) - Simplified for now to just be part of recent trend
      */
-    calculateReadiness: async (userId: string, examId: string): Promise<ReadinessReport> => {
+    calculateReadiness: async (userId: string, examId: string, domains: string[] = []): Promise<ReadinessReport> => {
         try {
             // Query from quizRuns/{userId}/runs - the actual data source
             const runsRef = collection(db, 'quizRuns', userId, 'runs');
@@ -80,7 +80,7 @@ export const PredictionEngine = {
             }
 
             // --- 1. Derive all metrics via single shared function ---
-            const expectedDomains = getExamDomains(examId);
+            const expectedDomains = getExamDomains(domains);
             const metrics = deriveMetrics(runs, expectedDomains.map(d => d.name));
             const { totalQuestions, overallAccuracy, mockCount,
                     domainStats, recentAccuracy } = metrics;

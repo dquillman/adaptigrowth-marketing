@@ -3,20 +3,17 @@ import { useState, useEffect } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../App';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useExam } from '../contexts/ExamContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Zap, ArrowRight, X } from 'lucide-react';
 import { type PatternData } from './PatternInsightCard';
-
-// Reuse PatternData from PatternInsightCard or define locally if strictly isolated.
-// Since PatternData is exported, we import it.
-
-// Interface removed
 
 
 export default function ThinkingTrapsCard() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { checkPermission } = useSubscription();
+    const { selectedExamId } = useExam();
     const [patterns, setPatterns] = useState<PatternData[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -37,9 +34,9 @@ export default function ThinkingTrapsCard() {
             try {
                 const functions = getFunctions();
                 const getWeakest = httpsCallable(functions, 'getWeakestPatterns');
-                const result = await getWeakest();
+                const result = await getWeakest({ examId: selectedExamId });
                 const data = result.data as PatternData[];
-                setPatterns(data.slice(0, 3));
+                setPatterns(data.filter(p => p.times_missed >= 2).slice(0, 3));
             } catch (err) {
                 console.error("Failed to fetch traps:", err);
             } finally {
@@ -47,7 +44,7 @@ export default function ThinkingTrapsCard() {
             }
         };
         fetchPatterns();
-    }, [user]);
+    }, [user, selectedExamId]);
 
     const handleReviewClick = () => {
         if (checkPermission('analytics')) {
@@ -96,22 +93,39 @@ export default function ThinkingTrapsCard() {
                     {patterns.length > 0 ? (
                         <div className="space-y-3 mb-6">
                             {patterns.map(p => (
-                                <div key={p.pattern_id} className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
-                                    <span className="text-white font-medium text-sm truncate pr-2">
-                                        {p.pattern_name}
-                                    </span>
-                                    {p.mastery_score < 50 ? (
-                                        <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" title="High Risk" />
-                                    ) : (
-                                        <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" title="Medium Risk" />
-                                    )}
+                                <div key={p.pattern_id} className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-white font-medium text-sm truncate pr-2">
+                                            {p.pattern_name}
+                                        </span>
+                                        {p.mastery_score < 50 ? (
+                                            <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" title="High Risk" />
+                                        ) : (
+                                            <span className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" title="Medium Risk" />
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => navigate('/app/quiz', {
+                                            state: {
+                                                mode: 'trap-drill',
+                                                patternId: p.pattern_id,
+                                                patternName: p.pattern_name,
+                                                domainTags: p.domain_tags,
+                                                masteryScore: p.mastery_score,
+                                                examId: selectedExamId
+                                            }
+                                        })}
+                                        className="w-full py-1.5 text-xs font-semibold text-brand-400 hover:text-white bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 rounded-lg transition-colors"
+                                    >
+                                        Start 5-Question Drill
+                                    </button>
                                 </div>
                             ))}
                         </div>
                     ) : (
                         <div className="p-4 bg-slate-900/30 rounded-lg border border-slate-700/30 text-center mb-6">
                             <p className="text-slate-400 text-sm italic">
-                                "Your thinking traps will appear here as you practice."
+                                No thinking traps detected yet. We'll highlight patterns once you answer more questions.
                             </p>
                         </div>
                     )}

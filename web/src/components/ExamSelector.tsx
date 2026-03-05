@@ -49,9 +49,9 @@ export default function ExamSelector() {
         <div className="relative">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl text-white font-medium transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 rounded-xl text-sm md:text-base text-white font-medium transition-all"
             >
-                <span>{currentExamName || 'Select Exam'}</span>
+                <span className="truncate max-w-[120px] sm:max-w-none">{currentExamName || 'Select Exam'}</span>
                 <svg
                     className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                     fill="none"
@@ -68,7 +68,7 @@ export default function ExamSelector() {
                         className="fixed inset-0 z-10"
                         onClick={() => setIsOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden py-1">
+                    <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-56 max-w-[14rem] bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20 overflow-hidden py-1">
                         {exams.map((exam) => (
                             <button
                                 key={exam.id}

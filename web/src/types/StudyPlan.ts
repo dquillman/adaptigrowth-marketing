@@ -1,7 +1,7 @@
 export interface DailyTask {
     id: string;
     date: Date; // Timestamp in Firestore
-    domain: 'People' | 'Process' | 'Business Environment' | 'Mixed';
+    domain: string;
     topic: string;
     activityType: 'reading' | 'quiz' | 'review' | 'mock-exam';
     completed: boolean;

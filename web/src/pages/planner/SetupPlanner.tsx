@@ -5,6 +5,7 @@ import { StudyPlanService } from '../../services/StudyPlanService';
 import { UsageEventService } from '../../services/UsageEventService';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useExam } from '../../contexts/ExamContext';
+import { DEFAULT_EXAM_ID } from '../../config/exams';
 
 export default function SetupPlanner() {
     const { user } = useAuth();
@@ -46,7 +47,7 @@ export default function SetupPlanner() {
         setLoading(true);
         try {
             // Use context ID consistently
-            const examId = selectedExamId || 'default-exam';
+            const examId = selectedExamId || DEFAULT_EXAM_ID;
 
             // Always archive any existing active plans for this exam before creating a new one.
             // Previously guarded by editMode — but fresh plan creation also creates a second

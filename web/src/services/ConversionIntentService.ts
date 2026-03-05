@@ -22,6 +22,7 @@ export type IntentSignal =
 interface IntentMeta {
     feature?: string;
     sessionQuizCount?: number;
+    examId?: string;
     [key: string]: unknown;
 }
 

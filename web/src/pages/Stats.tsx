@@ -6,7 +6,7 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import { Lock, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../contexts/ExamContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { auth, db } from '../firebase';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import {
@@ -15,13 +15,7 @@ import {
     type DomainTrendResult,
 } from '../services/performanceTrendService';
 
-const DOMAIN_COLORS: Record<string, string> = {
-    'People': '#a78bfa',           // violet-400
-    'Process': '#34d399',          // emerald-400
-    'Business Environment': '#f59e0b', // amber-500
-};
-
-const DOMAINS = ['People', 'Process', 'Business Environment'];
+const DOMAIN_COLOR_PALETTE = ['#a78bfa', '#34d399', '#f59e0b', '#f472b6', '#60a5fa', '#fb923c'];
 
 function DirectionBadge({ direction }: { direction: 'improving' | 'declining' | 'stable' }) {
     if (direction === 'improving') {
@@ -47,8 +41,14 @@ function DirectionBadge({ direction }: { direction: 'improving' | 'declining' | 
 
 export default function Stats() {
     const { checkPermission } = useSubscription();
-    const { selectedExamId, examName } = useExam();
+    const { selectedExamId, examName, examDomains } = useExam();
     const navigate = useNavigate();
+    const domains = examDomains.length > 0 ? examDomains : [];
+    const domainColors = useMemo(() => {
+        const colors: Record<string, string> = {};
+        domains.forEach((d, i) => { colors[d] = DOMAIN_COLOR_PALETTE[i % DOMAIN_COLOR_PALETTE.length]; });
+        return colors;
+    }, [domains]);
 
     const [overallTrend, setOverallTrend] = useState<OverallTrendResult | null>(null);
     const [domainTrends, setDomainTrends] = useState<DomainTrendResult[]>([]);
@@ -111,7 +111,7 @@ export default function Stats() {
 
         Promise.all([
             PerformanceTrendService.getRollingOverallTrend(uid, selectedExamId),
-            PerformanceTrendService.getAllDomainTrends(uid, selectedExamId, DOMAINS),
+            PerformanceTrendService.getAllDomainTrends(uid, selectedExamId, domains),
             fetchQuizScores(),
         ]).then(([overall, domains]) => {
             setOverallTrend(overall);
@@ -126,13 +126,13 @@ export default function Stats() {
     const isProGated = !checkPermission('analytics');
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8 pb-8">
             <DashboardLink />
 
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white font-display">Your Statistics</h1>
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white font-display">Your Statistics</h1>
                     {examName && <span className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-1 block">{examName}</span>}
                     <p className="text-slate-400 mt-1">Deep dive into your performance metrics.</p>
                 </div>
@@ -173,9 +173,9 @@ export default function Stats() {
 
                         {/* Domain Trends */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {DOMAINS.map(domain => {
+                            {domains.map(domain => {
                                 const trend = domainTrends.find(d => d.domain === domain);
-                                const color = DOMAIN_COLORS[domain] || '#94a3b8';
+                                const color = domainColors[domain] || '#94a3b8';
                                 const qCount = trend?.totalQuestions ?? 0;
                                 const remaining = Math.max(0, 10 - qCount);
                                 const emptyMsg = qCount > 0

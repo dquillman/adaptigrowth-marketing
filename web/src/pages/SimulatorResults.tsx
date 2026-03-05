@@ -15,7 +15,7 @@ export default function SimulatorResults() {
     const navigate = useNavigate();
     const { score, total, timeSpent, questions, answers_map, flagged = {} } = location.state || {}; // answers_map is index->optionIndex
 
-    const { selectedExamId } = useExam();
+    const { selectedExamId, examDomains } = useExam();
     const [domainStats, setDomainStats] = useState<any[]>([]);
     const [overallDomains, setOverallDomains] = useState<DomainReadiness[]>([]);
     const [showTooltip, setShowTooltip] = useState(false);
@@ -53,7 +53,7 @@ export default function SimulatorResults() {
     useEffect(() => {
         const user = auth.currentUser;
         if (!user || !selectedExamId) return;
-        PredictionEngine.calculateReadiness(user.uid, selectedExamId).then(report => {
+        PredictionEngine.calculateReadiness(user.uid, selectedExamId, examDomains).then(report => {
             setOverallDomains(report.domainBreakdown.filter(d => d.status !== 'Insufficient'));
         }).catch(() => {});
     }, [selectedExamId]);
@@ -86,20 +86,62 @@ export default function SimulatorResults() {
 
                 {/* Header */}
                 <div className="text-center mb-12">
-                    <h1 className="text-3xl font-bold text-white font-display mb-2">Exam Results</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white font-display mb-2">Exam Results</h1>
                     <p className="text-slate-400">Here is how you performed on this simulation.</p>
                 </div>
 
+                {/* Readiness Banner */}
+                {percentage >= 65 ? (
+                    <div className="rounded-lg p-4 mb-8 bg-emerald-900/40 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <p className="text-sm text-emerald-300 font-semibold">You're on track to pass the real exam.</p>
+                            <p className="text-xs text-emerald-400/70 mt-1">Focus on your weaker domains and take another simulator to confirm.</p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/app/simulator')}
+                            className="shrink-0 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
+                        >
+                            Take Another Simulator
+                        </button>
+                    </div>
+                ) : percentage >= 55 ? (
+                    <div className="rounded-lg p-4 mb-8 bg-amber-900/40 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <p className="text-sm text-amber-300 font-semibold">You're close.</p>
+                            <p className="text-xs text-amber-400/70 mt-1">With a little more practice you should be ready soon. Focus on weak domains first.</p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/app/quiz')}
+                            className="shrink-0 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+                        >
+                            Practice Weak Domains
+                        </button>
+                    </div>
+                ) : (
+                    <div className="rounded-lg p-4 mb-8 bg-slate-800 border border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <p className="text-sm text-slate-300 font-semibold">Keep going.</p>
+                            <p className="text-xs text-slate-400 mt-1">You're building the knowledge foundation needed to pass. Keep practicing.</p>
+                        </div>
+                        <button
+                            onClick={() => navigate('/app/quiz')}
+                            className="shrink-0 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors"
+                        >
+                            Start Smart Practice
+                        </button>
+                    </div>
+                )}
+
                 {/* Score Card */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-                    <div className="col-span-1 md:col-span-1 bg-slate-800 border border-slate-700 rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
+                    <div className="col-span-1 md:col-span-1 bg-slate-800 border border-slate-700 rounded-2xl p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden">
                         <div className={`absolute top-0 w-full h-2 ${passed ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
 
-                        <div className="w-40 h-40 mb-6">
+                        <div className="w-32 h-32 md:w-40 md:h-40 mb-4 md:mb-6">
                             <Doughnut data={chartData} options={{ maintainAspectRatio: true, cutout: '70%' }} />
                         </div>
 
-                        <div className="text-5xl font-bold text-white mb-2">{percentage}%</div>
+                        <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">{percentage}%</div>
                         <div className={`text-lg font-bold px-4 py-1 rounded-full ${passed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-500'
                             }`}>
                             {passed ? 'PASSED' : 'FAILED'}
@@ -109,22 +151,22 @@ export default function SimulatorResults() {
                     <div className="col-span-1 md:col-span-2 space-y-6">
                         {/* Summary Stats */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                    <CheckCircle className="w-6 h-6" />
+                            <div className="bg-slate-800/50 p-4 md:p-6 rounded-xl border border-slate-700 flex items-center gap-3 md:gap-4">
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                    <CheckCircle className="w-5 h-5 md:w-6 md:h-6" />
                                 </div>
                                 <div>
-                                    <p className="text-slate-400 text-sm">Score</p>
-                                    <p className="text-2xl font-bold text-white">{score} <span className="text-slate-500 text-base">/ {total}</span></p>
+                                    <p className="text-slate-400 text-xs md:text-sm">Score</p>
+                                    <p className="text-xl md:text-2xl font-bold text-white">{score} <span className="text-slate-500 text-sm md:text-base">/ {total}</span></p>
                                 </div>
                             </div>
-                            <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700 flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400">
-                                    <Clock className="w-6 h-6" />
+                            <div className="bg-slate-800/50 p-4 md:p-6 rounded-xl border border-slate-700 flex items-center gap-3 md:gap-4">
+                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400">
+                                    <Clock className="w-5 h-5 md:w-6 md:h-6" />
                                 </div>
                                 <div>
-                                    <p className="text-slate-400 text-sm">Time Taken</p>
-                                    <p className="text-2xl font-bold text-white">{formatTime(timeSpent)}</p>
+                                    <p className="text-slate-400 text-xs md:text-sm">Time Taken</p>
+                                    <p className="text-xl md:text-2xl font-bold text-white">{formatTime(timeSpent)}</p>
                                 </div>
                             </div>
                         </div>
@@ -207,34 +249,34 @@ export default function SimulatorResults() {
                     <div className="p-6 border-b border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h3 className="text-xl font-bold text-white">Review Answers</h3>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5 md:gap-2">
                             <button
                                 onClick={() => setFilter('all')}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                                className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium transition-colors ${filter === 'all' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                             >
                                 All ({questions.length})
                             </button>
                             <button
                                 onClick={() => setFilter('correct')}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'correct' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                                className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium transition-colors ${filter === 'correct' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                             >
                                 Correct ({questions.filter((q: any, i: number) => answers_map[i] === q.correctAnswer).length})
                             </button>
                             <button
                                 onClick={() => setFilter('wrong')}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'wrong' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                                className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium transition-colors ${filter === 'wrong' ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                             >
                                 Wrong ({questions.filter((q: any, i: number) => answers_map[i] !== undefined && answers_map[i] !== q.correctAnswer).length})
                             </button>
                             <button
                                 onClick={() => setFilter('flagged')}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'flagged' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                                className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium transition-colors ${filter === 'flagged' ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                             >
                                 Flagged ({Object.values(flagged).filter(Boolean).length})
                             </button>
                             <button
                                 onClick={() => setFilter('unanswered')}
-                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === 'unanswered' ? 'bg-slate-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                                className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-xs md:text-sm font-medium transition-colors ${filter === 'unanswered' ? 'bg-slate-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                             >
                                 Unanswered ({questions.filter((_: any, i: number) => answers_map[i] === undefined).length})
                             </button>
@@ -317,17 +359,17 @@ export default function SimulatorResults() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-center gap-4 pb-12">
+                <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 pb-12">
                     <button
                         onClick={() => navigate('/simulator')}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors"
+                        className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-slate-800 text-white font-bold hover:bg-slate-700 transition-colors w-full sm:w-auto"
                     >
                         <RotateCcw className="w-5 h-5" />
                         Take Another Exam
                     </button>
                     <button
                         onClick={() => navigate('/app')}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20"
+                        className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-600/20 w-full sm:w-auto"
                     >
                         <LayoutDashboard className="w-5 h-5" />
                         Back to Dashboard

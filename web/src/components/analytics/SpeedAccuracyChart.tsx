@@ -177,11 +177,11 @@ export default function SpeedAccuracyChart({ currentExamId }: SpeedAccuracyChart
     }
 
     return (
-        <div className="w-full h-[300px] md:h-[400px] relative overflow-hidden bg-slate-800/30 rounded-xl border border-slate-700/50">
+        <div className="w-full h-[240px] sm:h-[300px] md:h-[400px] relative overflow-hidden bg-slate-800/30 rounded-xl border border-slate-700/50">
             {/* Scrollable Container */}
             <div className="w-full h-full overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800/50">
                 {/* Min-width container to force scroll if needed */}
-                <div ref={containerRef} className="min-w-[300px] sm:min-w-[500px] md:min-w-[800px] w-full h-full bg-slate-800/20 relative" style={{ minHeight: '100%' }}>
+                <div ref={containerRef} className="min-w-[280px] sm:min-w-[450px] md:min-w-[700px] w-full h-full bg-slate-800/20 relative" style={{ minHeight: '100%' }}>
                     {isChartReady && (
                         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                             <ComposedChart

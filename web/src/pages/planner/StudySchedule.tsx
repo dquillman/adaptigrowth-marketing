@@ -7,6 +7,7 @@ import { useExam } from '../../contexts/ExamContext';
 import type { StudyPlan, DailyTask } from '../../types/StudyPlan';
 import { useNavigate, useLocation } from 'react-router-dom';
 import MockExamConfigModal from '../../components/planner/MockExamConfigModal';
+import { DEFAULT_EXAM_ID } from '../../config/exams';
 
 // Injected reinforcement task after diagnostic/mock
 interface InjectedTask {
@@ -40,7 +41,7 @@ export default function StudySchedule() {
     const fromDiagnostic = location.state?.source === 'diagnostic';
 
     // Exam date prompt state
-    const EXAM_DATE_KEY = 'exam_coach_pmp_exam_date';
+    const EXAM_DATE_KEY = `exam_coach_${DEFAULT_EXAM_ID}_exam_date`;
     const [showExamDatePrompt, setShowExamDatePrompt] = useState(false);
     const [pendingExamDate, setPendingExamDate] = useState('');
 
@@ -65,7 +66,7 @@ export default function StudySchedule() {
 
 
     // Use the global Exam context
-    const { selectedExamId, examName, loading: examLoading } = useExam();
+    const { selectedExamId, examName, examDomains, loading: examLoading } = useExam();
 
     // v15: Reinforcement derived from plan.anchorDomain (single source of truth).
     // No independent diagnostic query — the plan IS the canonical domain source.
@@ -92,7 +93,7 @@ export default function StudySchedule() {
         const checkReadiness = async () => {
             try {
                 const { PredictionEngine } = await import('../../services/PredictionEngine');
-                const report = await PredictionEngine.calculateReadiness(user.uid, selectedExamId);
+                const report = await PredictionEngine.calculateReadiness(user.uid, selectedExamId, examDomains);
                 setReadinessScore(report?.overallScore ?? 100);
                 setReadinessPreliminary(report?.isPreliminary ?? false);
             } catch (error) {
@@ -292,7 +293,7 @@ export default function StudySchedule() {
                     <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
                         <div className="flex items-start justify-between mb-4">
                             <div>
-                                <h3 className="text-xl font-bold text-white font-display">When is your PMP exam?</h3>
+                                <h3 className="text-xl font-bold text-white font-display">When is your {examName || 'certification'} exam?</h3>
                                 <p className="text-slate-400 text-sm mt-1">This helps us pace your study plan.</p>
                             </div>
                             <button

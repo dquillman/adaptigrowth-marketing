@@ -42,7 +42,7 @@ export const StudyPlanService = {
         const currentDate = new Date(startDate);
 
         // Define domains dynamically if provided, or fallback to known definitions
-        const domains = getExamDomains(examId, examName, domainNames);
+        const domains = getExamDomains(domainNames || []);
 
         // Diagnostic Anchor Rule: If we have a recommended domain, prioritize it for first 5 days
         const ANCHOR_DAYS = 5; // First 5 days focus on anchor domain
@@ -303,7 +303,7 @@ export const StudyPlanService = {
             let fallbackToDiagnostic = false;
 
             if (totalQuizAnswers >= MIN_SAMPLE) {
-                const knownDomains = getExamDomains(examId, examName, domainNames);
+                const knownDomains = getExamDomains(domainNames || []);
                 const knownDomainNames = knownDomains.map(d => d.name);
 
                 // Domains that haven't reached the minimum sample threshold yet
@@ -420,7 +420,7 @@ export const StudyPlanService = {
             });
 
             // ── Generate future tasks locked to chosen anchor domain ──────────────────
-            const domains = getExamDomains(examId, examName, domainNames);
+            const domains = getExamDomains(domainNames || []);
             const anchorDomain = domains.find(d => d.name === newAnchorDomain) || domains[0];
 
             const futureTasks: DailyTask[] = [];

@@ -17,7 +17,7 @@ import { PerformanceTrendService, type OverallTrendResult } from '../services/pe
 export default function ReadinessReportPage() {
     const { user } = useAuth();
     const { checkPermission } = useSubscription();
-    const { selectedExamId, examName } = useExam();
+    const { selectedExamId, examName, examDomains } = useExam();
     const navigate = useNavigate();
     const [report, setReport] = useState<ReadinessReport | null>(null);
     const [minedPatterns, setMinedPatterns] = useState<PatternData[]>([]);
@@ -36,8 +36,8 @@ export default function ReadinessReportPage() {
             try {
                 // Parallel fetch: Readiness + Weakest Patterns + User XP + Rolling Trend
                 const [readinessData, patternsResult, userDocResult, rollingResult] = await Promise.allSettled([
-                    PredictionEngine.calculateReadiness(user.uid, selectedExamId),
-                    httpsCallable(getFunctions(), 'getWeakestPatterns')(),
+                    PredictionEngine.calculateReadiness(user.uid, selectedExamId, examDomains),
+                    httpsCallable(getFunctions(), 'getWeakestPatterns')({ examId: selectedExamId }),
                     getDoc(doc(db, 'users', user.uid)),
                     PerformanceTrendService.getRollingOverallTrend(user.uid, selectedExamId),
                 ]);

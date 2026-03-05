@@ -72,14 +72,15 @@ export const QuizRunService = {
         meta?: QuizRun['meta']
     ): Promise<string> => {
         try {
-            // Abandon any orphaned in_progress runs to prevent stale resume banners
+            // Abandon any orphaned in_progress runs for THIS exam only
             const orphanQ = query(
                 collection(db, 'quizRuns', userId, 'runs'),
+                where('examId', '==', examId),
                 where('status', '==', 'in_progress')
             );
             const orphans = await getDocs(orphanQ);
             if (orphans.size > 0) {
-                console.log(`[createRun] Abandoning ${orphans.size} orphaned in_progress run(s)`);
+                console.log(`[createRun] Abandoning ${orphans.size} orphaned in_progress run(s) for exam ${examId}`);
                 await Promise.all(orphans.docs.map(d =>
                     updateDoc(d.ref, { status: 'abandoned', updatedAt: serverTimestamp() })
                 ));
@@ -216,52 +217,22 @@ export const QuizRunService = {
     },
 
     /**
-     * Gets the latest IN_PROGRESS run for the user.
-     * Optionally filtered by Exam.
+     * Gets the latest IN_PROGRESS run for the user, scoped to a specific exam.
      */
-    getLatestActiveRun: async (userId: string, _examId?: string): Promise<QuizRun | null> => {
+    getLatestActiveRun: async (userId: string, examId: string): Promise<QuizRun | null> => {
         try {
             const runsRef = collection(db, 'quizRuns', userId, 'runs');
-            const constraints = [
+            const q = query(
+                runsRef,
+                where('examId', '==', examId),
                 where('status', '==', 'in_progress'),
-                orderBy('updatedAt', 'desc'),
+                orderBy('createdAt', 'desc'),
                 limit(1)
-            ];
-
-            // If examId provided, we add it. 
-            // Note: This requires Composite Index (status ASC, examId ASC, updatedAt DESC).
-            // Without index, this query will fail.
-            // Safe fallback: Query all active runs, filter in memory (rarely > 1 active run anyway).
-
-            // GLOBAL RESUME CONTEXT: Return latest run regardless of Exam ID
-            // This ensures a user sees their active session even if they switched exam contexts.
-            // if (examId) {
-            //    constraints.unshift(where('examId', '==', examId));
-            // }
-
-            // TRY/CATCH specifically for index errors
-            try {
-                // @ts-ignore
-                const q = query(runsRef, ...constraints);
-                const snapshot = await getDocs(q);
-                if (!snapshot.empty) {
-                    return snapshot.docs[0].data() as QuizRun;
-                }
-            } catch (queryError: any) {
-                if (queryError.code === 'failed-precondition') {
-                    console.warn("Missing Index for QuizRun query. Falling back to client-side filter.");
-                    // Fallback: Query ONLY status=in_progress and sort/filter client side
-                    const fallbackQ = query(runsRef, where('status', '==', 'in_progress'), orderBy('updatedAt', 'desc'), limit(5));
-                    const snap = await getDocs(fallbackQ);
-
-                    // Return first match regardless of examId
-                    if (!snap.empty) {
-                        return snap.docs[0].data() as QuizRun;
-                    }
-                }
-                throw queryError;
+            );
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                return snapshot.docs[0].data() as QuizRun;
             }
-
             return null;
         } catch (error) {
             console.error("Error fetching latest run:", error);

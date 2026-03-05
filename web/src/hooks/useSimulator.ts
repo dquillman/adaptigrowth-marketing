@@ -5,6 +5,7 @@ import { db, auth } from '../firebase';
 import { SmartQuizService } from '../services/smartQuiz';
 import { XPService } from '../services/xpService';
 import { useExam } from '../contexts/ExamContext';
+import { EXAMS, isExam } from '../config/exams';
 
 export interface Question {
     id: string;
@@ -56,9 +57,11 @@ export const useSimulator = () => {
                 let durationSeconds = questionCount * 72; // ~1.2 mins per question
 
                 if (state?.mode === 'full-mock') {
-                    // PMP Standard: 180 questions, 230 minutes (3h 50m)
-                    questionCount = 180;
-                    durationSeconds = 230 * 60;
+                    // Find fullMock config for the current exam
+                    const examConfig = Object.values(EXAMS).find(e => isExam(selectedExamId, e.id));
+                    const mockConfig = examConfig?.fullMock ?? { questionCount: 50, durationMinutes: 60 };
+                    questionCount = mockConfig.questionCount;
+                    durationSeconds = mockConfig.durationMinutes * 60;
                 } else if (state?.count) {
                     // Custom overrides
                     questionCount = state.count;
@@ -168,7 +171,8 @@ export const useSimulator = () => {
                     timeSpent,
                     questions,
                     answers_map: answers,
-                    flagged
+                    flagged,
+                    examId: currentExamId
                 }
             });
 
@@ -176,7 +180,7 @@ export const useSimulator = () => {
             console.error("Error saving exam:", error);
             // Fallback navigation
             navigate('/app/simulator/results', {
-                state: { score, total: questions.length, timeSpent, questions, answers_map: answers, flagged }
+                state: { score, total: questions.length, timeSpent, questions, answers_map: answers, flagged, examId: currentExamId }
             });
         }
     };

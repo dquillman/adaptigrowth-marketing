@@ -9,9 +9,9 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot, collection, query, where, orderBy, limit, setDoc, getCountFromServer, updateDoc, serverTimestamp, type QuerySnapshot, type DocumentData } from 'firebase/firestore';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { XPService } from '../services/xpService';
-import ExamSelector from '../components/ExamSelector';
 import { useSidebar } from '../contexts/SidebarContext.tsx';
 import { useExam } from '../contexts/ExamContext';
+import AppHeader from '../components/layout/AppHeader';
 
 
 import ReportIssueModal from '../components/ReportIssueModal';
@@ -249,6 +249,7 @@ export default function Dashboard() {
 
     const resumableRuns = activeRuns.filter((r: any) => {
         if (r.quizType === 'diagnostic') return false;
+        if (r.examId !== selectedExamId) return false;
         // Only show banner if the run has unanswered questions and no completedAt
         const answered = (r.answers || []).filter((a: any) => a?.selectedOption !== undefined).length;
         const total = r.snapshot?.questionIds?.length || 0;
@@ -269,47 +270,33 @@ export default function Dashboard() {
                 ExamCoach v{DISPLAY_VERSION}
             </div>
             <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col pb-20 md:pb-0 transition-all duration-300`}>
-                <nav className="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-50">
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                        <div className="flex min-h-[4rem] py-2 justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-sm md:text-xl font-bold text-white font-display tracking-tight">Exam Coach Pro AI</h1>
-                            </div>
-                            <div className="flex items-center gap-2 md:gap-4">
-                                <ExamSelector />
-
-                                <Link to="/app/help" className="hidden md:flex text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors items-center gap-1">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Guide
-                                </Link>
-                                <Link to="/about" className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors">
-                                    About
-                                </Link>
-                                <button
-                                    onClick={() => setShowReportModal(true)}
-                                    className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors"
-                                >
-                                    Report a Problem
-                                </button>
-                                <Link to="/app/pricing" className="text-xs md:text-sm font-bold text-brand-400 hover:text-brand-300 transition-colors border border-brand-500/30 px-3 py-1.5 rounded-full bg-brand-500/10">
-                                    Upgrade
-                                </Link>
-                                <button
-                                    onClick={() => setShowStreakModal(true)}
-                                    className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-700/50 text-brand-300 rounded-full text-sm font-medium border border-slate-600 hover:bg-slate-700 hover:border-brand-500/50 transition-all cursor-pointer"
-                                >
-                                    <span>🔥 {userStreak} Day Streak</span>
-                                </button>
-                                <button
-                                    onClick={() => signOut(auth)}
-                                    className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors"
-                                >
-                                    Sign Out
-                                </button>
-                            </div >
-                        </div >
-                    </div >
-                </nav >
+                <AppHeader>
+                    <Link to="/app/help" className="hidden md:flex text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Guide
+                    </Link>
+                    <Link to="/about" className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                        About
+                    </Link>
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                    >
+                        Report a Problem
+                    </button>
+                    <button
+                        onClick={() => setShowStreakModal(true)}
+                        className="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-700/50 text-brand-300 rounded-full text-sm font-medium border border-slate-600 hover:bg-slate-700 hover:border-brand-500/50 transition-all cursor-pointer"
+                    >
+                        <span>🔥 {userStreak} Day Streak</span>
+                    </button>
+                    <button
+                        onClick={() => signOut(auth)}
+                        className="hidden md:inline text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                    >
+                        Sign Out
+                    </button>
+                </AppHeader>
 
                 <main className="mx-auto max-w-7xl py-4 md:py-8 px-4 sm:px-6 lg:px-8 space-y-6 md:space-y-8">
                     {/* Trial Banner */}
@@ -349,7 +336,7 @@ export default function Dashboard() {
 
                     {/* Expired Trial Blocker */}
                     {trial.status === 'expired' && (
-                        <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
+                        <div className="bg-slate-800 rounded-2xl p-4 sm:p-8 text-center border border-slate-700 shadow-2xl relative overflow-hidden mb-8">
                             <div className="relative z-10">
                                 <h3 className="text-xl md:text-2xl font-bold text-white mb-2 font-display">🔒 Your 14-day Pro trial has ended</h3>
                                 <p className="text-slate-400 mb-6 max-w-lg mx-auto">
@@ -442,10 +429,10 @@ export default function Dashboard() {
                         {hasActiveRun && (
                             <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 md:p-6 mt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                                 <div>
-                                    <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress</h3>
+                                    <h3 className="text-lg font-bold text-amber-400">You have a {resumableRuns[0]?.mode === 'trap' ? 'Trap Practice' : 'Smart Quiz'} in progress <span className="text-sm font-medium text-amber-400/60">({examName})</span></h3>
                                     <p className="text-slate-400 text-sm mt-1">Pick up where you left off.</p>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                                     <button
                                         onClick={async () => {
                                             if (!auth.currentUser) return;
@@ -458,14 +445,14 @@ export default function Dashboard() {
                                                 console.error('[Dashboard] Failed to dismiss run:', e);
                                             }
                                         }}
-                                        className="px-4 py-3 text-slate-400 hover:text-red-400 text-sm font-medium transition-colors"
+                                        className="px-4 py-2 sm:py-3 text-slate-400 hover:text-red-400 text-sm font-medium transition-colors"
                                         title="Dismiss this quiz"
                                     >
                                         Dismiss
                                     </button>
                                     <button
                                         onClick={() => navigate('/app/quiz', { state: { runId: resumableRuns[0].id, resume: true } })}
-                                        className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
+                                        className="px-4 sm:px-6 py-2.5 sm:py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded-xl text-base shadow-lg shadow-amber-500/20 transition-all hover:scale-105"
                                     >
                                         Resume
                                     </button>
@@ -517,7 +504,7 @@ export default function Dashboard() {
                         <TrendIndicatorCard />
 
                         {/* Daily Goal */}
-                        <div className="mt-8 bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-6 text-white relative overflow-hidden border border-brand-500/30">
+                        <div className="mt-8 bg-gradient-to-br from-brand-600 to-brand-900 rounded-2xl shadow-xl shadow-brand-900/50 p-4 sm:p-6 text-white relative overflow-hidden border border-brand-500/30">
                             <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-brand-400 opacity-10 rounded-full blur-2xl"></div>
                             <div className="flex justify-between items-start mb-2 relative z-10">
                                 <h3 className="text-lg font-bold font-display">Daily Goal</h3>
@@ -648,7 +635,7 @@ export default function Dashboard() {
                 {/* Streak Modal */}
                 {showStreakModal && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                        <div className="bg-slate-800 rounded-2xl p-8 max-w-sm w-full border border-slate-700 shadow-2xl relative">
+                        <div className="bg-slate-800 rounded-2xl p-4 sm:p-8 max-w-sm w-full border border-slate-700 shadow-2xl relative max-h-[90vh] overflow-y-auto">
                             <button
                                 onClick={() => setShowStreakModal(false)}
                                 className="absolute top-4 right-4 text-slate-400 hover:text-white"

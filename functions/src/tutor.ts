@@ -27,6 +27,7 @@ interface TutorPayload {
     userSelectedOptionIndex: number;
     correctRationale: string; // The existing curated explanation
     examDomain?: string; // e.g., "People", "Process", "Business Environment"
+    examId?: string; // e.g., "pmp", "csm" — scopes pattern tracking per exam
 }
 
 // Init Admin if not already
@@ -61,8 +62,8 @@ const generatePatternId = (name: string): string => {
 };
 
 // Helper: Handle Pattern Persistence and Stats
-const processPatternInteraction = async (userId: string, pattern: PatternData, isCorrect: boolean) => {
-    if (!pattern || !pattern.name) return;
+const processPatternInteraction = async (userId: string, pattern: PatternData, isCorrect: boolean, examId?: string) => {
+    if (!pattern || !pattern.name || !examId) return;
 
     const patternId = generatePatternId(pattern.name);
     const now = admin.firestore.Timestamp.now();
@@ -81,15 +82,9 @@ const processPatternInteraction = async (userId: string, pattern: PatternData, i
         updated_at: now
     }, { merge: true });
 
-    // 2. User Pattern Stats
-    const statsRef = db.collection('users').doc(userId).collection('pattern_stats').doc(patternId);
+    // 2. User Pattern Stats — always exam-scoped
+    const statsRef = db.collection('users').doc(userId).collection('examStats').doc(examId).collection('traps').doc(patternId);
 
-    // We need to read existing stats to calculate mastery
-    // Since we are in a batch/async flow and want speed, we'll use a transaction OR just separate reads. 
-    // For simplicity and lower contention, we'll do a read-modify-write. 
-    // Actually, let's just use increment/updates where possible, but mastery requires calculation.
-
-    // Fetch current stats outside of batch for calculation
     const currentStatsSnap = await statsRef.get();
     let stats = currentStatsSnap.data() || {
         times_seen: 0,
@@ -136,7 +131,7 @@ export const generateTutorBreakdown = functions.https.onCall(async (data: TutorP
         data: data ? { ...data, questionStem: data.questionStem?.substring(0, 50) + "..." } : "MISSING"
     });
 
-    const { questionStem, options, correctAnswerIndex, userSelectedOptionIndex, correctRationale, examDomain } = data;
+    const { questionStem, options, correctAnswerIndex, userSelectedOptionIndex, correctRationale, examDomain, examId } = data;
     const userId = context.auth.uid;
     const isCorrect = userSelectedOptionIndex === correctAnswerIndex;
 
@@ -239,7 +234,7 @@ IMPORTANT: Return valid JSON.
 
         // Fire-and-forget pattern processing (don't block UI response)
         if (result.pattern) {
-            processPatternInteraction(userId, result.pattern, isCorrect).catch(err => {
+            processPatternInteraction(userId, result.pattern, isCorrect, examId).catch(err => {
                 console.error("Failed to process pattern:", err);
             });
         }
@@ -306,13 +301,17 @@ export const getWeakestPatterns = functions.https.onCall(async (data: any, conte
     }
 
     const userId = context.auth.uid;
+    const examId: string | undefined = data?.examId;
+
+    if (!examId) {
+        return [];
+    }
 
     try {
-        // 1. Fetch User Stats (Low mastery first)
-        // We fetch a buffer (e.g., 20) to allow for effective in-memory tie-breaking
-        const statsVerifySnapshot = await db.collection('users')
-            .doc(userId)
-            .collection('pattern_stats')
+        // 1. Fetch User Stats — strictly exam-scoped
+        const statsCollection = db.collection('users').doc(userId).collection('examStats').doc(examId).collection('traps');
+
+        const statsVerifySnapshot = await statsCollection
             .orderBy('mastery_score', 'asc')
             .limit(20)
             .get();

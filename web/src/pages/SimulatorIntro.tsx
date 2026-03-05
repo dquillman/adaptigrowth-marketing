@@ -6,6 +6,7 @@ import { auth, db } from '../firebase';
 import { ArrowLeft, Play, History, Clock, FileText, Award, Lock } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useExam } from '../contexts/ExamContext';
+import { EXAMS, isExam } from '../config/exams';
 import { applyReadinessConfidence } from '../utils/readinessConfidence';
 import { getMockEligibility } from '../utils/mockEligibility';
 import { getAnsweredCount } from '../utils/questionMetrics';
@@ -23,7 +24,10 @@ interface SimulationAttempt {
 export default function SimulatorIntro() {
     const { isPro } = useSubscription();
     const navigate = useNavigate();
-    const { examName, selectedExamId: activeExamId, hasCompletedDiagnostic } = useExam();
+    const { examName, selectedExamId: activeExamId, examDomains, hasCompletedDiagnostic } = useExam();
+    const examConfig = Object.values(EXAMS).find(e => isExam(activeExamId, e.id));
+    const mockConfig = examConfig?.fullMock ?? { questionCount: 50, durationMinutes: 60 };
+    const hasFullMock = examConfig?.fullMock != null && (examConfig.fullMock.questionCount !== 50 || examConfig.fullMock.durationMinutes !== 60);
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
     const [readiness, setReadiness] = useState<any>(null);
@@ -34,7 +38,7 @@ export default function SimulatorIntro() {
             if (!auth.currentUser) return;
             try {
                 const { PredictionEngine } = await import('../services/PredictionEngine');
-                const report = await PredictionEngine.calculateReadiness(auth.currentUser.uid, activeExamId);
+                const report = await PredictionEngine.calculateReadiness(auth.currentUser.uid, activeExamId, examDomains);
                 setReadiness(report);
 
                 // Fetch XP for confidence modifier
@@ -192,83 +196,85 @@ export default function SimulatorIntro() {
                     </div>
                 )}
 
-                {/* Main Action Card */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8 mb-8 lg:mb-12">
-                    <div className={`lg:col-span-2 bg-gradient-to-br from-indigo-900/50 to-slate-900 border ${eligibility.reason === 'low-readiness' ? 'border-red-500/20' : 'border-indigo-500/30'} rounded-2xl p-5 md:p-8 relative overflow-hidden shadow-2xl transition-all`}>
-                        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-32 h-32 md:w-64 md:h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 relative z-10">Realistic Mock Exam</h2>
-                        <div className="flex flex-wrap gap-4 mb-8 text-slate-300 relative z-10">
-                            {/* ... stats ... */}
-                            <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700">
-                                <FileText className="w-4 h-4 text-indigo-400" />
-                                <span>50 Questions</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700">
-                                <Clock className="w-4 h-4 text-pink-400" />
-                                <span>60 Minutes</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700">
-                                <Award className="w-4 h-4 text-yellow-400" />
-                                <span>No Hints</span>
-                            </div>
-                        </div>
-
-                        <p className="text-slate-300 mb-8 max-w-xl leading-relaxed relative z-10">
-                            Test your readiness under exam conditions. You won't see correct answers until you finish.
-                            Results from this mode will <strong>not</strong> affect your Mastery Rings.
-                        </p>
-
-                        {eligibility.reason === 'not-pro' ? (
+                {/* Simulator Options */}
+                {eligibility.reason === 'not-pro' ? (
+                    <div className="mb-8 lg:mb-12 bg-slate-800/50 border border-slate-700 rounded-2xl p-5 md:p-8 text-center">
+                        <Lock className="w-8 h-8 text-slate-500 mx-auto mb-3" />
+                        <h2 className="text-xl font-bold text-white mb-2">Pro Feature Only</h2>
+                        <p className="text-slate-400 text-sm mb-4">Exam simulators are available for Pro members.</p>
+                        <button
+                            onClick={() => navigate('/app/pricing')}
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold py-2 px-6 rounded-lg transition-all"
+                        >
+                            Upgrade to Pro
+                        </button>
+                    </div>
+                ) : (
+                    <div className={`grid grid-cols-1 ${hasFullMock ? 'md:grid-cols-2' : ''} gap-4 mb-8 lg:mb-12`}>
+                        {/* Practice Simulator */}
+                        <button
+                            onClick={() => {
+                                if (eligibility.reason === 'low-readiness') {
+                                    if (!window.confirm("Your readiness score is low. Are you sure you want to proceed?")) return;
+                                }
+                                navigate('/app/simulator/exam', { state: { mode: 'practice', count: 50, durationMinutes: 60 } });
+                            }}
+                            className="group bg-gradient-to-br from-indigo-900/50 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 md:p-8 text-left relative overflow-hidden shadow-xl hover:border-indigo-400/50 transition-all"
+                        >
+                            <div className="absolute top-0 right-0 -mt-10 -mr-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
                             <div className="relative z-10">
-                                <button
-                                    disabled
-                                    className="flex items-center gap-3 bg-slate-700 text-slate-400 px-8 py-4 rounded-xl font-bold text-lg cursor-not-allowed border border-slate-600 mb-4"
-                                >
-                                    <Lock className="w-5 h-5" />
-                                    Pro Feature Only
-                                </button>
-                                <p className="text-indigo-200 text-sm max-w-sm">
-                                    <span onClick={() => navigate('/app/pricing')} className="underline cursor-pointer hover:text-white">Upgrade to Pro</span> to access full exam simulators.
-                                </p>
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                        <Play className="w-5 h-5 text-indigo-400 fill-current" />
+                                    </div>
+                                    <h2 className="text-xl md:text-2xl font-bold text-white">Practice Simulator</h2>
+                                </div>
+                                <div className="flex flex-wrap gap-3 mb-4 text-sm text-slate-300">
+                                    <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-indigo-400" /> 50 Questions</span>
+                                    <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-pink-400" /> ~60 Minutes</span>
+                                    <span className="flex items-center gap-1.5"><Award className="w-3.5 h-3.5 text-yellow-400" /> No Hints</span>
+                                </div>
+                                <p className="text-sm text-slate-400 leading-relaxed">Quick readiness check under timed exam conditions.</p>
                             </div>
-                        ) : eligibility.reason === 'low-readiness' ? (
+                        </button>
+
+                        {/* Full Mock Exam — only shown when config differs from practice */}
+                        {hasFullMock && (
                             <button
                                 onClick={() => {
-                                    if (window.confirm("CRITICAL WARNING: Your readiness score indicates a high chance of failure. Are you sure you want to proceed? This may impact your confidence.")) {
-                                        navigate('/app/simulator/exam');
+                                    if (eligibility.reason === 'low-readiness') {
+                                        if (!window.confirm("CRITICAL WARNING: Your readiness score indicates a high chance of failure. Are you sure you want to proceed?")) return;
                                     }
+                                    navigate('/app/simulator/exam', { state: { mode: 'full-mock' } });
                                 }}
-                                className="relative z-10 flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-red-600/25 transform hover:-translate-y-1 transition-all bg-red-600 hover:bg-red-500 text-white"
+                                className="group bg-gradient-to-br from-purple-900/50 to-slate-900 border border-purple-500/30 rounded-2xl p-5 md:p-8 text-left relative overflow-hidden shadow-xl hover:border-purple-400/50 transition-all"
                             >
-                                <Play className="w-5 h-5 fill-current" />
-                                Proceed Anyway (High Risk)
+                                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                            <Play className="w-5 h-5 text-purple-400 fill-current" />
+                                        </div>
+                                        <h2 className="text-xl md:text-2xl font-bold text-white">Full Mock Exam</h2>
+                                    </div>
+                                    <div className="flex flex-wrap gap-3 mb-4 text-sm text-slate-300">
+                                        <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-purple-400" /> {mockConfig.questionCount} Questions</span>
+                                        <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-pink-400" /> {mockConfig.durationMinutes} Minutes</span>
+                                        <span className="flex items-center gap-1.5"><Award className="w-3.5 h-3.5 text-yellow-400" /> No Hints</span>
+                                    </div>
+                                    <p className="text-sm text-slate-400 leading-relaxed">Full-length exam simulation matching real test conditions.</p>
+                                </div>
                             </button>
-                        ) : (
-                            <PrimaryButton
-                                onClick={() => navigate('/app/simulator/exam')}
-                                className="relative z-10 flex items-center gap-3 text-lg transform hover:-translate-y-1"
-                            >
-                                <Play className="w-5 h-5 fill-current" />
-                                Start New Exam
-                            </PrimaryButton>
                         )}
                     </div>
+                )}
 
-                    {/* Quick Stats or Tips */}
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 flex flex-col justify-center">
-                        {/* ... tips ... */}
-                        <h3 className="text-lg font-bold text-white mb-4">Exam Tips</h3>
-                        <ul className="space-y-4 text-slate-400 text-sm">
-                            <li className="flex gap-3">
-                                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0">1</div>
-                                <span>Flag questions for review if you're unsure. Don't get stuck.</span>
-                            </li>
-                            <li className="flex gap-3">
-                                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white shrink-0">2</div>
-                                <span>Pace yourself. You have roughly 1 minute per question.</span>
-                            </li>
-                        </ul>
+                {/* Exam Tips */}
+                <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-5 md:p-6 mb-8 lg:mb-12">
+                    <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-3">Exam Tips</h3>
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 text-slate-400 text-sm">
+                        <span>1. Flag questions for review if you're unsure. Don't get stuck.</span>
+                        <span>2. Pace yourself — roughly 1 minute per question.</span>
                     </div>
                 </div>
 

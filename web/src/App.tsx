@@ -3,7 +3,7 @@ import { useEffect, useState, createContext, useContext, lazy, Suspense, type Re
 import { onAuthStateChanged, type User, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { APP_VERSION, DISPLAY_VERSION } from "./version";
+import { APP_VERSION } from "./version";
 import { isValidVersion, evaluateVersion } from "./utils/versionCheck";
 // Pages (lazy-loaded for code splitting)
 const Landing = lazy(() => import("./pages/Landing"));
@@ -240,32 +240,44 @@ import MobileNav from "./components/MobileNav";
 import MockExamGuard from "./components/MockExamGuard";
 
 import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
-import { SubscriptionProvider } from "./contexts/SubscriptionContext";
+import { SubscriptionProvider, useSubscription } from "./contexts/SubscriptionContext";
 
 import TrialModal from "./components/TrialModal";
 
 // --- Layouts ---
-import IdentityIndicator from "./components/IdentityIndicator";
+import AppHeader from "./components/layout/AppHeader";
+
+function FreePlanBanner() {
+  const { isPro, questionsAnsweredToday, dailyLimit } = useSubscription();
+  if (isPro) return null;
+  const countColor = questionsAnsweredToday >= dailyLimit
+    ? 'text-red-400'
+    : questionsAnsweredToday >= dailyLimit - 2
+      ? 'text-amber-400'
+      : 'text-white';
+  return (
+    <div className="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between text-xs text-slate-300">
+      <span>Free plan: <span className={`font-semibold ${countColor}`}>{questionsAnsweredToday} / {dailyLimit}</span> questions used today</span>
+      <Link to="/app/pricing" className="font-semibold text-brand-400 hover:text-brand-300 transition-colors">
+        Upgrade for unlimited practice
+      </Link>
+    </div>
+  );
+}
 
 function AppLayout() {
   const { isCollapsed } = useSidebar();
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex relative overflow-x-hidden">
       <TrialModal />
-      {/* Global Identity & Version Label */}
-      <div className="absolute top-4 right-4 md:right-8 flex flex-col items-end gap-2 pointer-events-none z-50">
-        <div className="pointer-events-auto">
-          <IdentityIndicator />
-        </div>
-        <div className="text-xs md:text-sm font-mono font-semibold text-white/40 px-2">
-          v{DISPLAY_VERSION}
-        </div>
-      </div>
-
       <Sidebar />
       <MobileNav />
-      <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} p-4 md:p-8 pb-20 md:pb-8 transition-all duration-300`}>
-        <Outlet />
+      <div className={`flex-1 ml-0 ${isCollapsed ? 'md:ml-20' : 'md:ml-64'} flex flex-col pb-20 md:pb-0 transition-all duration-300`}>
+        <AppHeader />
+        <FreePlanBanner />
+        <div className="p-4 md:p-8">
+          <Outlet />
+        </div>
       </div>
     </div>
   );

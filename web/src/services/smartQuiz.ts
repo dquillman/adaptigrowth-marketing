@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 
 
+
 interface MasteryData {
     [domain: string]: {
         correct: number;
@@ -41,7 +42,7 @@ export const SmartQuizService = {
      * @param maxQuestions 
      * @param excludeIds - Optional list of IDs to exclude (e.g. from Diagnostic)
      */
-    generateSmartQuiz: async (userId: string, examId: string, masteryData: MasteryData, maxQuestions: number = 10, excludeIds: string[] = []): Promise<string[]> => {
+    generateSmartQuiz: async (userId: string, examId: string, masteryData: MasteryData, maxQuestions: number = 10, excludeIds: string[] = [], domains: string[] = []): Promise<string[]> => {
         console.log("Generating Smart Quiz for", userId, "with limit", maxQuestions, "Excluded:", excludeIds.length);
         const weakDomains = SmartQuizService.getWeakDomains(masteryData);
         let targetDomains = weakDomains;
@@ -52,8 +53,8 @@ export const SmartQuizService = {
             if (allDomains.length > 0) {
                 targetDomains = allDomains.sort(() => 0.5 - Math.random()).slice(0, 2);
             } else {
-                // Fallback if valid mastery data is missing
-                targetDomains = ['People', 'Process'];
+                // Fallback: use first two domains from Firestore-sourced list
+                targetDomains = domains.slice(0, 2);
             }
         }
 

@@ -25,6 +25,7 @@ interface FrictionMeta {
     totalQuestions?: number;
     loadTimeMs?: number;
     errorMessage?: string;
+    examId?: string;
     [key: string]: unknown;
 }
 

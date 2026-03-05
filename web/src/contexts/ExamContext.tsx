@@ -3,6 +3,7 @@ import { doc, getDoc, collection, query, where, limit, getDocs } from 'firebase/
 import { db, auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { DiagnosticService } from '../services/DiagnosticService';
+import { DEFAULT_EXAM_ID } from '../config/exams';
 
 interface ExamContextType {
     selectedExamId: string;
@@ -19,7 +20,7 @@ const ExamContext = createContext<ExamContextType | undefined>(undefined);
 
 export function ExamProvider({ children }: { children: ReactNode }) {
     const [selectedExamId, setSelectedExamId] = useState<string>(() => {
-        return localStorage.getItem('selectedExamId') || 'default-exam';
+        return localStorage.getItem('selectedExamId') || DEFAULT_EXAM_ID;
     });
     const [examName, setExamName] = useState<string>('');
     const [bankVersion, setBankVersion] = useState<string>('1.0');

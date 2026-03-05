@@ -1,5 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, setDoc, doc } from "firebase/firestore";
+import { DEFAULT_EXAM_ID } from "./config/exams";
+
+const DEFAULT_EXAM_FIRESTORE_ID = DEFAULT_EXAM_ID;
 
 const firebaseConfig = {
     apiKey: "AIzaSyBBlyZqdAJw_yNNfUQfVW59eYgkrBJLUCQ",
@@ -21,7 +24,7 @@ const sampleQuestions = [
         correctAnswer: 0,
         explanation: "Work performance data is a key output, representing raw observations and measurements identified during activities being performed to carry out the project work.",
         domain: "Process",
-        examId: "default-exam",
+        examId: DEFAULT_EXAM_FIRESTORE_ID,
         difficulty: "Medium"
     },
     {
@@ -30,7 +33,7 @@ const sampleQuestions = [
         correctAnswer: 2,
         explanation: "Collaborate/Problem Solve is the best approach to understand the root cause of the behavior and find a long-term solution.",
         domain: "People",
-        examId: "default-exam",
+        examId: DEFAULT_EXAM_FIRESTORE_ID,
         difficulty: "Hard"
     },
     {
@@ -39,7 +42,7 @@ const sampleQuestions = [
         correctAnswer: 1,
         explanation: "The Project Charter formally authorizes the existence of the project and provides the project manager with the authority to apply organizational resources to project activities.",
         domain: "Process",
-        examId: "default-exam",
+        examId: DEFAULT_EXAM_FIRESTORE_ID,
         difficulty: "Easy"
     },
     {
@@ -48,7 +51,7 @@ const sampleQuestions = [
         correctAnswer: 2,
         explanation: "Paris is the capital and most populous city of France.",
         domain: "Business Environment",
-        examId: "default-exam",
+        examId: DEFAULT_EXAM_FIRESTORE_ID,
         difficulty: "Easy"
     },
     {
@@ -58,7 +61,7 @@ const sampleQuestions = [
         correctAnswer: 1,
         explanation: "Note: When comparing strategies using EMV, always multiply each option's probability by its monetary impact. The option with the highest EMV represents the best expected outcome based on the available data. This is a core PMI decision-analysis technique from the PMBOK Guide.",
         domain: "Process",
-        examId: "default-exam",
+        examId: DEFAULT_EXAM_FIRESTORE_ID,
         scenarios: [
             { label: "Outsource manufacturing", probability: 0.6, impact: 50000 },
             { label: "Build in-house factory", probability: 0.3, impact: 120000 }

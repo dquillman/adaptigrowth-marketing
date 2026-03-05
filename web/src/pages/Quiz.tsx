@@ -23,6 +23,7 @@ import EmvCalculation from '../components/explanations/EmvCalculation';
 import MatchingQuestion, { shuffleMatchPairs } from '../components/MatchingQuestion';
 import { DOMAIN_CITATIONS } from '../utils/domainCitations';
 import { FrictionEventService } from '../services/FrictionEventService';
+import { DEFAULT_EXAM_ID, isExam } from '../config/exams';
 
 interface MatchPairData {
     term: string;
@@ -130,7 +131,7 @@ export default function Quiz() {
     useEffect(() => {
         // Determine the effective exam ID
         // Priority: URL Param > Context > Default
-        const effectiveId = paramExamId || selectedExamId || 'default-exam';
+        const effectiveId = paramExamId || selectedExamId || DEFAULT_EXAM_ID;
         setActiveExamId(effectiveId);
 
         // Pre-Quiz Reinforcement Check
@@ -184,14 +185,14 @@ export default function Quiz() {
                 } catch (err) {
                     console.error('Server-side quiz validation failed:', err);
                     setValidationError('Unable to verify usage limits. Please try again.');
-                    FrictionEventService.emit(user.uid, 'validation_blocked', { errorMessage: 'Server validation failed' });
+                    FrictionEventService.emit(user.uid, 'validation_blocked', { examId: activeExamId, errorMessage: 'Server validation failed' });
                     setLoading(false);
                     return;
                 }
 
                 if (!validationData.allowed) {
                     console.log('Server denied quiz start:', validationData);
-                    FrictionEventService.emit(user.uid, 'paywall_hit', { page: 'quiz', quizType: location.state?.mode || 'standard' });
+                    FrictionEventService.emit(user.uid, 'paywall_hit', { page: 'quiz', quizType: location.state?.mode || 'standard', examId: activeExamId });
                     setShowUpsell(true);
                     setLoading(false);
                     return;
@@ -231,6 +232,57 @@ export default function Quiz() {
 
                     const fetchedQs: Question[] = [];
                     for (const id of trapIds) {
+                        const docRef = doc(db, 'questions', id);
+                        const d = await getDoc(docRef);
+                        if (d.exists()) {
+                            const data = d.data();
+                            fetchedQs.push({
+                                id: d.id,
+                                ...data,
+                                difficulty: data.difficulty
+                            } as Question);
+                        }
+                    }
+                    setQuestions(fetchedQs);
+                    setLoading(false);
+                    return;
+                }
+
+                // TRAP DRILL MODE (5-question micro-drill)
+                if (location.state?.mode === 'trap-drill') {
+                    console.log("Initializing Trap Drill Mode...");
+                    const drillIds = await SmartQuizService.generateTrapQuiz(
+                        location.state.patternId,
+                        location.state.domainTags,
+                        activeExamId,
+                        5,
+                        location.state.masteryScore || 0
+                    );
+
+                    try {
+                        const newRunId = await QuizRunService.createRun(
+                            user.uid,
+                            activeExamId,
+                            'trap',
+                            'trap-drill',
+                            drillIds,
+                            {
+                                patternId: location.state.patternId,
+                                patternName: location.state.patternName || 'Thinking Trap'
+                            }
+                        );
+                        setActiveRunId(newRunId);
+                        setQuizType('trap');
+                    } catch (e) {
+                        console.error("Failed to persist trap-drill run", e);
+                    }
+
+                    UsageEventService.emit(user.uid, 'trap_drill_started', activeExamId, {
+                        patternId: location.state.patternId,
+                    });
+
+                    const fetchedQs: Question[] = [];
+                    for (const id of drillIds) {
                         const docRef = doc(db, 'questions', id);
                         const d = await getDoc(docRef);
                         if (d.exists()) {
@@ -571,13 +623,13 @@ export default function Quiz() {
             } catch (error) {
                 console.error("Error fetching smart questions:", error);
                 const uid = auth.currentUser?.uid;
-                if (uid) FrictionEventService.emit(uid, 'error_shown', { page: 'quiz', errorMessage: String(error) });
+                if (uid) FrictionEventService.emit(uid, 'error_shown', { page: 'quiz', examId: activeExamId, errorMessage: String(error) });
             } finally {
                 setLoading(false);
                 // EC-130: Log slow loads (> 5s)
                 const loadMs = Date.now() - loadStartRef.current;
                 if (loadMs > 5000 && auth.currentUser) {
-                    FrictionEventService.emit(auth.currentUser.uid, 'slow_load', { page: 'quiz', loadTimeMs: loadMs });
+                    FrictionEventService.emit(auth.currentUser.uid, 'slow_load', { page: 'quiz', examId: activeExamId, loadTimeMs: loadMs });
                 }
             }
         };
@@ -670,7 +722,7 @@ export default function Quiz() {
         const coreKey = 'ec_usage_core_count';
         const count = parseInt(sessionStorage.getItem(coreKey) || '0', 10);
         if (count < 20 && userId) {
-            UsageEventService.emit(userId, 'coreAction');
+            UsageEventService.emit(userId, 'coreAction', activeExamId);
             sessionStorage.setItem(coreKey, String(count + 1));
         }
     };
@@ -759,7 +811,7 @@ export default function Quiz() {
     };
 
     // PMP Doctrine Guard: PMP questions use stored doctrine explanations, not AI-generated Coach Breakdown
-    const isPMPExam = (examId?: string) => examId === '7qmPagj9A6RpkC0CwGkY' || examId?.toLowerCase().startsWith('pmp');
+    const isPMPExam = (examId?: string) => isExam(examId, DEFAULT_EXAM_ID);
 
     const fetchTutorBreakdown = async (question: Question, selectedOptIdx: number) => {
         // Matching questions don't use the tutor breakdown flow
@@ -786,7 +838,8 @@ export default function Quiz() {
                 correctAnswerIndex: question.correctAnswer,
                 userSelectedOptionIndex: selectedOptIdx,
                 correctRationale: question.explanation,
-                examDomain: question.domain
+                examDomain: question.domain,
+                examId: activeExamId
             });
             setTutorBreakdown(result.data as TutorResponse);
 
@@ -935,7 +988,7 @@ export default function Quiz() {
 
         // Usage event: diagnostic completion
         if ((location.state?.mode || 'standard') === 'diagnostic' && userId) {
-            UsageEventService.emit(userId, 'completion');
+            UsageEventService.emit(userId, 'completion', activeExamId);
         }
     };
 
@@ -956,7 +1009,7 @@ export default function Quiz() {
             const percent = total > 0 ? Math.round((score / total) * 100) : 0;
 
             // Derive weakest domain from domainResults
-            let weakest_domain: string = 'Process';
+            let weakest_domain: string = examDomains[0] || 'Process';
             let worstAccuracy = Infinity;
             for (const [domain, stats] of Object.entries(domainResults)) {
                 if (stats.total > 0) {
@@ -1054,6 +1107,15 @@ export default function Quiz() {
             // Re-enable Thinking Traps display after quiz completion
             localStorage.removeItem('exam_coach_traps_suppressed');
 
+            // Trap drill completion telemetry
+            if (location.state?.mode === 'trap-drill' && auth.currentUser) {
+                const drillAccuracy = Math.round((score / questions.length) * 100);
+                UsageEventService.emit(auth.currentUser.uid, 'trap_drill_completed', activeExamId, {
+                    patternId: location.state.patternId,
+                    score: drillAccuracy,
+                });
+            }
+
             setQuizCompleted(true);
         }
     };
@@ -1078,8 +1140,8 @@ export default function Quiz() {
     if (validationError) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
-                    <p className="text-slate-300 text-lg mb-4">{validationError}</p>
+                <div className="bg-slate-900/50 backdrop-blur-md p-4 sm:p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
+                    <p className="text-slate-300 text-base sm:text-lg mb-4">{validationError}</p>
                     <button
                         onClick={() => { setValidationError(null); setLoading(true); setRetryCount(c => c + 1); }}
                         className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
@@ -1116,13 +1178,13 @@ export default function Quiz() {
 
             return (
                 <div className="min-h-screen flex items-center justify-center bg-slate-950">
-                    <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700 animate-in fade-in zoom-in duration-500">
+                    <div className="bg-slate-900/50 backdrop-blur-md p-4 sm:p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700 animate-in fade-in zoom-in duration-500 max-h-[90vh] overflow-y-auto">
 
                         <div className="mb-6">
-                            <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
-                                <span className="text-4xl">🔎</span>
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
+                                <span className="text-3xl sm:text-4xl">🔎</span>
                             </div>
-                            <h2 className="text-3xl font-bold text-white font-display mb-2">Analysis Complete. Here’s what I found.</h2>
+                            <h2 className="text-2xl sm:text-3xl font-bold text-white font-display mb-2">Analysis Complete. Here’s what I found.</h2>
                             <p className="text-slate-400">I've mapped your baseline strengths and blind spots.</p>
                         </div>
 
@@ -1245,6 +1307,67 @@ export default function Quiz() {
             );
         }
 
+        // TRAP DRILL SUMMARY
+        if (location.state?.mode === 'trap-drill') {
+            const accuracy = (score / questions.length) * 100;
+            const trapName = location.state.patternName || "Thinking Trap";
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                    <div className="bg-slate-900/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
+                        <div className="w-16 h-16 bg-brand-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-brand-500/20">
+                            {accuracy >= 70 ? '🎯' : '🔧'}
+                        </div>
+
+                        <h2 className="text-2xl font-bold text-white mb-1 font-display">Trap Practice Complete</h2>
+                        <p className="text-slate-400 text-sm mb-6">Pattern: {trapName}</p>
+
+                        <div className="bg-slate-800/50 rounded-xl p-6 mb-6 border border-slate-700/50">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-slate-400 text-sm">Accuracy</span>
+                                <span className={`font-bold text-lg ${accuracy >= 70 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    {Math.round(accuracy)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-slate-700/50 rounded-full h-2 mb-4">
+                                <div
+                                    className={`h-2 rounded-full transition-all ${accuracy >= 70 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                                    style={{ width: `${accuracy}%` }}
+                                ></div>
+                            </div>
+                            <p className="text-slate-300 text-sm italic">
+                                {accuracy >= 70
+                                    ? "You are improving on this pattern."
+                                    : "This pattern still needs work. Try another drill."}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => navigate('/app/quiz', {
+                                    state: {
+                                        mode: 'trap-drill',
+                                        patternId: location.state.patternId,
+                                        patternName: trapName,
+                                        domainTags: location.state.domainTags,
+                                        masteryScore: location.state.masteryScore,
+                                        examId: activeExamId
+                                    },
+                                    replace: true
+                                })}
+                                className="w-full bg-brand-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-brand-500 shadow-lg shadow-brand-500/30 transition-all"
+                            >
+                                Practice Again
+                            </button>
+                            <Link to="/app" className="block w-full bg-slate-800 text-slate-300 px-6 py-3 rounded-xl font-bold hover:bg-slate-700 transition-all border border-slate-700">
+                                Back to Dashboard
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         // TRAP MODE SUMMARY
         if (location.state?.mode === 'trap') {
             const accuracy = (score / questions.length) * 100;
@@ -1346,9 +1469,9 @@ export default function Quiz() {
 
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <div className="bg-slate-800/50 backdrop-blur-md p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700">
-                    <h2 className="text-3xl font-bold text-white mb-4 font-display">Quiz Completed!</h2>
-                    <p className="text-xl text-slate-300 mb-6">You scored <span className="font-bold text-brand-400">{score} / {questions.length}</span></p>
+                <div className="bg-slate-800/50 backdrop-blur-md p-4 sm:p-8 rounded-2xl shadow-2xl shadow-black/20 text-center max-w-md w-full border border-slate-700 max-h-[90vh] overflow-y-auto">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4 font-display">Quiz Completed!</h2>
+                    <p className="text-lg sm:text-xl text-slate-300 mb-6">You scored <span className="font-bold text-brand-400">{score} / {questions.length}</span></p>
 
                     {/* Mastery Explanation Disclosure */}
                     <div className="mb-6 text-left">
@@ -1479,7 +1602,7 @@ export default function Quiz() {
                                 onClick={async () => {
                                     if (window.confirm("Exit Diagnostic? Your progress will not be saved.")) {
                                         const uid = auth.currentUser!.uid;
-                                        FrictionEventService.emit(uid, 'quiz_abandon', { quizType: 'diagnostic', questionIndex: currentQuestionIndex, totalQuestions: questions.length });
+                                        FrictionEventService.emit(uid, 'quiz_abandon', { quizType: 'diagnostic', examId: activeExamId, questionIndex: currentQuestionIndex, totalQuestions: questions.length });
                                         if (activeRunId) {
                                             const { QuizRunService } = await import('../services/QuizRunService');
                                             await QuizRunService.completeRun(uid, activeRunId, {
@@ -1501,7 +1624,7 @@ export default function Quiz() {
                             <button
                                 onClick={async () => {
                                     if (window.confirm("Quit and save your progress so far?")) {
-                                        if (auth.currentUser) FrictionEventService.emit(auth.currentUser.uid, 'quiz_abandon', { quizType: quizType || 'standard', questionIndex: currentQuestionIndex, totalQuestions: questions.length });
+                                        if (auth.currentUser) FrictionEventService.emit(auth.currentUser.uid, 'quiz_abandon', { quizType: quizType || 'standard', examId: activeExamId, questionIndex: currentQuestionIndex, totalQuestions: questions.length });
                                         triggerSmartQuizReview(true);
                                         if (activeRunId) {
                                             // Unified Mode: Pause — navigate (modal survives in App.tsx)
@@ -1567,8 +1690,8 @@ export default function Quiz() {
                 {/* Mode Info Header */}
                 <div className="w-full max-w-3xl mb-6">
                     {location.state?.mode === 'smart' ? (
-                        <div className="bg-brand-900/30 border border-brand-500/30 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-2xl">🧠</span>
+                        <div className="bg-brand-900/30 border border-brand-500/30 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">🧠</span>
                             <div>
                                 <h3 className="text-brand-300 font-bold mb-1">Daily Practice Mode</h3>
                                 <p className="text-sm text-slate-300">
@@ -1577,8 +1700,8 @@ export default function Quiz() {
                             </div>
                         </div>
                     ) : location.state?.mode === 'weakest' ? (
-                        <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-2xl">⚡</span>
+                        <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">⚡</span>
                             <div>
                                 <h3 className="text-purple-300 font-bold mb-1">Smart Practice: {location.state.filterDomain}</h3>
                                 <p className="text-sm text-slate-300">
@@ -1587,8 +1710,8 @@ export default function Quiz() {
                             </div>
                         </div>
                     ) : location.state?.filterDomain ? (
-                        <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-2xl">⚡</span>
+                        <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">⚡</span>
                             <div>
                                 <h3 className="text-purple-300 font-bold mb-1">{location.state.filterDomain} Practice Mode</h3>
                                 <p className="text-sm text-slate-300">
@@ -1596,9 +1719,19 @@ export default function Quiz() {
                                 </p>
                             </div>
                         </div>
+                    ) : location.state?.mode === 'trap-drill' ? (
+                        <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">🎯</span>
+                            <div>
+                                <h3 className="text-indigo-300 font-bold mb-1">Trap Drill: {location.state.patternName}</h3>
+                                <p className="text-sm text-slate-300">
+                                    5-question micro-drill targeting this thinking trap.
+                                </p>
+                            </div>
+                        </div>
                     ) : location.state?.mode === 'trap' ? (
-                        <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-2xl">🛡️</span>
+                        <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">🛡️</span>
                             <div>
                                 <h3 className="text-indigo-300 font-bold mb-1">Trap Repair: {location.state.patternName}</h3>
                                 <p className="text-sm text-slate-300">
@@ -1607,8 +1740,8 @@ export default function Quiz() {
                             </div>
                         </div>
                     ) : quizType === 'diagnostic' ? (
-                        <div className="bg-gradient-to-r from-brand-900/30 to-brand-800/30 border border-brand-500/30 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-2xl">🔎</span>
+                        <div className="bg-gradient-to-r from-brand-900/30 to-brand-800/30 border border-brand-500/30 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">🔎</span>
                             <div>
                                 <h3 className="text-brand-300 font-bold mb-1">I’m analyzing your logic, not just your score.</h3>
                                 <p className="text-sm text-slate-300">
@@ -1617,8 +1750,8 @@ export default function Quiz() {
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 flex items-start gap-3">
-                            <span className="text-2xl">📝</span>
+                        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-3 sm:p-4 flex items-start gap-2 sm:gap-3">
+                            <span className="text-lg sm:text-2xl">📝</span>
                             <div>
                                 <h3 className="text-slate-300 font-bold mb-1">General Practice Mode</h3>
                                 <p className="text-sm text-slate-400">
@@ -1634,11 +1767,11 @@ export default function Quiz() {
                 </div>
 
                 <div className="w-full max-w-3xl">
-                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-black/20 border border-slate-700 overflow-hidden">
+                    <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-black/20 border border-slate-700 overflow-hidden max-w-full">
 
                         {/* AI Scenario Image */}
                         {currentQuestion.imageUrl && (
-                            <div className="w-full h-48 sm:h-64 bg-slate-900 relative overflow-hidden group">
+                            <div className="w-full h-32 sm:h-48 md:h-64 bg-slate-900 relative overflow-hidden group">
                                 <img
                                     src={currentQuestion.imageUrl}
                                     alt="Scenario Visualization"
@@ -1734,7 +1867,7 @@ export default function Quiz() {
 
                             {showExplanation && explanationExpanded && (
                                 <div className="mt-8 pt-6 border-t border-slate-700">
-                                    <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-lg p-4 sm:p-6 md:p-10">
+                                    <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-lg p-3 sm:p-6 lg:p-10">
                                         {currentQuestion.type === "emv" && currentQuestion.scenarios && (
                                             <EmvCalculation scenarios={currentQuestion.scenarios} />
                                         )}
