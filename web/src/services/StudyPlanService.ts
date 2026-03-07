@@ -407,6 +407,20 @@ export const StudyPlanService = {
                 };
             }
 
+            // ── Guard: if domains list is empty, fall back to a synthetic domain from quiz data ─
+            const domains = getExamDomains(domainNames || []);
+            if (domains.length === 0 && newAnchorDomain) {
+                domains.push({
+                    name: newAnchorDomain,
+                    weight: 1,
+                    topics: [`Review ${newAnchorDomain} concepts`, `Practice ${newAnchorDomain} questions`, `Advanced ${newAnchorDomain} application`]
+                });
+            }
+
+            if (domains.length === 0) {
+                return { success: false, error: 'No exam domains available. Please update your plan settings.' };
+            }
+
             // ── Preserve past tasks and completed tasks from today ────────────────────
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -420,7 +434,6 @@ export const StudyPlanService = {
             });
 
             // ── Generate future tasks locked to chosen anchor domain ──────────────────
-            const domains = getExamDomains(domainNames || []);
             const anchorDomain = domains.find(d => d.name === newAnchorDomain) || domains[0];
 
             const futureTasks: DailyTask[] = [];

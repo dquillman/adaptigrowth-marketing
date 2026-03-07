@@ -190,7 +190,7 @@ export default function StudySchedule() {
                 selectedExamId,
                 plan,
                 examName || undefined,
-                []
+                examDomains || []
             );
 
             if (result.success && result.domain) {

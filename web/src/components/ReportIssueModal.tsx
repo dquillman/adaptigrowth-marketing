@@ -18,7 +18,7 @@ interface ReportIssueModalProps {
 export default function ReportIssueModal({ isOpen, onClose, context }: ReportIssueModalProps) {
     const { user } = useAuth();
     const location = useLocation();
-    const { selectedExamId } = useExam();
+    const { selectedExamId, examName } = useExam();
 
     const [type, setType] = useState<'bug' | 'content' | 'other'>('bug');
     const [description, setDescription] = useState('');
@@ -92,6 +92,7 @@ export default function ReportIssueModal({ isOpen, onClose, context }: ReportIss
                 environment,
                 route: location.pathname,
                 examId: selectedExamId ?? null,
+                examName: examName || null,
                 userAgent: ua,
                 submittedFrom: 'exam-coach',
                 deviceType,
@@ -235,7 +236,7 @@ export default function ReportIssueModal({ isOpen, onClose, context }: ReportIss
 
                             <div className="bg-slate-900/50 rounded-lg p-3 text-xs text-slate-500 space-y-1">
                                 <p>Make sure to include details so we can reproduce it.</p>
-                                <p>Device info and current page ({location.pathname}) will be included automatically.</p>
+                                <p>Device info, current exam{examName ? ` (${examName})` : ''}, and current page ({location.pathname}) will be included automatically.</p>
                             </div>
 
                             <button
