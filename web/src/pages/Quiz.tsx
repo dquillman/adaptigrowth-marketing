@@ -61,7 +61,18 @@ export default function Quiz() {
     const [tutorBreakdown, setTutorBreakdown] = useState<TutorResponse | null>(null);
     const [loadingBreakdown, setLoadingBreakdown] = useState(false);
     const [coachMode, setCoachMode] = useState<CoachMode>(() => (localStorage.getItem('coachMode') as CoachMode) || 'quick');
-    const handleCoachModeChange = (mode: CoachMode) => { setCoachMode(mode); localStorage.setItem('coachMode', mode); };
+    const lastBreakdownRef = useRef<{ question: any; selectedOptIdx: number } | null>(null);
+    const handleCoachModeChange = (mode: CoachMode) => {
+        setCoachMode(mode);
+        localStorage.setItem('coachMode', mode);
+        // Re-fetch current breakdown with the new mode
+        if (lastBreakdownRef.current) {
+            const { question, selectedOptIdx } = lastBreakdownRef.current;
+            setTutorBreakdown(null);
+            setDepthContent(null);
+            fetchTutorBreakdownWithMode(question, selectedOptIdx, mode);
+        }
+    };
     const [score, setScore] = useState(0);
     const [quizCompleted, setQuizCompleted] = useState(false);
     const [domainResults, setDomainResults] = useState<Record<string, { correct: number; total: number }>>({});
@@ -815,14 +826,15 @@ export default function Quiz() {
     // PMP Doctrine Guard: PMP questions use stored doctrine explanations, not AI-generated Coach Breakdown
     const isPMPExam = (examId?: string) => isExam(examId, DEFAULT_EXAM_ID);
 
-    const fetchTutorBreakdown = async (question: Question, selectedOptIdx: number) => {
+    const fetchTutorBreakdownWithMode = async (question: Question, selectedOptIdx: number, mode: CoachMode) => {
         // Matching questions don't use the tutor breakdown flow
         if (question.type === 'matching') return;
 
         setLoadingBreakdown(true);
+        lastBreakdownRef.current = { question, selectedOptIdx };
         try {
-            // PMP Guard: Use stored doctrine explanation directly, skip AI generation
-            if (isPMPExam(question.examId)) {
+            // PMP Quick mode: Use stored doctrine explanation directly
+            if (isPMPExam(question.examId) && mode === 'quick') {
                 setTutorBreakdown({
                     verdict: '', // No AI verdict for PMP - doctrine explanation is complete
                     comparison: [], // No option analysis - doctrine covers this
@@ -833,8 +845,7 @@ export default function Quiz() {
                 return;
             }
 
-            const coachMode = localStorage.getItem('coachMode') || 'quick';
-            const examLens = EXAM_LENS[activeExamId] || null;
+            const examLensConfig = EXAM_LENS[activeExamId] || null;
             const generateFn = httpsCallable(functions, 'generateTutorBreakdown');
             const result = await generateFn({
                 questionStem: question.stem,
@@ -844,9 +855,9 @@ export default function Quiz() {
                 correctRationale: question.explanation,
                 examDomain: question.domain,
                 examId: activeExamId,
-                coachMode,
-                lensName: examLens?.lensName,
-                lensFramework: examLens?.framework,
+                coachMode: mode,
+                lensName: examLensConfig?.lensName,
+                lensFramework: examLensConfig?.framework,
             });
             setTutorBreakdown(result.data as TutorResponse);
 
@@ -883,6 +894,10 @@ export default function Quiz() {
             setLoadingBreakdown(false);
         }
     };
+
+    // Convenience wrapper that uses current coachMode state
+    const fetchTutorBreakdown = (question: Question, selectedOptIdx: number) =>
+        fetchTutorBreakdownWithMode(question, selectedOptIdx, coachMode);
 
     const [depthContent, setDepthContent] = useState<string | null>(null);
     const [depthLoading, setDepthLoading] = useState(false);
