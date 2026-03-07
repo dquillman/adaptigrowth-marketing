@@ -2,7 +2,7 @@ import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
-import TutorBreakdown, { type TutorResponse } from '../components/TutorBreakdown';
+import TutorBreakdown, { type TutorResponse, type CoachMode } from '../components/TutorBreakdown';
 import type { PatternData } from '../components/PatternInsightCard';
 import { doc, setDoc, getDoc, collection, query, getDocs, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
@@ -23,7 +23,7 @@ import EmvCalculation from '../components/explanations/EmvCalculation';
 import MatchingQuestion, { shuffleMatchPairs } from '../components/MatchingQuestion';
 import { DOMAIN_CITATIONS } from '../utils/domainCitations';
 import { FrictionEventService } from '../services/FrictionEventService';
-import { DEFAULT_EXAM_ID, isExam } from '../config/exams';
+import { DEFAULT_EXAM_ID, isExam, EXAM_LENS } from '../config/exams';
 
 interface MatchPairData {
     term: string;
@@ -60,6 +60,8 @@ export default function Quiz() {
     const [explanationExpanded, setExplanationExpanded] = useState(false); // New: Track manual expansion
     const [tutorBreakdown, setTutorBreakdown] = useState<TutorResponse | null>(null);
     const [loadingBreakdown, setLoadingBreakdown] = useState(false);
+    const [coachMode, setCoachMode] = useState<CoachMode>(() => (localStorage.getItem('coachMode') as CoachMode) || 'quick');
+    const handleCoachModeChange = (mode: CoachMode) => { setCoachMode(mode); localStorage.setItem('coachMode', mode); };
     const [score, setScore] = useState(0);
     const [quizCompleted, setQuizCompleted] = useState(false);
     const [domainResults, setDomainResults] = useState<Record<string, { correct: number; total: number }>>({});
@@ -831,6 +833,8 @@ export default function Quiz() {
                 return;
             }
 
+            const coachMode = localStorage.getItem('coachMode') || 'quick';
+            const examLens = EXAM_LENS[activeExamId] || null;
             const generateFn = httpsCallable(functions, 'generateTutorBreakdown');
             const result = await generateFn({
                 questionStem: question.stem,
@@ -839,7 +843,10 @@ export default function Quiz() {
                 userSelectedOptionIndex: selectedOptIdx,
                 correctRationale: question.explanation,
                 examDomain: question.domain,
-                examId: activeExamId
+                examId: activeExamId,
+                coachMode,
+                lensName: examLens?.lensName,
+                lensFramework: examLens?.framework,
             });
             setTutorBreakdown(result.data as TutorResponse);
 
@@ -1906,6 +1913,8 @@ export default function Quiz() {
                                                 onExpandDepth={handleExpandDepth}
                                                 depthContent={depthContent}
                                                 depthLoading={depthLoading}
+                                                coachMode={coachMode}
+                                                onCoachModeChange={handleCoachModeChange}
                                             />
                                         )}
 

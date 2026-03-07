@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { PatternData } from './PatternInsightCard';
 import StructuredExplanation from './explanations/StructuredExplanation';
+
+export type CoachMode = 'quick' | 'deep';
+
 export interface TutorResponse {
     verdict: string;
     comparison: {
@@ -18,9 +21,11 @@ interface TutorBreakdownProps {
     onExpandDepth?: (type: 'simple' | 'memory') => void;
     depthContent?: string | null;
     depthLoading?: boolean;
+    coachMode: CoachMode;
+    onCoachModeChange: (mode: CoachMode) => void;
 }
 
-export default function TutorBreakdown({ breakdown, loading, onExpandDepth, depthContent, depthLoading }: TutorBreakdownProps) {
+export default function TutorBreakdown({ breakdown, loading, onExpandDepth, depthContent, depthLoading, coachMode, onCoachModeChange }: TutorBreakdownProps) {
     const [isMuted, setIsMuted] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -96,6 +101,23 @@ export default function TutorBreakdown({ breakdown, loading, onExpandDepth, dept
                     <h3 className="text-indigo-200 font-bold font-display">Coach Breakdown</h3>
                 </div>
                 <div className="flex items-center gap-2">
+                    {/* Coach Mode Toggle */}
+                    <div className="flex bg-slate-800/80 rounded-lg p-0.5 border border-slate-700/50">
+                        <button
+                            onClick={() => onCoachModeChange('quick')}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${coachMode === 'quick' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            title="Quick: concise verdict + mental rule"
+                        >
+                            Quick
+                        </button>
+                        <button
+                            onClick={() => onCoachModeChange('deep')}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${coachMode === 'deep' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+                            title="Deep: structured breakdown with exam lens, conflicts, patterns"
+                        >
+                            Deep
+                        </button>
+                    </div>
                     <button
                         onClick={() => handleSpeak(breakdown.verdict)}
                         className={`p-2 rounded-full hover:bg-white/10 transition-colors ${isSpeaking ? 'text-brand-400 animate-pulse' : 'text-slate-400'}`}

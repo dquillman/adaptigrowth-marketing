@@ -12,6 +12,9 @@ interface TutorPayload {
     correctRationale: string; // The existing curated explanation
     examDomain?: string; // e.g., "People", "Process", "Business Environment"
     examId?: string; // e.g., "pmp", "csm" — scopes pattern tracking per exam
+    coachMode?: 'quick' | 'deep'; // Controls explanation depth
+    lensName?: string; // e.g., "SHRM Competency Lens"
+    lensFramework?: string; // e.g., "What aligns with SHRM behavioral competencies?"
 }
 
 // Init Admin if not already
@@ -115,9 +118,10 @@ export const generateTutorBreakdown = functions.https.onCall(async (data: TutorP
         data: data ? { ...data, questionStem: data.questionStem?.substring(0, 50) + "..." } : "MISSING"
     });
 
-    const { questionStem, options, correctAnswerIndex, userSelectedOptionIndex, correctRationale, examDomain, examId } = data;
+    const { questionStem, options, correctAnswerIndex, userSelectedOptionIndex, correctRationale, examDomain, examId, coachMode, lensName, lensFramework } = data;
     const userId = context.auth.uid;
     const isCorrect = userSelectedOptionIndex === correctAnswerIndex;
+    const isDeep = coachMode === 'deep';
 
     // 1. Validation
     if (!questionStem || !options || !Array.isArray(options) || correctAnswerIndex === undefined || userSelectedOptionIndex === undefined) {
@@ -154,7 +158,42 @@ export const generateTutorBreakdown = functions.https.onCall(async (data: TutorP
             messages: [
                 {
                     role: "system",
-                    content: `You are a veteran Exam Coach.
+                    content: isDeep
+                        ? `You are a veteran Exam Coach.
+You know exactly what matters and skip the rest.
+Tone: Calm, Direct, Supportive.
+
+GOAL:
+1. Validate the user's logic briefly (e.g., "In the real world, you'd do X...").
+2. Pivot to the "Exam Reality" immediately.
+3. State the ONE key insight.
+4. Provide a structured breakdown with the exam-specific lens.
+
+CONSTRAINTS:
+- No filler words ("It is important to note...", "Let me explain...").
+- No textbook definitions.
+
+OUTPUT FORMAT:
+{
+  "verdict": "string (The coaching response. Validation -> Pivot -> Insight.)",
+  "comparison": [
+    { "optionIndex": 0, "text": "Option text", "explanation": "Targeted 1-liner." }
+  ],
+  "examLens": "string — MUST use this EXACT structure with these section prefixes separated by double newlines:\\n\\n${lensName || 'Exam Lens'}: [1-2 sentence core insight framed by: ${lensFramework || 'the exam framework'}]\\n\\nWhy this conflicts: [Explain why the wrong answer seems right but violates the framework]\\n\\nPattern: [A reusable pattern or mental rule to remember]\\n\\nNote: [Optional extra context or edge case]",
+  "pattern": {
+      "name": "string (Short canonical name)",
+      "core_rule": "string (1-sentence immutable rule)",
+      "trap_signals": ["string"],
+      "five_second_heuristic": "string (Fast elimination rule)",
+      "domain_tags": ["string"]
+  }
+}
+
+Use ONLY the provided rationale as the source of truth.
+
+IMPORTANT: Return valid JSON. The examLens field must contain the section prefixes (${lensName || 'Exam Lens'}:, Why this conflicts:, Pattern:, Note:) separated by double newlines.
+`
+                        : `You are a veteran Exam Coach.
 You know exactly what matters and skip the rest.
 Tone: Calm, Direct, Supportive.
 
@@ -180,9 +219,9 @@ OUTPUT FORMAT:
   "pattern": {
       "name": "string (Short canonical name)",
       "core_rule": "string (1-sentence immutable rule)",
-      "trap_signals": ["string"], 
+      "trap_signals": ["string"],
       "five_second_heuristic": "string (Fast elimination rule)",
-      "domain_tags": ["string"] 
+      "domain_tags": ["string"]
   }
 }
 
