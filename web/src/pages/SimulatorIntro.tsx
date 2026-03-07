@@ -10,7 +10,7 @@ import { EXAMS, isExam } from '../config/exams';
 import { applyReadinessConfidence } from '../utils/readinessConfidence';
 import { getMockEligibility } from '../utils/mockEligibility';
 import { getAnsweredCount } from '../utils/questionMetrics';
-import PrimaryButton from '../components/ui/PrimaryButton';
+
 
 interface SimulationAttempt {
     id: string;

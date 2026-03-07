@@ -257,11 +257,6 @@ export default function Dashboard() {
     });
     const hasActiveRun = resumableRuns.length > 0;
 
-    // Real-time diagnostic detection from activity snapshot (for UI toggle)
-    const diagnosticDone = recentActivity.some(
-        a => (a.mode === 'diagnostic' || a.quizType === 'diagnostic') && a.score !== undefined
-    );
-
     return (
         <div className="min-h-screen flex bg-transparent relative overflow-x-hidden">
             <Sidebar />

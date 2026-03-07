@@ -31,7 +31,7 @@ export const StudyPlanService = {
         examId: string,
         examDate: Date,
         weeklyHours: number,
-        examName?: string,
+        _examName?: string,
         domainNames?: string[],
         anchorDomain?: string  // New: From diagnostic's lowest domain
     ): StudyPlan => {
@@ -242,7 +242,7 @@ export const StudyPlanService = {
         userId: string,
         examId: string,
         existingPlan: StudyPlan,
-        examName?: string,
+        _examName?: string,
         domainNames?: string[]
     ): Promise<{ success: boolean; domain?: string; reason?: 'underMeasured' | 'lowestAccuracy'; plan?: StudyPlan; error?: string }> => {
         try {

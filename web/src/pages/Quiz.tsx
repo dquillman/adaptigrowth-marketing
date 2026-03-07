@@ -712,7 +712,7 @@ export default function Quiz() {
         setTutorBreakdown(null); // Reset breakdown
 
         // Always fetch tutor breakdown for learning reinforcement
-        fetchTutorBreakdown(currentQuestion, selectedOption);
+        fetchTutorBreakdown(currentQuestion, selectedOption!);
 
         // Save Granular Question Progress (SRS)
         updateQuestionProgress(currentQuestion.id, isCorrect);
@@ -866,8 +866,8 @@ export default function Quiz() {
             setTutorBreakdown({
                 verdict: "Coach is seemingly offline. Here is the standard explanation:",
                 comparison: [{
-                    optionIndex: question.correctAnswer,
-                    text: question.options[question.correctAnswer],
+                    optionIndex: question.correctAnswer ?? 0,
+                    text: question.options?.[question.correctAnswer ?? 0] ?? '',
                     explanation: "Correct Answer" // Minimal placeholder
                 }],
                 examLens: question.explanation
