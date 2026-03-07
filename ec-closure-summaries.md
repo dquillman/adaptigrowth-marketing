@@ -140,3 +140,37 @@
 ---
 
 *Generated: 2026-03-04 | Branch: `claude/fix-ec-issues-GNteq`*
+
+---
+
+# EC Closure Summaries — Session 2026-03-06
+
+---
+
+## EC-134: "Explain This Like I'm New" Returns Deep Dive Error
+
+**Status:** CLOSED — Fixed
+**Severity:** S2 (Blocking)
+**Files Changed:** `functions/src/tutor.ts`
+
+**Problem:** Clicking "Explain this like I'm new" in the Coach Breakdown panel always failed with a generic "Could not generate deep dive at this time" error. The feature was completely non-functional in production.
+
+**Root Cause:** The `generateTutorDeepDive` Cloud Function checked for the OpenAI API key using only `process.env.OPENAI_API_KEY`. In production, the key is set via `functions.config().openai.key` (Firebase Runtime Config), not environment variables. The guard clause threw `failed-precondition` before the OpenAI call was ever reached.
+
+The sibling function `generateTutorBreakdown` correctly used dual-source resolution (`functions.config()` first, `process.env` fallback), but this pattern was not carried over when `generateTutorDeepDive` was written.
+
+**Solution:**
+- Aligned `generateTutorDeepDive` API key resolution with `generateTutorBreakdown`'s dual-source pattern: `functions.config().openai?.key || process.env.OPENAI_API_KEY`
+- Changed client initialization from lazy singleton `getOpenAI()` to direct `new OpenAI({ apiKey })` with the correctly resolved key
+- Removed the now-unused `getOpenAI` helper (dead code cleanup)
+
+**What Was NOT Changed:**
+- Prompt content and model parameters unchanged
+- `generateTutorBreakdown` unchanged
+- UI components (`TutorBreakdown.tsx`, `Quiz.tsx`) unchanged — the bug was entirely server-side
+
+**Impact:** Pro users can now use the "Explain this like I'm new" button to get simplified 5-year-old-level analogies of coach verdicts, restoring a key tutoring feature.
+
+---
+
+*Generated: 2026-03-06*

@@ -17,7 +17,8 @@ async function requirePro(context) {
     const isPro = (userData === null || userData === void 0 ? void 0 : userData.isPro) === true ||
         (userData === null || userData === void 0 ? void 0 : userData.plan) === 'pro' ||
         (userData === null || userData === void 0 ? void 0 : userData.trialActive) === true ||
-        (userData === null || userData === void 0 ? void 0 : userData.testerOverride) === true;
+        (userData === null || userData === void 0 ? void 0 : userData.testerOverride) === true ||
+        (userData === null || userData === void 0 ? void 0 : userData.billingStatus) === 'comped';
     if (!isPro) {
         throw new https_1.HttpsError('permission-denied', 'Pro subscription required.');
     }

@@ -21,7 +21,8 @@ export async function requirePro(context: any) {
     userData?.isPro === true ||
     userData?.plan === 'pro' ||
     userData?.trialActive === true ||
-    userData?.testerOverride === true;
+    userData?.testerOverride === true ||
+    userData?.billingStatus === 'comped';
 
   if (!isPro) {
     throw new HttpsError('permission-denied', 'Pro subscription required.');

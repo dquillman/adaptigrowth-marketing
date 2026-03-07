@@ -1,5 +1,5 @@
-﻿import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
-import { useEffect, useState, createContext, useContext, lazy, Suspense, type ReactNode } from "react";
+﻿import { Routes, Route, Navigate, Outlet, useLocation, Link } from "react-router-dom";
+import React, { useEffect, useState, createContext, useContext, lazy, Suspense, type ReactNode } from "react";
 import { onAuthStateChanged, type User, signOut } from "firebase/auth";
 import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -331,10 +331,38 @@ function GlobalSmartQuizReviewModal() {
   );
 }
 
+class AppErrorBoundary extends React.Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('AppErrorBoundary caught:', error, info.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-slate-900 text-white p-8">
+          <div className="max-w-lg text-center">
+            <h1 className="text-2xl font-bold text-red-400 mb-4">Something went wrong</h1>
+            <pre className="text-left text-sm text-slate-300 bg-slate-800 p-4 rounded-lg overflow-auto max-h-64 whitespace-pre-wrap">{this.state.error.message}{'\n'}{this.state.error.stack}</pre>
+            <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-brand-600 rounded-lg font-bold">Reload</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   useAnalytics(); // Initialize Analytics
 
   return (
+    <AppErrorBoundary>
     <VersionGate>
     <AuthProvider>
       <SidebarProvider>
@@ -395,6 +423,7 @@ function App() {
       </SidebarProvider>
     </AuthProvider>
     </VersionGate>
+    </AppErrorBoundary>
   );
 }
 

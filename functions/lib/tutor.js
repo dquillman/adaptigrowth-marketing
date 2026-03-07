@@ -5,22 +5,6 @@ const admin = require("firebase-admin");
 const functions = require("firebase-functions");
 const openai_1 = require("openai");
 const guards_1 = require("./guards");
-// Lazy init OpenAI
-let openai;
-const getOpenAI = () => {
-    var _a;
-    if (!openai) {
-        // Support both functions.config() (Production) and process.env (Local/CI)
-        const apiKey = ((_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key) || process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            console.warn("OPENAI_API_KEY is not set in functions.config().openai.key or env vars.");
-        }
-        openai = new openai_1.default({
-            apiKey: apiKey || 'dummy-key-for-build',
-        });
-    }
-    return openai;
-};
 // Init Admin if not already
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -201,15 +185,19 @@ IMPORTANT: Return valid JSON.
     }
 });
 exports.generateTutorDeepDive = functions.https.onCall(async (data, context) => {
+    var _a;
     if (!context.auth)
         throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
     await (0, guards_1.requirePro)(context);
-    // Check for API key
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'dummy-key-for-deploy') {
+    // Check for API key — must mirror generateTutorBreakdown's dual-source logic
+    const configKey = (_a = functions.config().openai) === null || _a === void 0 ? void 0 : _a.key;
+    const envKey = process.env.OPENAI_API_KEY;
+    const apiKey = configKey || envKey;
+    if (!apiKey || apiKey === 'dummy-key-for-build' || apiKey === 'dummy-key-for-deploy') {
         throw new functions.https.HttpsError('failed-precondition', 'Tutor Service is not configured (Missing API Key).');
     }
     const { context: breakdown, style } = data;
-    const client = getOpenAI();
+    const client = new openai_1.default({ apiKey });
     const promptMap = {
         'simple': `Explain the core concept behind this verdict to a 5-year-old. Use a simple analogy. Keep it under 3 sentences. Verdict to explain: "${breakdown.verdict}"`,
         'memory': `Create a catchy, rhyming memory hook or mnemonic to help remember the key lesson from this verdict. Verdict: "${breakdown.verdict}". Exam Lens: "${breakdown.examLens}"`
