@@ -5,28 +5,41 @@ export type ExplanationBlock =
     | { type: 'note'; text: string }
     | { type: 'text'; text: string };
 
-const SECTION_PREFIXES = ['PMI Decision Lens:', 'Why this conflicts:', 'Pattern:', 'Note:'] as const;
+// Matches any "Exam Lens:" / "PMI Decision Lens:" / "SHRM Lens:" / "CompTIA Lens:" etc.
+const LENS_PATTERN = /^(?:\w[\w\s&+-]*\s)?(?:Decision\s)?Lens:/i;
+const CONFLICT_PATTERN = /^Why this (?:conflicts|is tricky|is wrong|matters):/i;
+
+const SECTION_PATTERNS = [LENS_PATTERN, CONFLICT_PATTERN, /^Pattern:/i, /^Note:/i, /^Key (?:Concept|Insight|Rule|Takeaway):/i, /^Tip:/i];
+
+function matchesAnySection(text: string): boolean {
+    return SECTION_PATTERNS.some(rx => rx.test(text));
+}
+
+function stripPrefix(text: string, pattern: RegExp): string {
+    return text.replace(pattern, '').trim();
+}
 
 export function parseExplanation(raw: string): ExplanationBlock[] {
     const paragraphs = raw.split('\n\n').filter(p => p.trim().length > 0);
     const blocks: ExplanationBlock[] = [];
 
     for (const p of paragraphs) {
-        if (p.startsWith('Why this conflicts:')) {
-            blocks.push({ type: 'conflict', paragraphs: [p.replace('Why this conflicts:', '').trim()] });
+        if (CONFLICT_PATTERN.test(p)) {
+            blocks.push({ type: 'conflict', paragraphs: [stripPrefix(p, CONFLICT_PATTERN)] });
         } else if (
             blocks.length > 0 &&
             blocks.at(-1)?.type === 'conflict' &&
-            !SECTION_PREFIXES.some(pfx => p.startsWith(pfx))
+            !matchesAnySection(p)
         ) {
-            // Continuation paragraph for the current conflict block
             (blocks.at(-1) as { type: 'conflict'; paragraphs: string[] }).paragraphs.push(p);
-        } else if (p.startsWith('PMI Decision Lens:')) {
+        } else if (LENS_PATTERN.test(p)) {
             blocks.push({ type: 'lens', text: p });
-        } else if (p.startsWith('Pattern:')) {
-            blocks.push({ type: 'pattern', text: p.replace('Pattern:', '').trim() });
-        } else if (p.startsWith('Note:')) {
-            blocks.push({ type: 'note', text: p.replace('Note:', '').trim() });
+        } else if (/^Pattern:/i.test(p)) {
+            blocks.push({ type: 'pattern', text: stripPrefix(p, /^Pattern:/i) });
+        } else if (/^(?:Key (?:Concept|Insight|Rule|Takeaway)|Tip):/i.test(p)) {
+            blocks.push({ type: 'pattern', text: stripPrefix(p, /^(?:Key (?:Concept|Insight|Rule|Takeaway)|Tip):/i) });
+        } else if (/^Note:/i.test(p)) {
+            blocks.push({ type: 'note', text: stripPrefix(p, /^Note:/i) });
         } else {
             blocks.push({ type: 'text', text: p });
         }

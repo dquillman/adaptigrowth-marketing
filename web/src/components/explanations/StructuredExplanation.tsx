@@ -8,15 +8,18 @@ interface StructuredExplanationProps {
 
 function BlockRenderer({ block }: { block: ExplanationBlock }) {
     switch (block.type) {
-        case 'lens':
+        case 'lens': {
+            // Extract the label dynamically (e.g. "PMI Decision Lens:", "SHRM Lens:", "Exam Lens:")
+            const lensMatch = block.text.match(/^([\w\s&+-]*(?:Decision\s)?Lens):/i);
+            const lensLabel = lensMatch ? lensMatch[1].trim() : 'Exam Lens';
+            const lensBody = lensMatch ? block.text.slice(lensMatch[0].length).trim() : block.text;
             return (
                 <div className="bg-emerald-950 border border-emerald-600 border-l-4 border-l-emerald-500 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">PMI Decision Lens</p>
-                    <p className="text-slate-200 text-sm leading-relaxed">
-                        {block.text.replace('PMI Decision Lens:', '').trim()}
-                    </p>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{lensLabel}</p>
+                    <p className="text-slate-200 text-sm leading-relaxed">{lensBody}</p>
                 </div>
             );
+        }
         case 'conflict':
             return (
                 <div className="bg-amber-950 border border-amber-600 border-l-4 border-l-amber-500 rounded-lg p-4">
