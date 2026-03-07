@@ -1,9 +1,9 @@
 import { useExam } from '../contexts/ExamContext';
-import { isExam } from '../config/exams';
+import { isExam, PMP_EXAM_ID } from '../config/exams';
 
 export default function QuestionProvenanceBadge() {
     const { selectedExamId, examName } = useExam();
-    const isPMP = isExam(selectedExamId, 'pmp');
+    const isPMP = isExam(selectedExamId, PMP_EXAM_ID);
 
     const tooltipText = isPMP
         ? "How these questions are written\n\n" +

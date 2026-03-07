@@ -36,8 +36,12 @@ try {
     functions = getFunctions(app);
     analytics = getAnalytics(app);
     console.log('Analytics initialized');
-    perf = getPerformance(app);
-    console.log('Performance initialized');
+    try {
+        perf = getPerformance(app);
+        console.log('Performance initialized');
+    } catch (perfError) {
+        console.warn('Performance SDK failed to initialize (non-fatal):', perfError);
+    }
     storage = getStorage(app);
 
     // if (location.hostname === "localhost") {

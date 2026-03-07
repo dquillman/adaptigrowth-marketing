@@ -55,12 +55,15 @@ export function ExamProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const loadExamData = async () => {
             setLoading(true);
+            console.log('[ExamContext] loadExamData called for:', selectedExamId);
             try {
                 // If it's a "default" placeholder, we might want to fetch the "first" available exam
                 // But for now, let's assume we look up the ID.
                 if (selectedExamId) {
+                    console.log('[ExamContext] Fetching exam doc:', selectedExamId);
                     const examRef = doc(db, 'exams', selectedExamId);
                     const snap = await getDoc(examRef);
+                    console.log('[ExamContext] getDoc returned, exists:', snap.exists());
 
                     if (snap.exists()) {
                         const data = snap.data();
@@ -94,8 +97,8 @@ export function ExamProvider({ children }: { children: ReactNode }) {
                         }
                     }
                 }
-            } catch (error) {
-                console.error("Failed to load exam data", error);
+            } catch (error: any) {
+                console.error("[ExamContext] Failed to load exam data:", error?.message || error, error?.code);
             } finally {
                 setLoading(false);
             }
