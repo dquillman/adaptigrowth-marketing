@@ -23,9 +23,10 @@ interface TutorBreakdownProps {
     depthLoading?: boolean;
     coachMode: CoachMode;
     onCoachModeChange: (mode: CoachMode) => void;
+    correctAnswerIndex?: number;
 }
 
-export default function TutorBreakdown({ breakdown, loading, onExpandDepth, depthContent, depthLoading, coachMode, onCoachModeChange }: TutorBreakdownProps) {
+export default function TutorBreakdown({ breakdown, loading, onExpandDepth, depthContent, depthLoading, coachMode, onCoachModeChange, correctAnswerIndex }: TutorBreakdownProps) {
     const [isMuted, setIsMuted] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -163,17 +164,20 @@ export default function TutorBreakdown({ breakdown, loading, onExpandDepth, dept
                     <div>
                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Choice Analysis</h4>
                         <div className="space-y-3">
-                            {breakdown.comparison.map((item, idx) => (
-                                <div key={idx} className="flex gap-3 text-sm">
-                                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-300 border border-slate-600">
-                                        {String.fromCharCode(65 + item.optionIndex)}
+                            {breakdown.comparison.map((item, idx) => {
+                                const isCorrect = item.optionIndex === correctAnswerIndex;
+                                return (
+                                    <div key={idx} className={`flex gap-3 text-sm rounded-lg px-3 py-2 ${isCorrect ? 'bg-emerald-900/30 border border-emerald-500/30' : ''}`}>
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold border ${isCorrect ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-700 text-slate-300 border-slate-600'}`}>
+                                            {String.fromCharCode(65 + item.optionIndex)}
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className={`font-medium ${isCorrect ? 'text-emerald-200' : 'text-slate-200'}`}>{item.text}: </span>
+                                            <span className={isCorrect ? 'text-emerald-300/80' : 'text-slate-400'}>{item.explanation}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex-1">
-                                        <span className="text-slate-200 font-medium">{item.text}: </span>
-                                        <span className="text-slate-400">{item.explanation}</span>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}

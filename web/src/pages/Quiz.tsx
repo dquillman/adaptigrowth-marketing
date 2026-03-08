@@ -23,7 +23,7 @@ import EmvCalculation from '../components/explanations/EmvCalculation';
 import MatchingQuestion, { shuffleMatchPairs } from '../components/MatchingQuestion';
 import { DOMAIN_CITATIONS } from '../utils/domainCitations';
 import { FrictionEventService } from '../services/FrictionEventService';
-import { DEFAULT_EXAM_ID, isExam, EXAM_LENS } from '../config/exams';
+import { DEFAULT_EXAM_ID, EXAM_LENS } from '../config/exams';
 
 interface MatchPairData {
     term: string;
@@ -823,9 +823,6 @@ export default function Quiz() {
         }
     };
 
-    // PMP Doctrine Guard: PMP questions use stored doctrine explanations, not AI-generated Coach Breakdown
-    const isPMPExam = (examId?: string) => isExam(examId, DEFAULT_EXAM_ID);
-
     const fetchTutorBreakdownWithMode = async (question: Question, selectedOptIdx: number, mode: CoachMode) => {
         // Matching questions don't use the tutor breakdown flow
         if (question.type === 'matching') return;
@@ -833,18 +830,6 @@ export default function Quiz() {
         setLoadingBreakdown(true);
         lastBreakdownRef.current = { question, selectedOptIdx };
         try {
-            // PMP Quick mode: Use stored doctrine explanation directly
-            if (isPMPExam(question.examId) && mode === 'quick') {
-                setTutorBreakdown({
-                    verdict: '', // No AI verdict for PMP - doctrine explanation is complete
-                    comparison: [], // No option analysis - doctrine covers this
-                    examLens: question.explanation, // The doctrine explanation IS the exam lens
-                    isPMPDoctrine: true // Flag for rendering
-                } as TutorResponse & { isPMPDoctrine?: boolean });
-                setLoadingBreakdown(false);
-                return;
-            }
-
             const examLensConfig = EXAM_LENS[activeExamId] || null;
             const generateFn = httpsCallable(functions, 'generateTutorBreakdown');
             const result = await generateFn({
@@ -1904,24 +1889,13 @@ export default function Quiz() {
                                                     onClick={() => fetchTutorBreakdown(currentQuestion, selectedOption!)}
                                                     className="text-brand-400 hover:text-brand-300 underline"
                                                 >
-                                                    {isPMPExam(currentQuestion.examId) ? "View PMI Doctrine Explanation" : "Load Coach Breakdown"}
+                                                    Load Coach Breakdown
                                                 </button>
                                                 <div className="mt-4 p-4 text-left leading-relaxed text-base md:text-lg text-slate-200">
                                                     <StructuredExplanation explanation={currentQuestion.explanation} title="Standard Explanation" />
                                                 </div>
                                             </div>
-                                        ) : isPMPExam(currentQuestion.examId) && tutorBreakdown ? (
-                                            /* PMP Doctrine Explanation */
-                                            <div className="mt-6 bg-slate-800/30 rounded-xl border border-slate-700/50 overflow-hidden">
-                                                <div className="px-6 py-3 border-b border-slate-700/50">
-                                                    <h3 className="text-xl md:text-2xl font-bold text-white font-display">PMI Decision Doctrine</h3>
-                                                </div>
-                                                <div className="p-6 leading-relaxed text-base md:text-lg text-slate-200">
-                                                    <StructuredExplanation explanation={tutorBreakdown.examLens} />
-                                                </div>
-                                            </div>
                                         ) : (
-                                            /* Legacy Coach Breakdown for non-PMP exams */
                                             <TutorBreakdown
                                                 breakdown={tutorBreakdown}
                                                 loading={loadingBreakdown}
@@ -1930,6 +1904,7 @@ export default function Quiz() {
                                                 depthLoading={depthLoading}
                                                 coachMode={coachMode}
                                                 onCoachModeChange={handleCoachModeChange}
+                                                correctAnswerIndex={currentQuestion.correctAnswer}
                                             />
                                         )}
 
