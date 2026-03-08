@@ -27,7 +27,7 @@ export default function SimulatorIntro() {
     const { examName, selectedExamId: activeExamId, examDomains, hasCompletedDiagnostic } = useExam();
     const examConfig = Object.values(EXAMS).find(e => isExam(activeExamId, e.id));
     const mockConfig = examConfig?.fullMock ?? { questionCount: 50, durationMinutes: 60 };
-    const hasFullMock = examConfig?.fullMock != null && (examConfig.fullMock.questionCount !== 50 || examConfig.fullMock.durationMinutes !== 60);
+    const hasFullMock = examConfig?.fullMock != null;
     const [attempts, setAttempts] = useState<SimulationAttempt[]>([]);
     const [loading, setLoading] = useState(true);
     const [readiness, setReadiness] = useState<any>(null);

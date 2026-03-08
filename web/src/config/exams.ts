@@ -1,16 +1,75 @@
+export type QuestionType = 'mcq' | 'emv' | 'matching';
+
 export type ExamConfig = {
     id: string;
     name: string;
     fullMock?: { questionCount: number; durationMinutes: number };
+    /** Question types this exam supports. Defaults to ['mcq'] if not specified. */
+    questionTypes: QuestionType[];
 };
 
 export const PMP_EXAM_ID = "7qmPagj9A6RpkC0CwGkY";
 
 export const EXAMS: Record<string, ExamConfig> = {
-    [PMP_EXAM_ID]: {
-        id: PMP_EXAM_ID,
-        name: "Project Management Professional",
+    "7qmPagj9A6RpkC0CwGkY": {
+        id: "7qmPagj9A6RpkC0CwGkY",
+        name: "PMP (PMI)",
         fullMock: { questionCount: 180, durationMinutes: 230 },
+        questionTypes: ['mcq', 'emv', 'matching'],
+    },
+    "IpECw0XAtBkgD1HyvYas": {
+        id: "IpECw0XAtBkgD1HyvYas",
+        name: "Certified ScrumMaster (CSM)",
+        fullMock: { questionCount: 50, durationMinutes: 60 },
+        questionTypes: ['mcq'],
+    },
+    "bpfawZDj3qalhoU4mdd3": {
+        id: "bpfawZDj3qalhoU4mdd3",
+        name: "SHRM-CP",
+        fullMock: { questionCount: 134, durationMinutes: 220 },
+        questionTypes: ['mcq'],
+    },
+    "XGfL6RE2ls7cokP2tqMa": {
+        id: "XGfL6RE2ls7cokP2tqMa",
+        name: "Six Sigma Green Belt (CSSGB)",
+        fullMock: { questionCount: 110, durationMinutes: 258 },
+        questionTypes: ['mcq'],
+    },
+    "Vs3aNmifAJc9bYRFCxXc": {
+        id: "Vs3aNmifAJc9bYRFCxXc",
+        name: "Certified Payroll Professional (CPP)",
+        fullMock: { questionCount: 190, durationMinutes: 240 },
+        questionTypes: ['mcq'],
+    },
+    "dtgTymjijqUr4NEIHbE1": {
+        id: "dtgTymjijqUr4NEIHbE1",
+        name: "CIA Part 1",
+        fullMock: { questionCount: 125, durationMinutes: 150 },
+        questionTypes: ['mcq'],
+    },
+    "6FKeXlV2dzv4I03tewcU": {
+        id: "6FKeXlV2dzv4I03tewcU",
+        name: "ITIL 4 Foundation",
+        fullMock: { questionCount: 40, durationMinutes: 60 },
+        questionTypes: ['mcq'],
+    },
+    "79cuGMNydTwDMhyiDjry": {
+        id: "79cuGMNydTwDMhyiDjry",
+        name: "CompTIA Security+ (SY0-701)",
+        fullMock: { questionCount: 90, durationMinutes: 90 },
+        questionTypes: ['mcq', 'matching'],
+    },
+    "gp6QwBz0FXFIntLSQSYr": {
+        id: "gp6QwBz0FXFIntLSQSYr",
+        name: "CompTIA Network+ (N10-008)",
+        fullMock: { questionCount: 90, durationMinutes: 90 },
+        questionTypes: ['mcq', 'matching'],
+    },
+    "cxBsVz8AVaocdEYbgSMA": {
+        id: "cxBsVz8AVaocdEYbgSMA",
+        name: "CompTIA A+ Core 2 (220-1102)",
+        fullMock: { questionCount: 90, durationMinutes: 90 },
+        questionTypes: ['mcq', 'matching'],
     },
 };
 
