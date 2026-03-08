@@ -21,7 +21,7 @@ import { quizReportStore } from '../utils/quizReportStore';
 import StructuredExplanation from '../components/explanations/StructuredExplanation';
 import EmvCalculation from '../components/explanations/EmvCalculation';
 import MatchingQuestion, { shuffleMatchPairs } from '../components/MatchingQuestion';
-import { DOMAIN_CITATIONS } from '../utils/domainCitations';
+import { DOMAIN_CITATIONS, EXAM_REFERENCES } from '../utils/domainCitations';
 import { FrictionEventService } from '../services/FrictionEventService';
 import { DEFAULT_EXAM_ID, EXAM_LENS } from '../config/exams';
 
@@ -1913,7 +1913,7 @@ export default function Quiz() {
                                                 📘 Reference
                                             </div>
                                             <div className="mt-1 text-sm md:text-base text-slate-400 italic">
-                                                {DOMAIN_CITATIONS[currentQuestion.domain] ?? "PMBOK® Guide – 7th Edition"}
+                                                {DOMAIN_CITATIONS[currentQuestion.domain] ?? EXAM_REFERENCES[activeExamId] ?? "Exam Reference Guide"}
                                             </div>
                                         </div>
                                     </div>

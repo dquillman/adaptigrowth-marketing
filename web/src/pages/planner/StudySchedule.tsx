@@ -141,9 +141,16 @@ export default function StudySchedule() {
     // Sort tasks — used by deepenTask
     const sortedTasks: DailyTask[] = [...plan.tasks].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // First reading task aligned with the anchor domain — used for Deepen Understanding section
+    // Reading task for Deepen Understanding section
+    // Priority: anchor domain + incomplete today/future → anchor domain any → any incomplete → any reading task
     const deepenTask = sortedTasks.find(
-        t => t.activityType === 'reading' && t.domain === plan.anchorDomain
+        t => t.activityType === 'reading' && t.domain === plan.anchorDomain && !t.completed && t.date >= today
+    ) || sortedTasks.find(
+        t => t.activityType === 'reading' && t.domain === plan.anchorDomain && !t.completed
+    ) || sortedTasks.find(
+        t => t.activityType === 'reading' && !t.completed
+    ) || sortedTasks.find(
+        t => t.activityType === 'reading'
     );
 
     const handleToggleComplete = async (taskId: string, currentStatus: boolean) => {
@@ -401,9 +408,19 @@ export default function StudySchedule() {
                             onStartMock={() => setShowExamConfig(true)}
                         />
                     ) : (
-                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center text-slate-400">
-                            <BookOpen className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                            <p>No reading tasks available yet.</p>
+                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                            <div className="flex items-start gap-4">
+                                <BookOpen className="w-8 h-8 text-indigo-400 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h3 className="font-semibold text-white mb-1">
+                                        Review: {plan.anchorDomain || 'Core Concepts'}
+                                    </h3>
+                                    <p className="text-sm text-slate-400">
+                                        Spend 20–30 minutes reviewing key concepts in your focus domain.
+                                        Use the Coach Breakdown after each quiz question for targeted explanations.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

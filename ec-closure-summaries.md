@@ -174,3 +174,50 @@ The sibling function `generateTutorBreakdown` correctly used dual-source resolut
 ---
 
 *Generated: 2026-03-06*
+
+---
+
+# EC Closure Summaries — Session 2026-03-07
+
+---
+
+## EC-139: Unified Coach Breakdown with Exam-Specific Lenses
+
+**Status:** CLOSED — Fixed
+**Severity:** S3 (Content Quality)
+**Commits:** `ad7adb8`, `8929224`, `ada132e`, `5e8493e`, `524fc00`
+**Files Changed:** `web/src/config/exams.ts`, `web/src/pages/Quiz.tsx`, `web/src/components/TutorBreakdown.tsx`, `web/src/utils/parseExplanation.ts`, `web/src/components/explanations/StructuredExplanation.tsx`, `web/src/components/QuestionProvenanceBadge.tsx`, `web/src/contexts/ExamContext.tsx`, `web/src/firebase.ts`, `functions/src/tutor.ts`, `firestore.rules`
+
+**Problem:** The colorful structured Coach Breakdown (verdict, choice analysis, exam lens) was PMP-only. All other exams got a plain text explanation. Additionally, PMP had a separate "doctrine" code path that bypassed the AI entirely in Quick mode, creating an inconsistent experience across exams. The Quick/Deep toggle did nothing because it was wired incorrectly.
+
+**Root Causes:**
+1. Structured explanation parser (`parseExplanation.ts`) was hardcoded to look for "PMI Decision Lens:" — other exam lens names were ignored
+2. `EXAM_LENS` config used human-readable slug keys (`"pmp"`, `"csm"`) but `activeExamId` in the app is a Firestore auto-generated document ID (`"7qmPagj9A6RpkC0CwGkY"`) — the lens lookup always returned `null` for every exam
+3. PMP Quick mode short-circuited to a doctrine display, skipping the AI-powered breakdown entirely
+4. Quick/Deep toggle only persisted to localStorage for the next question — it did not re-fetch the current explanation
+
+**Solution:**
+
+1. **Exam-agnostic parser** — Rewrote `parseExplanation.ts` with regex patterns that match any lens name (e.g., `SHRM Competency Lens:`, `DMAIC Lens:`, `Security Triad Lens:`), plus flexible conflict/pattern/note section detection
+2. **Dynamic lens label** — `StructuredExplanation.tsx` extracts the lens name from the text itself instead of hardcoding "PMI Decision Lens"
+3. **Firestore ID alignment** — Changed all config keys (`EXAM_LENS`, `EXAMS`, `DEFAULT_EXAM_ID`) from slugs to actual Firestore document IDs. Added `PMP_EXAM_ID` constant for any PMP-specific checks
+4. **10 exam lenses configured** — PMP, CSM, SHRM-CP, Six Sigma Green Belt, CPP, CIA Part 1, ITIL 4, CompTIA Security+, Network+, A+ Core 2
+5. **Quick/Deep toggle** — Added pill toggle in TutorBreakdown header. Quick mode sends concise prompt; Deep mode sends structured prompt with exam-specific lens name and framework. Toggle immediately re-fetches the current explanation via `lastBreakdownRef`
+6. **Unified PMP flow** — Removed the PMP doctrine shortcut. All exams now use the same AI-powered Coach Breakdown for both Quick and Deep modes
+7. **Green correct answer** — Choice Analysis section highlights the correct option with emerald background, green badge, and green text. Wrong answers remain neutral gray
+8. **Cloud Function update** — `generateTutorBreakdown` accepts `coachMode`, `lensName`, and `lensFramework` parameters. Deep mode prompt instructs structured output with exam-specific section prefixes
+
+**Critical Side-Fix — Firestore Rules Outage:**
+During this work, all exams and user data disappeared from both production and staging. Root cause: Firestore security rules were out of sync (stale deployment). The `exams` collection queries hung indefinitely on the client despite `allow read: if true` being in the rules file. Redeploying `firestore.rules` via `firebase deploy --only firestore:rules` resolved it immediately. Also wrapped `getPerformance()` init in a try/catch to prevent Performance SDK failures from cascading.
+
+**What Was NOT Changed:**
+- Firestore data schema — no migration needed
+- Pattern tracking / trap persistence logic unchanged
+- "Explain this like I'm new" deep dive feature unchanged
+- Question rendering, scoring, and progress tracking unchanged
+
+**Impact:** All 10 exams now get the same rich, structured Coach Breakdown experience with exam-specific framing. Users see a consistent, visually clear breakdown regardless of which certification they're studying for. The correct answer is immediately identifiable in the Choice Analysis, and users can toggle between concise (Quick) and detailed (Deep) explanations on the fly.
+
+---
+
+*Generated: 2026-03-07*
