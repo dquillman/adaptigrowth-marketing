@@ -9,6 +9,7 @@ export type ExamConfig = {
 };
 
 export const PMP_EXAM_ID = "7qmPagj9A6RpkC0CwGkY";
+export const PGMP_EXAM_ID = "bF7IQUrKjbP2KLwiSNqt";
 
 export const EXAMS: Record<string, ExamConfig> = {
     "7qmPagj9A6RpkC0CwGkY": {
@@ -71,6 +72,12 @@ export const EXAMS: Record<string, ExamConfig> = {
         fullMock: { questionCount: 90, durationMinutes: 90 },
         questionTypes: ['mcq', 'matching'],
     },
+    "bF7IQUrKjbP2KLwiSNqt": {
+        id: "bF7IQUrKjbP2KLwiSNqt",
+        name: "PgMP (PMI)",
+        fullMock: { questionCount: 170, durationMinutes: 240 },
+        questionTypes: ['mcq'],
+    },
 };
 
 /** Exam-specific lens names for structured Coach Breakdown explanations.
@@ -86,6 +93,7 @@ export const EXAM_LENS: Record<string, { lensName: string; framework: string }> 
     "79cuGMNydTwDMhyiDjry": { lensName: "Security Triad Lens",            framework: "CIA triad — which principle is being protected?" },
     "gp6QwBz0FXFIntLSQSYr": { lensName: "OSI Troubleshooting Lens",       framework: "What layer is this, and what's the systematic fix?" },
     "cxBsVz8AVaocdEYbgSMA": { lensName: "Troubleshooting Methodology Lens", framework: "What step of the CompTIA troubleshooting model?" },
+    "bF7IQUrKjbP2KLwiSNqt": { lensName: "Program Governance Lens",          framework: "How does this serve the program's strategic objectives and benefits realization?" },
 };
 
 export const DEFAULT_EXAM_ID = PMP_EXAM_ID;
