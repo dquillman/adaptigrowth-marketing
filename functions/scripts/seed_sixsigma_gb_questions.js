@@ -13,9 +13,9 @@ const questions = [
         stem: 'A manufacturing company wants to reduce cycle time while maintaining quality output. Which Lean principle focuses on producing only what the downstream process needs, when it needs it?',
         options: [
             'Just-in-Time (JIT)',
-            'Poka-yoke',
-            'Theory of Constraints',
-            '5S',
+            'Poka-yoke (mistake-proofing devices)',
+            'Theory of Constraints (TOC)',
+            '5S workplace organization',
         ],
         correctAnswer: 0,
         explanation: 'Just-in-Time (JIT) is the Lean principle of producing and delivering items exactly when needed in the exact quantity required, minimizing inventory waste. Poka-yoke is mistake-proofing. Theory of Constraints focuses on identifying and exploiting bottlenecks. 5S is a workplace organization methodology.',
@@ -30,9 +30,9 @@ const questions = [
         stem: 'A Green Belt is developing a project charter. Which element of the charter ensures the project addresses a measurable business need and has clear boundaries?',
         options: [
             'Problem statement and project scope',
-            'Team member biographies',
-            'Detailed statistical analysis plan',
-            'Control chart selection criteria',
+            'Team member biographies and role descriptions',
+            'Detailed statistical analysis plan for data collection',
+            'Control chart selection criteria and guidelines',
         ],
         correctAnswer: 0,
         explanation: 'The problem statement defines the measurable gap between current and desired performance, while the project scope sets boundaries for what the team will and will not address. Together, these charter elements ensure the project is focused on a real, quantifiable business need. Team bios, statistical plans, and control charts are not part of the project charter.',
@@ -76,10 +76,10 @@ const questions = [
         domain: 'Measure Phase',
         stem: 'During a Gage R&R study, the percent contribution from Repeatability is 45% and from Reproducibility is 5%. What is the most appropriate conclusion?',
         options: [
-            'The measurement instrument itself has excessive variation; consider calibration or replacement',
-            'Different operators are the primary source of measurement variation',
-            'The measurement system is acceptable for production use',
-            'Part-to-part variation is too high and the process needs improvement',
+            'The instrument itself has excessive variation; consider calibration or replacement',
+            'Different operators are the primary source of measurement variation in this study',
+            'The measurement system is acceptable for production use as currently configured',
+            'Part-to-part variation is too high and the process needs significant improvement',
         ],
         correctAnswer: 0,
         explanation: 'Repeatability refers to variation from the measurement instrument (same operator, same part, same conditions). At 45%, the instrument contributes excessive variation. Reproducibility (operator-to-operator variation) is only 5%, so operators are not the issue. A total Gage R&R above 30% is generally unacceptable. The corrective action should focus on the instrument — calibrating, repairing, or replacing it.',
@@ -93,10 +93,10 @@ const questions = [
         domain: 'Analyze Phase',
         stem: 'A team performs a hypothesis test comparing the mean fill weight of two production lines. The p-value is 0.03 and the significance level (α) is 0.05. What is the correct conclusion?',
         options: [
-            'Reject the null hypothesis; there is a statistically significant difference between the two lines',
-            'Fail to reject the null hypothesis; the difference is not statistically significant',
-            'Accept the null hypothesis; the two lines are identical',
-            'The test is inconclusive and a larger sample size is needed',
+            'Reject the null hypothesis; the difference between the two lines is statistically significant',
+            'Fail to reject the null hypothesis; the observed difference is not statistically significant',
+            'Accept the null hypothesis; the two production lines are performing identically',
+            'The test is inconclusive and requires a larger sample size to make a determination',
         ],
         correctAnswer: 0,
         explanation: 'When the p-value (0.03) is less than the significance level α (0.05), we reject the null hypothesis. This means there is sufficient statistical evidence to conclude the two production lines have different mean fill weights. We never "accept" the null — we either reject it or fail to reject it. The result is not inconclusive since p < α gives a clear decision.',
@@ -108,9 +108,9 @@ const questions = [
         domain: 'Analyze Phase',
         stem: 'A Green Belt constructs a fishbone (Ishikawa) diagram to investigate high defect rates. Which of the following best describes the purpose of this tool?',
         options: [
-            'To organize and display potential causes of a problem by category',
+            'To organize potential causes of a problem by category',
             'To quantify the correlation between two continuous variables',
-            'To determine if a process is in statistical control',
+            'To determine whether a process is in statistical control',
             'To prioritize defects by frequency using the 80/20 rule',
         ],
         correctAnswer: 0,
@@ -141,9 +141,9 @@ const questions = [
         stem: 'A packaging line frequently stops because the wrong box size is loaded. Which Lean tool is most appropriate to prevent this error from occurring?',
         options: [
             'Poka-yoke (mistake-proofing)',
-            'Value stream mapping',
-            'SIPOC diagram',
-            'Pareto chart',
+            'Value stream mapping (VSM)',
+            'SIPOC process diagram',
+            'Pareto analysis chart',
         ],
         correctAnswer: 0,
         explanation: 'Poka-yoke (mistake-proofing) uses physical or procedural mechanisms to prevent errors before they happen — such as designing box feeders that only accept the correct size. Value stream mapping visualizes process flow. SIPOC documents suppliers, inputs, process, outputs, and customers. Pareto charts prioritize problems by frequency. Only poka-yoke directly prevents the error at the source.',
@@ -168,24 +168,42 @@ const questions = [
     },
 ];
 
-async function main() {
-    console.log(`Seeding ${questions.length} Six Sigma Green Belt questions...`);
-
-    const batch = db.batch();
-    for (const q of questions) {
-        const ref = db.collection('questions').doc();
-        batch.set(ref, {
-            ...q,
-            isPublished: true,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            source: 'seed-sixsigma-gb-v1',
-        });
-        console.log(`  + ${q.domain} | ${q.stem.substring(0, 60)}...`);
+function shuffleOptions(q) {
+    const opts = [...q.options];
+    const correctText = opts[q.correctAnswer];
+    // Fisher-Yates shuffle
+    for (let i = opts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [opts[i], opts[j]] = [opts[j], opts[i]];
     }
-
-    await batch.commit();
-    console.log(`\nDone! ${questions.length} Six Sigma Green Belt questions added.`);
-    process.exit(0);
+    return { ...q, options: opts, correctAnswer: opts.indexOf(correctText) };
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+async function deleteExisting() {
+    const snap = await db.collection('questions').where('examId', '==', SIX_SIGMA_GB_ID).get();
+    if (snap.empty) { console.log('No existing Six Sigma GB questions to delete.'); return; }
+    const batchSize = 500;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += batchSize) {
+        const batch = db.batch();
+        docs.slice(i, i + batchSize).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+    }
+    console.log(`Deleted ${docs.length} existing Six Sigma GB questions.`);
+}
+
+(async () => {
+    await deleteExisting();
+    const shuffled = questions.map(shuffleOptions);
+    const batchSize = 500;
+    for (let i = 0; i < shuffled.length; i += batchSize) {
+        const batch = db.batch();
+        shuffled.slice(i, i + batchSize).forEach(q => {
+            const ref = db.collection('questions').doc();
+            batch.set(ref, q);
+        });
+        await batch.commit();
+    }
+    console.log(`Seeded ${shuffled.length} Six Sigma GB questions (options shuffled)`);
+    process.exit(0);
+})().catch(e => { console.error(e); process.exit(1); });
