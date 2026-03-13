@@ -24,7 +24,7 @@ export default function ExamList() {
                     ...doc.data()
                 })) as Exam[];
                 // Filter out unpublished exams
-                setExams(examsData.filter((e: any) => e.isPublished));
+                setExams(examsData.filter((e: any) => e.isPublished).sort((a, b) => a.name.localeCompare(b.name)));
             } catch (error) {
                 console.error("Error fetching exams:", error);
             } finally {

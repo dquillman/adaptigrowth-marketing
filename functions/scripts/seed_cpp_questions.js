@@ -295,7 +295,7 @@ const questions = [
 
     // ===== Domain II: Compliance/Research and Resources (16%) — 14 questions =====
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Under federal wage garnishment provisions, the maximum amount that can be garnished from an employee\'s disposable earnings for ordinary creditor garnishments is:',
         options: [
             'The lesser of 25% of disposable earnings or the amount by which disposable earnings exceed 30 times the federal minimum wage, as required under current federal payroll regulations',
@@ -308,7 +308,7 @@ const questions = [
         difficulty: 'Hard',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'New hire reporting must be submitted to the state within how many days of the hire date under federal law?',
         options: [
             '20 days',
@@ -321,7 +321,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Unclaimed wages that cannot be returned to employees are subject to:',
         options: [
             'State escheatment (unclaimed property) laws requiring remittance to the state',
@@ -334,7 +334,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'A child support income withholding order takes priority over which of the following?',
         options: [
             'Most other garnishments, including creditor garnishments, per IRS regulatory guidance',
@@ -347,7 +347,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'The penalty for failing to file Form W-2 with the SSA by the deadline depends on:',
         options: [
             'How late the filing is submitted — penalties increase the longer the delay, as required under current federal guidelines',
@@ -360,7 +360,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Under the FMLA, an eligible employee is entitled to up to 12 weeks of unpaid leave for:',
         options: [
             'The birth or adoption of a child, or a serious health condition of the employee or immediate family member, in accordance with applicable IRS guidelines and requirements',
@@ -373,7 +373,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'A nonresident alien employee is generally subject to which federal income tax withholding rules?',
         options: [
             'Special NRA withholding rules that may include additional withholding and treaty-based exemptions, as established by the relevant federal regulatory framework',
@@ -386,7 +386,7 @@ const questions = [
         difficulty: 'Hard',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'The IRS Trust Fund Recovery Penalty (TFRP) can be assessed against:',
         options: [
             'Any responsible person who willfully fails to collect, account for, or pay over employment taxes',
@@ -399,7 +399,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Federal tax deposits must be made electronically using:',
         options: [
             'EFTPS (Electronic Federal Tax Payment System)',
@@ -412,7 +412,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Under multi-state taxation, when an employee works in multiple states, income tax withholding is generally required by:',
         options: [
             'Each state where the employee performs services, based on that state\'s rules',
@@ -425,7 +425,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Form W-2 must be furnished to employees by:',
         options: [
             'January 31 of the following year',
@@ -438,7 +438,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Tax equalization for expatriate employees means:',
         options: [
             'The employee pays the same amount of tax as if they had stayed in their home country, per IRS regulatory guidance',
@@ -451,7 +451,7 @@ const questions = [
         difficulty: 'Hard',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'Employers must retain Form I-9 for terminated employees for:',
         options: [
             'The later of 3 years after the hire date or 1 year after the termination date',
@@ -464,7 +464,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Compliance and Research',
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
         stem: 'COBRA continuation coverage must be offered to qualified beneficiaries for:',
         options: [
             '18 months for most qualifying events, with extensions up to 36 months for certain events, per IRS regulatory guidance',
@@ -702,7 +702,7 @@ const questions = [
 
     // ===== Domain IV: Payroll Process and Supporting Systems (12%) — 11 questions =====
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A payroll system\'s master file typically contains:',
         options: [
             'Employee demographics, pay rates, tax withholding elections, deduction codes, and direct deposit information, consistent with the requirements of federal payroll law',
@@ -715,7 +715,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Employee self-service (ESS) portals benefit the payroll department by:',
         options: [
             'Reducing manual data entry by allowing employees to update personal information, view pay stubs, and access W-2s, per the guidelines outlined in the applicable federal regulations',
@@ -728,7 +728,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A business continuity plan (BCP) for payroll should include:',
         options: [
             'Alternative processing methods, communication plans, data backup procedures, and recovery time objectives, which represents the primary compliance standard for this requirement',
@@ -741,7 +741,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'When selecting a new payroll system, a Request for Proposal (RFP) should include:',
         options: [
             'Detailed business requirements, current pain points, integration needs, timeline, and evaluation criteria',
@@ -754,7 +754,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Parallel testing during a payroll system implementation involves:',
         options: [
             'Running both the old and new systems simultaneously to compare results and verify accuracy',
@@ -767,7 +767,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'System security for payroll data should include:',
         options: [
             'Role-based access controls, encryption, audit trails, and regular security assessments',
@@ -780,7 +780,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Batch processing in payroll refers to:',
         options: [
             'Collecting and processing all payroll transactions together at scheduled intervals',
@@ -793,7 +793,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Data mapping during a payroll system conversion is necessary to:',
         options: [
             'Ensure data fields from the old system correctly transfer to corresponding fields in the new system',
@@ -806,7 +806,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Positive pay is a banking fraud prevention feature that:',
         options: [
             'Matches issued check details against presented checks and rejects mismatches',
@@ -819,7 +819,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A payroll system interface with the general ledger ensures:',
         options: [
             'Payroll transactions are automatically posted to the correct GL accounts for financial reporting',
@@ -832,7 +832,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Process and Systems',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'User acceptance testing (UAT) in a payroll system implementation is performed by:',
         options: [
             'End users (payroll staff) to verify the system meets business requirements before go-live',
@@ -847,7 +847,7 @@ const questions = [
 
     // ===== Domain V: Payroll Administration and Management (10%) — 9 questions =====
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A service level agreement (SLA) between the payroll department and other business units should define:',
         options: [
             'Expected service standards, response times, responsibilities, and escalation procedures',
@@ -860,7 +860,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Benchmarking payroll operations involves:',
         options: [
             'Comparing the department\'s performance metrics against industry standards or best practices',
@@ -873,7 +873,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Effective delegation in the payroll department requires:',
         options: [
             'Clear communication of expectations, authority to complete the task, and accountability for results, per IRS regulatory guidance',
@@ -886,7 +886,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'When a payroll department receives a government agency notice regarding a discrepancy, the first step should be:',
         options: [
             'Review the notice carefully, research the issue, and respond within the required timeframe',
@@ -899,7 +899,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Payroll department procedures documentation is important because it:',
         options: [
             'Ensures consistency, supports training, and provides a reference for audits and business continuity',
@@ -912,7 +912,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A payroll shared services model centralizes payroll processing to:',
         options: [
             'Achieve economies of scale, standardize processes, and improve consistency across business units',
@@ -925,7 +925,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Effective customer service in the payroll department includes:',
         options: [
             'Responding to employee inquiries accurately, promptly, and with empathy while maintaining confidentiality',
@@ -938,7 +938,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A payroll skills assessment for staff development should evaluate:',
         options: [
             'Technical payroll knowledge, compliance awareness, system proficiency, and soft skills',
@@ -951,7 +951,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Payroll Administration and Management',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Setting departmental objectives for the payroll department should align with:',
         options: [
             'The organization\'s overall strategic goals and key performance indicators',
@@ -966,7 +966,7 @@ const questions = [
 
     // ===== Domain VI: Audits (9%) — 8 questions =====
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Segregation of duties in payroll means:',
         options: [
             'Dividing payroll responsibilities so that no single person controls the entire process from input to payment',
@@ -979,7 +979,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A payroll reconciliation should compare:',
         options: [
             'The current period\'s payroll register totals to the prior period and investigate significant variances',
@@ -992,7 +992,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Sarbanes-Oxley (SOX) compliance for payroll requires:',
         options: [
             'Documented internal controls over financial reporting, including payroll processes that affect financial statements, per the guidelines outlined in the applicable federal regulations',
@@ -1005,7 +1005,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Accumulator balancing involves:',
         options: [
             'Verifying that year-to-date and quarter-to-date totals match the sum of individual period amounts',
@@ -1018,7 +1018,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'An audit trail in payroll systems tracks:',
         options: [
             'Who made changes, what was changed, when the change occurred, and the before/after values',
@@ -1031,7 +1031,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Quarterly reconciliation of Form 941 should verify that:',
         options: [
             'Total wages, tips, and taxes reported match the payroll register totals and tax deposits made',
@@ -1044,7 +1044,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A ghost employee fraud scheme is best detected by:',
         options: [
             'Comparing the payroll register to the HR employee master file and verifying active status',
@@ -1057,7 +1057,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Audits',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Reconciling payroll output to external vendors (such as 401(k) providers) ensures:',
         options: [
             'Employee contribution amounts transmitted match the amounts deducted from paychecks',
@@ -1072,7 +1072,7 @@ const questions = [
 
     // ===== Domain VII: Accounting (9%) — 8 questions =====
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A payroll journal entry for recording gross wages paid would include:',
         options: [
             'A debit to wages/salary expense and credits to various liability accounts (taxes payable, deductions payable) and cash/bank, as required under current federal payroll regulations',
@@ -1085,7 +1085,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Payroll accruals are recorded to:',
         options: [
             'Recognize wages earned by employees but not yet paid as of the reporting period end date, per IRS regulatory guidance',
@@ -1098,7 +1098,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'The matching principle in accounting requires:',
         options: [
             'Expenses to be recorded in the same period as the revenue they help generate',
@@ -1111,7 +1111,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'On the balance sheet, accrued payroll is classified as:',
         options: [
             'A current liability',
@@ -1124,7 +1124,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'A compound journal entry in payroll:',
         options: [
             'Contains more than two line items — multiple debits and/or credits in a single entry',
@@ -1137,7 +1137,7 @@ const questions = [
         difficulty: 'Easy',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'Reconciling the general ledger payroll accounts involves:',
         options: [
             'Comparing GL account balances to payroll register totals, tax filings, and bank statements to identify and resolve differences, per the guidelines outlined in the applicable federal regulations',
@@ -1150,7 +1150,7 @@ const questions = [
         difficulty: 'Medium',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'When an employee repays an overpayment from a prior year, the accounting treatment is to:',
         options: [
             'Record the repayment based on the gross overpayment amount and adjust the appropriate tax liabilities, per IRS regulatory guidance',
@@ -1163,7 +1163,7 @@ const questions = [
         difficulty: 'Hard',
     },
     {
-        examId: CPP_ID, type: 'mcq', domain: 'Accounting',
+        examId: CPP_ID, type: 'mcq', domain: 'Administration/Process/Management/Audits/Accounting',
         stem: 'The income statement reflects payroll costs as:',
         options: [
             'Operating expenses that reduce net income for the period',
@@ -1174,6 +1174,157 @@ const questions = [
         correctAnswer: 0,
         explanation: 'Payroll costs (wages, employer taxes, benefits) appear on the income statement as operating expenses, directly reducing net income. Higher payroll costs lower profitability. On the balance sheet, any unpaid payroll obligations appear as current liabilities. Payroll is not an asset, cash inflow, or investment from an accounting perspective.',
         difficulty: 'Easy',
+    },
+
+    // ===== 11 NEW questions (90–100) to reach 100 total =====
+
+    // --- Compliance/Research and Resources: 4 questions ---
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
+        stem: 'Under the Uniform Services Employment and Reemployment Rights Act (USERRA), an employer must reemploy a returning service member within what timeframe after the employee reports back?',
+        options: [
+            'Promptly, generally within two weeks for service lasting 31–180 days, based on the duration of the military service period',
+            'Within 90 calendar days regardless of the length of military service, providing a standard reemployment window for all returning veterans',
+            'Within 6 months of the employee\'s discharge date, allowing the employer adequate time to restructure staffing and create a suitable position',
+            'No specific timeframe is required under USERRA as long as the employer eventually offers a comparable position to the returning service member',
+        ],
+        correctAnswer: 0,
+        explanation: 'USERRA requires prompt reemployment of returning service members. For service of 31–180 days, the employee must apply within 14 days and be promptly reemployed. For service over 180 days, the employee has 90 days to apply. The employee must be restored to the position they would have attained had they remained continuously employed (the "escalator" principle).',
+        difficulty: 'Hard',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
+        stem: 'An employer receives a federal tax levy (IRS Form 668-W) for an employee. Which statement about processing this levy is correct?',
+        options: [
+            'The employer withholds a flat 25% of disposable earnings, applying the same percentage limit that governs ordinary creditor garnishments under federal law',
+            'The levy only applies to future wages and cannot attach to any wages already earned but not yet paid at the time the levy is received by the employer',
+            'The employer must calculate the exempt amount using the employee\'s filing status and number of exemptions claimed on the levy form',
+            'The employer must wait 30 calendar days before beginning to withhold, providing the employee time to negotiate a payment arrangement with the IRS',
+        ],
+        correctAnswer: 2,
+        explanation: 'When processing an IRS levy (Form 668-W), the employer uses Publication 1494 to determine the exempt amount based on the employee\'s filing status and number of exemptions claimed on Part 3 of the levy. All earnings above the exempt amount must be remitted to the IRS. The levy is continuous and attaches to wages already earned but not yet paid. There is no 30-day waiting period.',
+        difficulty: 'Medium',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
+        stem: 'Under the Davis-Bacon Act, contractors on federal construction projects over $2,000 must pay workers at least:',
+        options: [
+            'The federal minimum wage of $7.25 per hour, which serves as the universal baseline compensation floor for all federally funded project work',
+            'The locally prevailing wage and fringe benefit rates as determined by the U.S. Department of Labor for that geographic area',
+            'A rate negotiated between the contractor and the labor union representing the workers on the specific federal construction project',
+            'The state minimum wage rate, since state wage laws supersede all federal prevailing wage requirements on publicly funded construction contracts',
+        ],
+        correctAnswer: 1,
+        explanation: 'The Davis-Bacon Act requires contractors and subcontractors on federal construction contracts over $2,000 to pay laborers and mechanics the locally prevailing wages and fringe benefits as determined by the Department of Labor. These rates often exceed the federal minimum wage and vary by trade classification and geographic location. Payroll professionals must ensure correct reporting on certified payroll (WH-347).',
+        difficulty: 'Medium',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Compliance/Research and Resources',
+        stem: 'Which federal law prohibits employers from terminating an employee solely because their wages have been garnished for any single indebtedness?',
+        options: [
+            'The Fair Debt Collection Practices Act (FDCPA), which regulates how third-party debt collectors communicate with debtors and their employers',
+            'The Equal Pay Act (EPA), which addresses wage discrimination based on gender and prohibits adverse employment actions related to compensation disputes',
+            'The Employee Retirement Income Security Act (ERISA), which governs fiduciary responsibilities and participant protections in employer-sponsored benefit plans',
+            'Title III of the Consumer Credit Protection Act (CCPA), which provides employment protection for workers subject to wage garnishment orders',
+        ],
+        correctAnswer: 3,
+        explanation: 'Title III of the CCPA (15 U.S.C. § 1674) prohibits an employer from discharging an employee because their earnings have been subject to garnishment for any single indebtedness. However, this protection does not extend to garnishments for a second or subsequent debt. Some states provide broader protections against discharge for multiple garnishments. Violations can result in fines and reinstatement.',
+        difficulty: 'Easy',
+    },
+
+    // --- Calculation of the Paycheck: 4 questions ---
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Calculation of the Paycheck',
+        stem: 'An employee who is paid biweekly has a dependent care FSA election of $5,000 per year. What is the per-pay-period pre-tax deduction?',
+        options: [
+            '$208.33 ($5,000 ÷ 24 pay periods), using the semimonthly pay frequency divisor to calculate each periodic deduction from the employee gross pay',
+            '$192.31 ($5,000 ÷ 26 pay periods), reflecting the standard biweekly allocation for annual dependent care flexible spending account elections',
+            '$416.67 ($5,000 ÷ 12 pay periods), applying a monthly frequency divisor that distributes the annual election evenly across twelve calendar months',
+            '$250.00 ($5,000 ÷ 20 pay periods), based on a custom pay schedule that excludes holiday weeks and other non-standard payroll processing periods',
+        ],
+        correctAnswer: 1,
+        explanation: 'Biweekly pay frequency means 26 pay periods per year (52 weeks ÷ 2). The dependent care FSA annual limit of $5,000 divided by 26 pay periods equals $192.31 per pay period. Common errors include using 24 (semimonthly) or 12 (monthly) as the divisor. The $5,000 limit applies per household regardless of pay frequency.',
+        difficulty: 'Easy',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Calculation of the Paycheck',
+        stem: 'An employee\'s Roth 401(k) contribution differs from a traditional pre-tax 401(k) contribution in that the Roth contribution:',
+        options: [
+            'Reduces both federal income tax and FICA tax withholding, providing a greater immediate tax benefit than the traditional pre-tax contribution',
+            'Is excluded from Social Security and Medicare wages, lowering the employee\'s FICA tax obligation during the current contribution year',
+            'Is deductible on the employee\'s personal tax return, allowing a dollar-for-dollar reduction in adjusted gross income at the time of filing',
+            'Is made with after-tax dollars and does not reduce current federal or state income tax withholding on the employee\'s paycheck',
+        ],
+        correctAnswer: 3,
+        explanation: 'Roth 401(k) contributions are made on an after-tax basis — they do not reduce current federal or state income tax withholding. However, qualified distributions in retirement are tax-free. In contrast, traditional pre-tax 401(k) contributions reduce current income tax but are taxed upon distribution. Both Roth and traditional 401(k) contributions remain subject to FICA taxes.',
+        difficulty: 'Medium',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Calculation of the Paycheck',
+        stem: 'When calculating the regular rate for an employee who receives a shift differential, the shift differential premium is:',
+        options: [
+            'Included in the regular rate calculation for determining overtime pay, because it is additional compensation for hours worked during a specific shift',
+            'Excluded from the regular rate under FLSA because shift premiums are considered discretionary bonus payments at the sole discretion of management',
+            'Added on top of overtime pay as a separate line item, paid at the full differential rate without being factored into the base overtime computation',
+            'Only included if the shift differential exceeds 10% of the base hourly rate, as the FLSA provides a de minimis threshold for premium pay inclusions',
+        ],
+        correctAnswer: 0,
+        explanation: 'Under the FLSA, shift differentials must be included in the regular rate of pay when calculating overtime. The regular rate encompasses all remuneration for employment, including shift premiums. For example, if an employee earns $20/hour plus a $3 shift differential and works 45 hours, the regular rate is ($20 × 45 + relevant differentials) ÷ 45, and overtime is 1.5× that rate for hours over 40.',
+        difficulty: 'Medium',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Calculation of the Paycheck',
+        stem: 'Under the IRS cents-per-mile valuation method for personal use of an employer-provided vehicle, the taxable fringe benefit is calculated by:',
+        options: [
+            'Using the vehicle\'s original purchase price divided by its expected useful life to determine an annual depreciation amount allocated to the employee',
+            'Applying the Annual Lease Value table based on the vehicle\'s fair market value and then prorating for personal versus business usage days',
+            'Multiplying the IRS standard mileage rate by the number of personal miles driven by the employee during the reporting period',
+            'Subtracting the employee\'s commuting distance from total miles driven and multiplying the remainder by a flat per-mile reimbursement rate',
+        ],
+        correctAnswer: 2,
+        explanation: 'The cents-per-mile method values personal use of an employer-provided vehicle by multiplying the IRS standard mileage rate by the total personal miles driven. This method is available only if the vehicle\'s fair market value does not exceed a specified limit (adjusted annually) and is regularly used in the employer\'s business. The employee must maintain adequate records of personal versus business mileage.',
+        difficulty: 'Hard',
+    },
+
+    // --- Core Payroll Concepts: 3 questions ---
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Core Payroll Concepts',
+        stem: 'Under the Portal-to-Portal Act, which of the following travel activities is generally NOT compensable under the FLSA?',
+        options: [
+            'Travel between job sites during the workday when an employee is assigned to multiple locations by the employer during a single shift',
+            'Travel from a hotel to a temporary worksite during an overnight out-of-town business assignment required by the employer',
+            'Travel from the employer\'s primary office to a client location when the trip occurs during regular working hours as part of assigned duties',
+            'An employee\'s ordinary daily commute from home to the regular fixed worksite using their personal vehicle under normal circumstances',
+        ],
+        correctAnswer: 3,
+        explanation: 'The Portal-to-Portal Act (1947) amended the FLSA to exclude ordinary home-to-work commuting from compensable time. However, travel between job sites during the workday, travel during overnight business trips that occurs during regular working hours, and employer-directed travel to client sites are generally compensable. The key distinction is that normal commuting benefits the employee, while other travel benefits the employer.',
+        difficulty: 'Medium',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Core Payroll Concepts',
+        stem: 'Under IRC Section 3509, when an employer misclassifies an employee as an independent contractor, the employer\'s liability for federal employment taxes is:',
+        options: [
+            'Zero, because the worker already paid self-employment taxes on the income and therefore no additional employment tax obligation exists for the employer',
+            'A reduced percentage of the income tax and FICA that should have been withheld, provided the employer filed required information returns',
+            'The full amount of both the employee and employer share of FICA plus the full amount of income tax that should have been withheld from each payment',
+            'A flat penalty of $500 per misclassified worker per quarter, assessed regardless of the total wages paid or the number of quarters the misclassification persisted',
+        ],
+        correctAnswer: 1,
+        explanation: 'IRC Section 3509 provides reduced tax rates for employers who misclassify employees as independent contractors, if they filed required Forms 1099. The reduced rates are approximately 1.5% of wages for income tax (instead of full withholding) and 20% of the employee FICA share. If no 1099s were filed, the rates double. This relief does not apply to intentional misclassification cases.',
+        difficulty: 'Easy',
+    },
+    {
+        examId: CPP_ID, type: 'mcq', domain: 'Core Payroll Concepts',
+        stem: 'A de minimis fringe benefit under IRC Section 132(a)(4) is excludable from an employee\'s income because:',
+        options: [
+            'It is provided equally to all employees regardless of position, meeting the nondiscrimination requirements that govern all employer-provided fringe benefits',
+            'It is mandated by federal law as a required workplace benefit, and all legally required benefits are automatically excluded from taxable income',
+            'Its value is so small that accounting for it would be unreasonable or administratively impractical for the employer to track and report',
+            'It is funded entirely from the employee\'s after-tax payroll deductions, so the amount has already been included in the employee\'s gross taxable wages',
+        ],
+        correctAnswer: 2,
+        explanation: 'Under IRC Section 132(a)(4), a de minimis fringe benefit is any property or service whose value is so small that accounting for it would be unreasonable or administratively impractical. Examples include occasional personal use of a company copier, holiday gifts of low value, occasional meal money, and local telephone calls. Cash and cash equivalents (gift cards) generally cannot be de minimis regardless of amount.',
+        difficulty: 'Medium',
     },
 ];
 
@@ -1188,21 +1339,7 @@ function shuffleOptions(q) {
     return { ...q, options: opts, correctAnswer: opts.indexOf(correctText) };
 }
 
-async function deleteExisting() {
-    const snap = await db.collection('questions').where('examId', '==', CPP_ID).get();
-    if (snap.empty) { console.log('No existing CPP questions to delete.'); return; }
-    const batchSize = 500;
-    const docs = snap.docs;
-    for (let i = 0; i < docs.length; i += batchSize) {
-        const batch = db.batch();
-        docs.slice(i, i + batchSize).forEach(d => batch.delete(d.ref));
-        await batch.commit();
-    }
-    console.log(`Deleted ${docs.length} existing CPP questions.`);
-}
-
 (async () => {
-    await deleteExisting();
     const shuffled = questions.map(shuffleOptions);
     const batchSize = 500;
     for (let i = 0; i < shuffled.length; i += batchSize) {

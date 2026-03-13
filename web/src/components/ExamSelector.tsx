@@ -25,6 +25,7 @@ export default function ExamSelector() {
                     id: doc.id,
                     name: doc.data().name || 'Unnamed Exam'
                 }));
+                fetchedExams.sort((a, b) => a.name.localeCompare(b.name));
                 setExams(fetchedExams);
             } catch (error) {
                 console.error("Error fetching exams:", error);
